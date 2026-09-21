@@ -1,5 +1,6 @@
 import '../models/expense_record.dart';
 import '../models/inventory_item.dart';
+import '../models/order_item.dart';
 import '../models/order_record.dart';
 import '../models/supplier_record.dart';
 import '../models/user_record.dart';
@@ -7,12 +8,96 @@ import '../models/user_record.dart';
 class MockData {
   const MockData._();
 
-  static const orders = [
-    OrderRecord(id: '#1025', time: '10:42 AM', employee: 'Brian', employeeId: 'USR-004', type: 'Dine-in', amount: 550, status: 'Completed'),
-    OrderRecord(id: '#1024', time: '10:15 AM', employee: 'Carl', employeeId: 'USR-002', type: 'Takeout', amount: 300, status: 'Completed'),
-    OrderRecord(id: '#1023', time: '9:58 AM', employee: 'Josh', employeeId: 'USR-003', type: 'Dine-in', amount: 720, status: 'Open'),
-    OrderRecord(id: '#1022', time: '9:35 AM', employee: 'Brian', employeeId: 'USR-004', type: 'Takeout', amount: 420, status: 'Open'),
-    OrderRecord(id: '#1021', time: '9:11 AM', employee: 'Carl', employeeId: 'USR-002', type: 'Dine-in', amount: 680, status: 'Completed'),
+  static final DateTime _today = DateTime.now();
+
+  static final List<OrderRecord> orders = [
+    OrderRecord(
+      id: '#1025',
+      createdAt: DateTime(_today.year, _today.month, _today.day, 10, 42),
+      employee: 'Brian',
+      employeeId: 'USR-004',
+      type: 'Dine In',
+      amount: 550,
+      status: 'Completed',
+      tableNumber: '4',
+      customerName: 'Mika',
+      paymentMethod: 'Cash',
+      amountReceived: 600,
+      changeAmount: 50,
+      items: const [
+        OrderItem(productId: 'PRD-001', productName: 'Chicken Bowl', unitPrice: 150, quantity: 2),
+        OrderItem(productId: 'PRD-003', productName: 'Iced Coffee', unitPrice: 150, quantity: 1),
+        OrderItem(productId: 'PRD-007', productName: 'Cookie', unitPrice: 50, quantity: 2),
+      ],
+    ),
+    OrderRecord(
+      id: '#1024',
+      createdAt: DateTime(_today.year, _today.month, _today.day, 10, 15),
+      employee: 'Carl',
+      employeeId: 'USR-002',
+      type: 'Take Out',
+      amount: 300,
+      status: 'Completed',
+      customerName: 'Joshua',
+      paymentMethod: 'GCash',
+      amountReceived: 300,
+      changeAmount: 0,
+      items: const [
+        OrderItem(productId: 'PRD-001', productName: 'Chicken Bowl', unitPrice: 150, quantity: 1),
+        OrderItem(productId: 'PRD-003', productName: 'Iced Coffee', unitPrice: 150, quantity: 1),
+      ],
+    ),
+    OrderRecord(
+      id: '#1023',
+      createdAt: DateTime(_today.year, _today.month, _today.day, 9, 58),
+      employee: 'Josh',
+      employeeId: 'USR-003',
+      type: 'Delivery',
+      amount: 740,
+      status: 'Open',
+      customerName: 'Andrea',
+      deliveryReference: 'Phone order',
+      items: const [
+        OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
+        OrderItem(productId: 'PRD-006', productName: 'Chocolate Cake', unitPrice: 180, quantity: 2),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 1),
+      ],
+    ),
+    OrderRecord(
+      id: '#1022',
+      createdAt: DateTime(_today.year, _today.month, _today.day - 1, 19, 35),
+      employee: 'Brian',
+      employeeId: 'USR-004',
+      type: 'Take Out',
+      amount: 420,
+      status: 'Completed',
+      customerName: 'Paolo',
+      paymentMethod: 'Cash',
+      amountReceived: 500,
+      changeAmount: 80,
+      items: const [
+        OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 2),
+      ],
+    ),
+    OrderRecord(
+      id: '#1021',
+      createdAt: DateTime(_today.year, _today.month, _today.day - 3, 9, 11),
+      employee: 'Carl',
+      employeeId: 'USR-002',
+      type: 'Dine In',
+      amount: 680,
+      status: 'Completed',
+      tableNumber: '2',
+      paymentMethod: 'Card',
+      amountReceived: 680,
+      changeAmount: 0,
+      items: const [
+        OrderItem(productId: 'PRD-001', productName: 'Chicken Bowl', unitPrice: 150, quantity: 2),
+        OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 1),
+      ],
+    ),
   ];
 
   static const inventory = [
