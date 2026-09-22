@@ -6,6 +6,9 @@ class PosMenuItem {
   final String variantName;
   final String category;
   final double price;
+  final bool isDefault;
+  final String inventoryTrackingMode;
+  final double? availableQuantity;
 
   const PosMenuItem({
     required this.variantId,
@@ -15,7 +18,17 @@ class PosMenuItem {
     required this.variantName,
     required this.category,
     required this.price,
+    required this.isDefault,
+    required this.inventoryTrackingMode,
+    required this.availableQuantity,
   });
+
+  bool get tracksInventory =>
+      inventoryTrackingMode == 'FINISHED_GOOD' ||
+      inventoryTrackingMode == 'RECIPE';
+
+  bool get isOutOfStock =>
+      tracksInventory && (availableQuantity ?? 0) <= 0;
 
   factory PosMenuItem.fromMap(Map<String, dynamic> map) {
     return PosMenuItem(
@@ -26,6 +39,11 @@ class PosMenuItem {
       variantName: map['variant_name']?.toString() ?? '',
       category: map['category_name']?.toString() ?? 'Other',
       price: (map['price'] as num?)?.toDouble() ?? 0,
+      isDefault: map['is_default'] == true,
+      inventoryTrackingMode:
+          map['inventory_tracking_mode']?.toString() ?? 'UNTRACKED',
+      availableQuantity:
+          (map['available_quantity'] as num?)?.toDouble(),
     );
   }
 }
