@@ -250,3 +250,72 @@ join lateral (
 on conflict (sku) do update set
   price = excluded.price,
   is_active = true;
+
+
+-- Development inventory data used by the Flutter inventory screen.
+with desired(sku,name,category_name,uom_code,reorder_level,track_expiry,qty,expiry_days,unit_cost) as (
+  values
+    ('INV-001','Bottled Water','Finished Goods','pc',10::numeric,false,24::numeric,null::int,18::numeric),
+    ('INV-002','Coca-Cola','Finished Goods','pc',8::numeric,false,18::numeric,null::int,28::numeric),
+    ('INV-003','Chicken','Raw Ingredients','g',1000::numeric,true,3000::numeric,3,0.22::numeric),
+    ('INV-004','Coffee Beans','Raw Ingredients','g',500::numeric,false,800::numeric,null::int,0.85::numeric),
+    ('INV-005','Milk','Raw Ingredients','ml',2000::numeric,true,2000::numeric,5,0.09::numeric),
+    ('INV-006','Chocolate Cake','Finished Goods','pc',3::numeric,true,2::numeric,2,90::numeric)
+)
+insert into public.inventory_items(
+  sku,name,category_id,base_uom_id,track_inventory,track_expiry,
+  allow_negative_stock,reorder_level,is_active
+)
+select
+  d.sku,d.name,ic.id,u.id,true,d.track_expiry,false,d.reorder_level,true
+from desired d
+join public.inventory_categories ic on ic.name=d.category_name
+join public.units_of_measure u on u.code=d.uom_code
+on conflict (sku) do update set
+  name=excluded.name,
+  category_id=excluded.category_id,
+  base_uom_id=excluded.base_uom_id,
+  track_inventory=true,
+  track_expiry=excluded.track_expiry,
+  reorder_level=excluded.reorder_level,
+  is_active=true;
+
+with desired(sku,qty,expiry_days,unit_cost) as (
+  values
+    ('INV-001',24::numeric,null::int,18::numeric),
+    ('INV-002',18::numeric,null::int,28::numeric),
+    ('INV-003',3000::numeric,3,0.22::numeric),
+    ('INV-004',800::numeric,null::int,0.85::numeric),
+    ('INV-005',2000::numeric,5,0.09::numeric),
+    ('INV-006',2::numeric,2,90::numeric)
+),
+created_lots as (
+  insert into public.inventory_lots(
+    inventory_item_id,lot_code,received_at,expiration_date,
+    received_quantity,remaining_quantity,unit_cost_base,status
+  )
+  select
+    ii.id,
+    'SEED-' || d.sku,
+    now(),
+    case when d.expiry_days is null then null else current_date + d.expiry_days end,
+    d.qty,
+    d.qty,
+    d.unit_cost,
+    'AVAILABLE'
+  from desired d
+  join public.inventory_items ii on ii.sku=d.sku
+  where not exists (
+    select 1 from public.stock_movements sm
+    where sm.inventory_item_id=ii.id
+  )
+  returning id,inventory_item_id,received_quantity,unit_cost_base
+)
+insert into public.stock_movements(
+  inventory_item_id,inventory_lot_id,movement_type,quantity_delta,
+  unit_cost_base,reference_type,reason
+)
+select
+  inventory_item_id,id,'MANUAL_IN',received_quantity,
+  unit_cost_base,'SEED','Development seed opening stock'
+from created_lots;
