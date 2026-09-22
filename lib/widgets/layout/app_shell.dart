@@ -1,18 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/app_navigation_item.dart';
 import '../../models/app_user_profile.dart';
 import 'app_sidebar.dart';
-
-class AppNavigationItem {
-  final String label;
-  final IconData icon;
-
-  const AppNavigationItem({
-    required this.label,
-    required this.icon,
-  });
-}
 
 class AppShell extends StatefulWidget {
   final AppUserProfile profile;
