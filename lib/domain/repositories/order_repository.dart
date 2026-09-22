@@ -32,6 +32,12 @@ abstract class OrderRepository {
 
   Future<String> startShift({double? openingCash});
 
+  Future<void> endShift({
+    required String shiftId,
+    double? closingCashCounted,
+    String notes = '',
+  });
+
   Future<OrderRecord> placeOrder({
     required String orderType,
     required List<PosCheckoutItem> items,
