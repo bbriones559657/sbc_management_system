@@ -1,5 +1,6 @@
 import '../../domain/repositories/inventory_repository.dart';
 import '../../models/inventory_item.dart';
+import '../../models/inventory_reference.dart';
 import '../mock_data.dart';
 
 class MockInventoryRepository implements InventoryRepository {
@@ -17,6 +18,42 @@ class MockInventoryRepository implements InventoryRepository {
     }
     return null;
   }
+
+  @override
+  Future<List<InventoryCategoryOption>> getCategories() async => const [];
+
+  @override
+  Future<List<InventoryUnitOption>> getUnits() async => const [];
+
+  @override
+  Future<List<InventoryMovementRecord>> getRecentMovements(
+    String inventoryItemId, {
+    int limit = 8,
+  }) async =>
+      const [];
+
+  @override
+  Future<void> createInventoryItemWithInitialStock({
+    required String name,
+    required String categoryId,
+    required String baseUomId,
+    String sku = '',
+    bool trackExpiry = false,
+    double reorderLevel = 0,
+    double initialQuantity = 0,
+    DateTime? expirationDate,
+    double unitCostBase = 0,
+  }) async {}
+
+  @override
+  Future<void> adjustStock({
+    required String inventoryItemId,
+    required String movementType,
+    required double quantity,
+    required String reason,
+    DateTime? expirationDate,
+    double unitCostBase = 0,
+  }) async {}
 
   @override
   Future<void> createInventoryItem(InventoryItem item) async {
