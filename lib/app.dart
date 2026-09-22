@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
 import 'data/repositories/mock_expense_repository.dart';
+import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
 import 'domain/repositories/expense_repository.dart';
+import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/order_repository.dart';
 import 'models/app_navigation_item.dart';
 import 'models/app_user_profile.dart';
@@ -28,12 +30,14 @@ class StreetBowlApp extends StatefulWidget {
 
 class _StreetBowlAppState extends State<StreetBowlApp> {
   late final OrderRepository _orderRepository;
+  late final InventoryRepository _inventoryRepository;
   late final ExpenseRepository _expenseRepository;
 
   @override
   void initState() {
     super.initState();
     _orderRepository = SupabaseOrderRepository();
+    _inventoryRepository = SupabaseInventoryRepository();
     _expenseRepository = MockExpenseRepository();
   }
 
@@ -92,7 +96,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     final pages = <Widget>[
       DashboardScreen(orderRepository: _orderRepository),
       OrdersScreen(orderRepository: _orderRepository),
-      const InventoryScreen(),
+      InventoryScreen(
+        inventoryRepository: _inventoryRepository,
+        canManageInventory: !isCashier,
+      ),
       if (!isCashier) ...[
         ExpensesScreen(expenseRepository: _expenseRepository),
         const SalesFinanceScreen(),
