@@ -184,3 +184,69 @@ on conflict (code) do nothing;
 insert into public.invoice_sequences(code,prefix,next_number,number_width,is_active)
 values ('SALES_INVOICE','SI-',1,8,true)
 on conflict (code) do nothing;
+
+
+-- Development POS menu data used by the Flutter prototype.
+-- Safe to rerun because variants use stable SKUs.
+with wanted(name, category_name, sku, price) as (
+  values
+    ('Chicken Bowl','Rice Bowls / Meals','PRD-001',150.00::numeric),
+    ('Beef Bowl','Rice Bowls / Meals','PRD-002',170.00::numeric),
+    ('Iced Coffee','Coffee','PRD-003',150.00::numeric),
+    ('Hot Coffee','Coffee','PRD-004',120.00::numeric),
+    ('Bottled Water','Non-Coffee Beverages','PRD-005',40.00::numeric),
+    ('Chocolate Cake','Baked Goods','PRD-006',180.00::numeric),
+    ('Cookie','Baked Goods','PRD-007',50.00::numeric),
+    ('Canned Soda','Non-Coffee Beverages','PRD-008',60.00::numeric)
+)
+insert into public.menu_items(name, category_id, is_active)
+select w.name, mc.id, true
+from wanted w
+join public.menu_categories mc on mc.name = w.category_name
+where not exists (
+  select 1
+  from public.menu_variants mv
+  where mv.sku = w.sku
+);
+
+with wanted(name, category_name, sku, price) as (
+  values
+    ('Chicken Bowl','Rice Bowls / Meals','PRD-001',150.00::numeric),
+    ('Beef Bowl','Rice Bowls / Meals','PRD-002',170.00::numeric),
+    ('Iced Coffee','Coffee','PRD-003',150.00::numeric),
+    ('Hot Coffee','Coffee','PRD-004',120.00::numeric),
+    ('Bottled Water','Non-Coffee Beverages','PRD-005',40.00::numeric),
+    ('Chocolate Cake','Baked Goods','PRD-006',180.00::numeric),
+    ('Cookie','Baked Goods','PRD-007',50.00::numeric),
+    ('Canned Soda','Non-Coffee Beverages','PRD-008',60.00::numeric)
+)
+insert into public.menu_variants(
+  menu_item_id,
+  sku,
+  name,
+  price,
+  is_default,
+  is_active,
+  track_finished_inventory
+)
+select
+  mi.id,
+  w.sku,
+  'Regular',
+  w.price,
+  true,
+  true,
+  false
+from wanted w
+join public.menu_categories mc on mc.name = w.category_name
+join lateral (
+  select id
+  from public.menu_items
+  where name = w.name
+    and category_id = mc.id
+  order by created_at desc
+  limit 1
+) mi on true
+on conflict (sku) do update set
+  price = excluded.price,
+  is_active = true;
