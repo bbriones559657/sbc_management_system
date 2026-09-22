@@ -25,7 +25,12 @@ class AppPage extends StatelessWidget {
       color: AppColors.gray100,
       child: Stack(
         children: [
-          const Positioned(top: 0, right: 0, left: 0, child: HeaderBrandMotif()),
+          const Positioned(
+            top: 0,
+            right: 0,
+            left: 0,
+            child: HeaderBrandMotif(),
+          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.page),
@@ -43,12 +48,14 @@ class AppPage extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               subtitle,
-                              style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.gray500,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      if (action != null) action!,
+                      ?action,
                     ],
                   ),
                   const SizedBox(height: 24),
