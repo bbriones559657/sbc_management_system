@@ -78,6 +78,13 @@ class MockOrderRepository implements OrderRepository {
   Future<String> startShift({double? openingCash}) async => 'mock-shift';
 
   @override
+  Future<void> endShift({
+    required String shiftId,
+    double? closingCashCounted,
+    String notes = '',
+  }) async {}
+
+  @override
   Future<OrderRecord> placeOrder({
     required String orderType,
     required List<PosCheckoutItem> items,
