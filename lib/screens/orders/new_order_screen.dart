@@ -624,6 +624,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     PosPaymentMethod selectedMethod = methods.first;
     String? errorMessage;
+    StateSetter? updateDialogState;
 
     final total = _total(menu);
     final amountController =
@@ -636,6 +637,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       width: 650,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
+          updateDialogState = setDialogState;
           final received =
               double.tryParse(amountController.text.trim()) ?? 0;
           final change =
@@ -757,21 +759,18 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       double.tryParse(amountController.text.trim()) ?? 0;
 
                   if (selectedMethod.isCash && received < total) {
-                    setDialogStateSafe(
-                      dialogContext,
-                      () => errorMessage =
-                          'Amount received cannot be less than the total.',
-                    );
+                    updateDialogState?.call(() {
+                      errorMessage =
+                          'Amount received cannot be less than the total.';
+                    });
                     return;
                   }
 
                   if (selectedMethod.requiresReference &&
                       referenceController.text.trim().isEmpty) {
-                    setDialogStateSafe(
-                      dialogContext,
-                      () => errorMessage =
-                          'A transaction reference is required.',
-                    );
+                    updateDialogState?.call(() {
+                      errorMessage = 'A transaction reference is required.';
+                    });
                     return;
                   }
 
@@ -813,16 +812,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     await _showReceiptDialog(order);
                   } on PostgrestException catch (error) {
                     if (!mounted) return;
-                    setDialogStateSafe(
-                      dialogContext,
-                      () => errorMessage = error.message,
-                    );
+                    updateDialogState?.call(() {
+                      errorMessage = error.message;
+                    });
                   } catch (error) {
                     if (!mounted) return;
-                    setDialogStateSafe(
-                      dialogContext,
-                      () => errorMessage = error.toString(),
-                    );
+                    updateDialogState?.call(() {
+                      errorMessage = error.toString();
+                    });
                   } finally {
                     if (mounted) {
                       setState(() => _submittingOrder = false);
@@ -842,15 +839,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     amountController.dispose();
     referenceController.dispose();
-  }
-
-  void setDialogStateSafe(
-    BuildContext dialogContext,
-    VoidCallback callback,
-  ) {
-    if (!dialogContext.mounted) return;
-    (dialogContext as Element).markNeedsBuild();
-    callback();
   }
 
   Future<void> _showReceiptDialog(OrderRecord order) async {
