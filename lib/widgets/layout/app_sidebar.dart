@@ -3,27 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/app_user_profile.dart';
+import 'app_shell.dart';
 
 class AppSidebar extends StatelessWidget {
+  final AppUserProfile profile;
+  final List<AppNavigationItem> items;
   final int selectedIndex;
   final ValueChanged<int> onItemSelected;
+  final Future<void> Function() onSignOut;
 
   const AppSidebar({
     super.key,
+    required this.profile,
+    required this.items,
     required this.selectedIndex,
     required this.onItemSelected,
+    required this.onSignOut,
   });
-
-  static const _items = [
-    ('Dashboard', Icons.dashboard_outlined),
-    ('Orders', Icons.receipt_long_outlined),
-    ('Inventory', Icons.inventory_2_outlined),
-    ('Expenses', Icons.payments_outlined),
-    ('Sales & Finance', Icons.account_balance_wallet_outlined),
-    ('Reports', Icons.bar_chart_outlined),
-    ('Suppliers', Icons.local_shipping_outlined),
-    ('Users', Icons.people_outline),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -47,20 +44,62 @@ class AppSidebar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 28),
-          for (int i = 0; i < _items.length; i++)
+          const SizedBox(height: 24),
+          for (int i = 0; i < items.length; i++)
             _SidebarItem(
-              label: _items[i].$1,
-              icon: _items[i].$2,
+              label: items[i].label,
+              icon: items[i].icon,
               selected: selectedIndex == i,
               onTap: () => onItemSelected(i),
             ),
           const Spacer(),
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Prototype — UI Demonstration Only',
-              style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 17,
+                  backgroundColor: AppColors.primarySoft,
+                  child: Icon(
+                    Icons.person_outline,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                      Text(
+                        profile.roleName.isEmpty
+                            ? profile.roleCode
+                            : profile.roleName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => onSignOut(),
+                icon: const Icon(Icons.logout, size: 17),
+                label: const Text('Sign out'),
+              ),
             ),
           ),
         ],
@@ -116,7 +155,8 @@ class _SidebarItem extends StatelessWidget {
                     label,
                     style: AppTextStyles.body.copyWith(
                       color: selected ? AppColors.primary : AppColors.gray700,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),
