@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -6,6 +7,9 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_item.dart';
 import '../../models/order_record.dart';
+import '../../models/pos_checkout.dart';
+import '../../models/pos_menu_item.dart';
+import '../../models/pos_payment_method.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/header_brand_motif.dart';
@@ -13,16 +17,16 @@ import '../../widgets/layout/header_brand_motif.dart';
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
 
-  const NewOrderScreen({super.key, required this.orderRepository});
+  const NewOrderScreen({
+    super.key,
+    required this.orderRepository,
+  });
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
 }
 
 class _NewOrderScreenState extends State<NewOrderScreen> {
-  static const String _prototypeEmployeeName = 'Brian';
-  static const String _prototypeEmployeeId = 'USR-004';
-
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _customerNameController = TextEditingController();
   final TextEditingController _tableNumberController = TextEditingController();
@@ -30,83 +34,24 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       TextEditingController();
 
   final Map<String, int> _cart = {};
-  late final DateTime _orderCreatedAt;
+
+  late Future<List<PosMenuItem>> _menuFuture;
+  late Future<List<PosPaymentMethod>> _paymentMethodsFuture;
 
   String _selectedCategory = 'All';
   String _orderType = 'Dine In';
   String _searchQuery = '';
-
-  static const List<_Product> _products = [
-    _Product(
-      id: 'PRD-001',
-      name: 'Chicken Bowl',
-      category: 'Rice Bowls',
-      price: 150,
-      icon: Icons.rice_bowl_outlined,
-    ),
-    _Product(
-      id: 'PRD-002',
-      name: 'Beef Bowl',
-      category: 'Rice Bowls',
-      price: 170,
-      icon: Icons.rice_bowl,
-    ),
-    _Product(
-      id: 'PRD-003',
-      name: 'Iced Coffee',
-      category: 'Coffee',
-      price: 150,
-      icon: Icons.coffee_outlined,
-    ),
-    _Product(
-      id: 'PRD-004',
-      name: 'Hot Coffee',
-      category: 'Coffee',
-      price: 120,
-      icon: Icons.local_cafe_outlined,
-    ),
-    _Product(
-      id: 'PRD-005',
-      name: 'Bottled Water',
-      category: 'Beverages',
-      price: 40,
-      icon: Icons.local_drink_outlined,
-    ),
-    _Product(
-      id: 'PRD-006',
-      name: 'Chocolate Cake',
-      category: 'Baked Goods',
-      price: 180,
-      icon: Icons.cake_outlined,
-    ),
-    _Product(
-      id: 'PRD-007',
-      name: 'Cookie',
-      category: 'Baked Goods',
-      price: 50,
-      icon: Icons.cookie_outlined,
-    ),
-    _Product(
-      id: 'PRD-008',
-      name: 'Canned Soda',
-      category: 'Beverages',
-      price: 60,
-      icon: Icons.local_drink,
-    ),
-  ];
-
-  static const List<String> _categories = [
-    'All',
-    'Rice Bowls',
-    'Coffee',
-    'Beverages',
-    'Baked Goods',
-  ];
+  String? _openShiftId;
+  bool _loadingShift = true;
+  bool _startingShift = false;
+  bool _submittingOrder = false;
 
   @override
   void initState() {
     super.initState();
-    _orderCreatedAt = DateTime.now();
+    _menuFuture = widget.orderRepository.getPosMenu();
+    _paymentMethodsFuture = widget.orderRepository.getPaymentMethods();
+    _loadShift();
   }
 
   @override
@@ -118,26 +63,87 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.dispose();
   }
 
-  List<_Product> get _filteredProducts {
-    return _products.where((product) {
-      final categoryMatches =
-          _selectedCategory == 'All' || product.category == _selectedCategory;
-      final searchMatches = product.name.toLowerCase().contains(
-        _searchQuery.trim().toLowerCase(),
+  Future<void> _loadShift() async {
+    try {
+      final id = await widget.orderRepository.getOpenShiftId();
+      if (!mounted) return;
+      setState(() {
+        _openShiftId = id;
+        _loadingShift = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingShift = false);
+    }
+  }
+
+  Future<void> _startShift() async {
+    if (_startingShift) return;
+
+    setState(() => _startingShift = true);
+
+    try {
+      final id = await widget.orderRepository.startShift();
+      if (!mounted) return;
+
+      setState(() => _openShiftId = id);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Shift started successfully.')),
       );
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _startingShift = false);
+      }
+    }
+  }
+
+  List<PosMenuItem> _filteredMenu(List<PosMenuItem> menu) {
+    final query = _searchQuery.trim().toLowerCase();
+
+    return menu.where((item) {
+      final categoryMatches =
+          _selectedCategory == 'All' || item.category == _selectedCategory;
+      final searchMatches =
+          query.isEmpty ||
+          item.name.toLowerCase().contains(query) ||
+          item.variantName.toLowerCase().contains(query) ||
+          item.sku.toLowerCase().contains(query);
+
       return categoryMatches && searchMatches;
     }).toList();
   }
 
-  int get _total {
-    int total = 0;
+  List<String> _categories(List<PosMenuItem> menu) {
+    final values = menu.map((item) => item.category).toSet().toList()..sort();
+    return ['All', ...values];
+  }
+
+  double _total(List<PosMenuItem> menu) {
+    double total = 0;
     for (final entry in _cart.entries) {
-      final product = _productById(entry.key);
+      final product = _menuItemByVariantId(menu, entry.key);
       if (product != null) {
         total += product.price * entry.value;
       }
     }
     return total;
+  }
+
+  PosMenuItem? _menuItemByVariantId(
+    List<PosMenuItem> menu,
+    String variantId,
+  ) {
+    for (final item in menu) {
+      if (item.variantId == variantId) return item;
+    }
+    return null;
   }
 
   @override
@@ -155,37 +161,60 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.page),
-              child: Column(
-                children: [
-                  Row(
+              child: FutureBuilder<List<PosMenuItem>>(
+                future: _menuFuture,
+                builder: (context, snapshot) {
+                  final menu = snapshot.data ?? const <PosMenuItem>[];
+
+                  return Column(
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('New Order', style: AppTextStyles.h1),
+                          const Spacer(),
+                          _buildShiftStatus(),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      const Text('New Order', style: AppTextStyles.h1),
-                      const Spacer(),
-                      Text(
-                        _formatDateTime(_orderCreatedAt),
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.gray700,
+                      const SizedBox(height: 18),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Expanded(
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (snapshot.hasError)
+                        Expanded(
+                          child: _buildLoadError(snapshot.error),
+                        )
+                      else if (menu.isEmpty)
+                        Expanded(
+                          child: _buildLoadError(
+                            'No active menu items are available.',
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: _buildProductsPanel(menu),
+                              ),
+                              const SizedBox(width: 20),
+                              SizedBox(
+                                width: 410,
+                                child: _buildCurrentOrderPanel(menu),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 3, child: _buildProductsPanel()),
-                        const SizedBox(width: 20),
-                        SizedBox(width: 410, child: _buildCurrentOrderPanel()),
-                      ],
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -194,8 +223,90 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildProductsPanel() {
-    final products = _filteredProducts;
+  Widget _buildShiftStatus() {
+    if (_loadingShift) {
+      return const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    if (_openShiftId != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF7EE),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Shift Active',
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.success,
+          ),
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: _startingShift ? null : _startShift,
+      icon: _startingShift
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.play_arrow, size: 18),
+      label: Text(_startingShift ? 'Starting...' : 'Start Shift'),
+    );
+  }
+
+  Widget _buildLoadError(Object? error) {
+    return Center(
+      child: SizedBox(
+        width: 480,
+        child: SectionCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: AppColors.primary,
+                size: 38,
+              ),
+              const SizedBox(height: 12),
+              const Text('Unable to load POS data', style: AppTextStyles.h3),
+              const SizedBox(height: 8),
+              Text(
+                error?.toString() ?? 'Unknown error',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(color: AppColors.gray700),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _menuFuture = widget.orderRepository.getPosMenu();
+                    _paymentMethodsFuture =
+                        widget.orderRepository.getPaymentMethods();
+                  });
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductsPanel(List<PosMenuItem> menu) {
+    final products = _filteredMenu(menu);
+    final categories = _categories(menu);
+
+    if (!categories.contains(_selectedCategory)) {
+      _selectedCategory = 'All';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,10 +326,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _categories.length,
+            itemCount: categories.length,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) {
-              final category = _categories[index];
+              final category = categories[index];
               final selected = category == _selectedCategory;
 
               return ChoiceChip(
@@ -244,7 +355,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           child: products.isEmpty
               ? const Center(child: Text('No products found.'))
               : GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
@@ -252,8 +364,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   ),
                   itemCount: products.length,
                   itemBuilder: (_, index) {
-                    final product = products[index];
-                    return _buildProductCard(product);
+                    return _buildProductCard(products[index]);
                   },
                 ),
         ),
@@ -261,7 +372,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildProductCard(_Product product) {
+  Widget _buildProductCard(PosMenuItem product) {
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +384,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(product.icon, color: AppColors.primary, size: 22),
+            child: Icon(
+              _iconForCategory(product.category),
+              color: AppColors.primary,
+              size: 22,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
@@ -283,19 +398,26 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          Text(product.category, style: AppTextStyles.caption),
+          Text(
+            product.variantName == 'Regular'
+                ? product.category
+                : '${product.category} • ${product.variantName}',
+            style: AppTextStyles.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const Spacer(),
           Row(
             children: [
               Text(
-                '₱${product.price}',
+                _money(product.price),
                 style: AppTextStyles.h3.copyWith(color: AppColors.primary),
               ),
               const Spacer(),
               SizedBox(
                 height: 34,
                 child: OutlinedButton.icon(
-                  onPressed: () => _addItem(product.id),
+                  onPressed: () => _addItem(product.variantId),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                 ),
@@ -307,14 +429,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildCurrentOrderPanel() {
+  Widget _buildCurrentOrderPanel(List<PosMenuItem> menu) {
+    final total = _total(menu);
+
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Current Order', style: AppTextStyles.h2),
-          const SizedBox(height: 4),
-          Text(_formatDateTime(_orderCreatedAt), style: AppTextStyles.caption),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _orderType,
@@ -337,42 +459,39 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           Expanded(
             child: _cart.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 36,
-                          color: AppColors.gray500,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'No items added yet.',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.gray500,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'No items added yet.',
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.gray500,
+                      ),
                     ),
                   )
                 : ListView(
                     children: _cart.entries.map((entry) {
-                      final product = _productById(entry.key)!;
+                      final product =
+                          _menuItemByVariantId(menu, entry.key);
+                      if (product == null) return const SizedBox.shrink();
                       return _buildCartItem(product, entry.value);
                     }).toList(),
                   ),
           ),
           const Divider(),
-          _summaryRow('Subtotal', '₱$_total'),
+          _summaryRow('Subtotal', _money(total)),
           const SizedBox(height: 7),
-          _summaryRow('Total', '₱$_total', emphasized: true),
+          _summaryRow('Total', _money(total), emphasized: true),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _cart.isEmpty ? null : _showPaymentDialog,
+              onPressed: _cart.isEmpty || _openShiftId == null
+                  ? null
+                  : () => _showPaymentDialog(menu),
               icon: const Icon(Icons.payments_outlined, size: 18),
-              label: const Text('Proceed to Payment'),
+              label: Text(
+                _openShiftId == null
+                    ? 'Start Shift to Continue'
+                    : 'Proceed to Payment',
+              ),
             ),
           ),
         ],
@@ -418,7 +537,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _deliveryReferenceController,
             decoration: const InputDecoration(
               labelText: 'Delivery Reference / Platform',
-              hintText: 'e.g. Phone order, Foodpanda reference',
+              hintText: 'e.g. Phone order',
             ),
           ),
         ],
@@ -434,7 +553,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildCartItem(_Product product, int quantity) {
+  Widget _buildCartItem(PosMenuItem product, int quantity) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -444,7 +563,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         border: Border.all(color: AppColors.gray200),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
@@ -453,30 +571,31 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 Text(product.name, style: AppTextStyles.bodyMedium),
                 const SizedBox(height: 3),
                 Text(
-                  '₱${product.price} each  •  ₱${product.price * quantity}',
+                  '${_money(product.price)} each • '
+                  '${_money(product.price * quantity)}',
                   style: AppTextStyles.caption,
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Decrease quantity',
-            onPressed: () => _decreaseItem(product.id),
+            onPressed: () => _decreaseItem(product.variantId),
             icon: const Icon(Icons.remove_circle_outline, size: 20),
           ),
-          Container(
-            constraints: const BoxConstraints(minWidth: 26),
-            alignment: Alignment.center,
-            child: Text('$quantity', style: AppTextStyles.bodyMedium),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium,
+            ),
           ),
           IconButton(
-            tooltip: 'Increase quantity',
-            onPressed: () => _addItem(product.id),
+            onPressed: () => _addItem(product.variantId),
             icon: const Icon(Icons.add_circle_outline, size: 20),
           ),
           IconButton(
-            tooltip: 'Remove item',
-            onPressed: () => _removeItem(product.id),
+            onPressed: () => _removeItem(product.variantId),
             icon: const Icon(
               Icons.delete_outline,
               color: AppColors.primary,
@@ -488,93 +607,28 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool emphasized = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
-        ),
-        Text(
-          value,
-          style: emphasized ? AppTextStyles.h2 : AppTextStyles.bodyMedium,
-        ),
-      ],
-    );
-  }
-
-  void _addItem(String productId) {
-    setState(() {
-      _cart.update(productId, (quantity) => quantity + 1, ifAbsent: () => 1);
-    });
-  }
-
-  void _decreaseItem(String productId) {
-    final current = _cart[productId];
-    if (current == null) return;
-
-    setState(() {
-      if (current <= 1) {
-        _cart.remove(productId);
-      } else {
-        _cart[productId] = current - 1;
-      }
-    });
-  }
-
-  void _removeItem(String productId) {
-    setState(() => _cart.remove(productId));
-  }
-
-  _Product? _productById(String productId) {
-    for (final product in _products) {
-      if (product.id == productId) return product;
-    }
-    return null;
-  }
-
-  List<OrderItem> _buildOrderItems() {
-    return _cart.entries.map((entry) {
-      final product = _productById(entry.key)!;
-      return OrderItem(
-        productId: product.id,
-        productName: product.name,
-        unitPrice: product.price,
-        quantity: entry.value,
-      );
-    }).toList();
-  }
-
-  String? _validateOrderDetails() {
-    if (_cart.isEmpty) return 'Add at least one item to the order.';
-
-    if (_orderType == 'Dine In' && _tableNumberController.text.trim().isEmpty) {
-      return 'Enter the table number for a dine-in order.';
-    }
-
-    if ((_orderType == 'Take Out' || _orderType == 'Delivery') &&
-        _customerNameController.text.trim().isEmpty) {
-      return 'Enter the customer name for this order.';
-    }
-
-    return null;
-  }
-
-  Future<void> _showPaymentDialog() async {
-    final validationMessage = _validateOrderDetails();
-    if (validationMessage != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(validationMessage)));
+  Future<void> _showPaymentDialog(List<PosMenuItem> menu) async {
+    final validation = _validateOrderDetails();
+    if (validation != null) {
+      _showError(validation);
       return;
     }
 
-    String paymentMethod = 'Cash';
+    final methods = await _paymentMethodsFuture;
+    if (!mounted) return;
+
+    if (methods.isEmpty) {
+      _showError('No active payment methods are configured.');
+      return;
+    }
+
+    PosPaymentMethod selectedMethod = methods.first;
     String? errorMessage;
-    StateSetter? updateDialogState;
-    final amountReceivedController = TextEditingController(
-      text: _total.toString(),
-    );
+
+    final total = _total(menu);
+    final amountController =
+        TextEditingController(text: total.toStringAsFixed(2));
+    final referenceController = TextEditingController();
 
     await showPrototypeDialog(
       context: context,
@@ -582,112 +636,79 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       width: 650,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          updateDialogState = setDialogState;
           final received =
-              int.tryParse(amountReceivedController.text.trim()) ?? 0;
-          final change = paymentMethod == 'Cash' ? received - _total : 0;
+              double.tryParse(amountController.text.trim()) ?? 0;
+          final change =
+              selectedMethod.isCash ? (received - total).clamp(0, double.infinity) : 0;
 
           return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.gray100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.gray200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Order Summary', style: AppTextStyles.h3),
-                      const SizedBox(height: 8),
-                      _paymentInfoRow(
-                        'Date & Time',
-                        _formatDateTime(_orderCreatedAt),
-                      ),
-                      _paymentInfoRow('Type', _orderType),
-                      _paymentInfoRow(
-                        'Customer / Table',
-                        _currentOrderReference(),
-                      ),
-                      _paymentInfoRow('Handled by', _prototypeEmployeeName),
-                    ],
-                  ),
+                _paymentInfoRow(
+                  'Customer / Table',
+                  _currentOrderReference(),
                 ),
-                const SizedBox(height: 16),
-                Text('Items', style: AppTextStyles.h3),
-                const SizedBox(height: 8),
-                ..._buildOrderItems().map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.productName,
-                            style: AppTextStyles.body,
-                          ),
-                        ),
-                        Text(
-                          '${item.quantity} × ₱${item.unitPrice}',
-                          style: AppTextStyles.caption,
-                        ),
-                        const SizedBox(width: 20),
-                        SizedBox(
-                          width: 78,
-                          child: Text(
-                            '₱${item.lineTotal}',
-                            textAlign: TextAlign.right,
-                            style: AppTextStyles.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(height: 26),
-                _paymentInfoRow('Total', '₱$_total', emphasized: true),
+                _paymentInfoRow('Order Type', _orderType),
+                _paymentInfoRow('Total', _money(total), emphasized: true),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: paymentMethod,
+                  initialValue: selectedMethod.id,
                   decoration: const InputDecoration(
                     labelText: 'Payment Method',
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'GCash', child: Text('GCash')),
-                    DropdownMenuItem(value: 'Card', child: Text('Card')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
-                  ],
+                  items: methods
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method.id,
+                          child: Text(method.name),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) {
                     if (value == null) return;
+
                     setDialogState(() {
-                      paymentMethod = value;
+                      selectedMethod =
+                          methods.firstWhere((method) => method.id == value);
                       errorMessage = null;
-                      if (paymentMethod != 'Cash') {
-                        amountReceivedController.text = _total.toString();
+                      if (!selectedMethod.isCash) {
+                        amountController.text = total.toStringAsFixed(2);
                       }
                     });
                   },
                 ),
                 const SizedBox(height: 14),
                 TextField(
-                  controller: amountReceivedController,
-                  enabled: paymentMethod == 'Cash',
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setDialogState(() => errorMessage = null),
+                  controller: amountController,
+                  enabled: selectedMethod.isCash,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) {
+                    setDialogState(() => errorMessage = null);
+                  },
                   decoration: InputDecoration(
                     labelText: 'Amount Received',
                     prefixText: '₱',
-                    helperText: paymentMethod == 'Cash'
-                        ? 'Enter the cash received from the customer.'
-                        : 'Exact payment is assumed for non-cash methods.',
+                    helperText: selectedMethod.isCash
+                        ? 'Enter the cash received.'
+                        : 'Exact payment is used for non-cash methods.',
                   ),
                 ),
+                if (selectedMethod.requiresReference) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: referenceController,
+                    decoration: InputDecoration(
+                      labelText: '${selectedMethod.name} Reference *',
+                      hintText: 'Enter transaction/reference number',
+                    ),
+                    onChanged: (_) {
+                      setDialogState(() => errorMessage = null);
+                    },
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
@@ -701,7 +722,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     children: [
                       Text('Change', style: AppTextStyles.bodyMedium),
                       Text(
-                        '₱${change < 0 ? 0 : change}',
+                        _money(change.toDouble()),
                         style: AppTextStyles.h2.copyWith(
                           color: AppColors.primary,
                         ),
@@ -725,71 +746,111 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _submittingOrder ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () async {
-            final received =
-                int.tryParse(amountReceivedController.text.trim()) ?? 0;
+          onPressed: _submittingOrder
+              ? null
+              : () async {
+                  final received =
+                      double.tryParse(amountController.text.trim()) ?? 0;
 
-            if (paymentMethod == 'Cash' && received < _total) {
-              updateDialogState?.call(() {
-                errorMessage = 'Amount received cannot be less than the total.';
-              });
-              return;
-            }
+                  if (selectedMethod.isCash && received < total) {
+                    setDialogStateSafe(
+                      dialogContext,
+                      () => errorMessage =
+                          'Amount received cannot be less than the total.',
+                    );
+                    return;
+                  }
 
-            final order = await _createOrder(
-              paymentMethod: paymentMethod,
-              amountReceived: paymentMethod == 'Cash' ? received : _total,
-            );
+                  if (selectedMethod.requiresReference &&
+                      referenceController.text.trim().isEmpty) {
+                    setDialogStateSafe(
+                      dialogContext,
+                      () => errorMessage =
+                          'A transaction reference is required.',
+                    );
+                    return;
+                  }
 
-            if (!mounted) return;
-            Navigator.pop(context);
-            await _showReceiptDialog(order);
-          },
-          child: const Text('Complete Payment'),
+                  setState(() => _submittingOrder = true);
+
+                  try {
+                    final order = await widget.orderRepository.placeOrder(
+                      orderType: _orderType,
+                      items: _cart.entries
+                          .map(
+                            (entry) => PosCheckoutItem(
+                              menuVariantId: entry.key,
+                              quantity: entry.value,
+                            ),
+                          )
+                          .toList(),
+                      payments: [
+                        PosPaymentInput(
+                          paymentMethodId: selectedMethod.id,
+                          amount: total,
+                          amountTendered:
+                              selectedMethod.isCash ? received : null,
+                          changeAmount:
+                              selectedMethod.isCash ? received - total : 0,
+                          externalReference:
+                              selectedMethod.requiresReference
+                                  ? referenceController.text.trim()
+                                  : null,
+                        ),
+                      ],
+                      tableNumber: _tableNumberController.text.trim(),
+                      customerName: _customerNameController.text.trim(),
+                      deliveryReference:
+                          _deliveryReferenceController.text.trim(),
+                    );
+
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    await _showReceiptDialog(order);
+                  } on PostgrestException catch (error) {
+                    if (!mounted) return;
+                    setDialogStateSafe(
+                      dialogContext,
+                      () => errorMessage = error.message,
+                    );
+                  } catch (error) {
+                    if (!mounted) return;
+                    setDialogStateSafe(
+                      dialogContext,
+                      () => errorMessage = error.toString(),
+                    );
+                  } finally {
+                    if (mounted) {
+                      setState(() => _submittingOrder = false);
+                    }
+                  }
+                },
+          child: _submittingOrder
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Complete Payment'),
         ),
       ],
     );
 
-    amountReceivedController.dispose();
+    amountController.dispose();
+    referenceController.dispose();
   }
 
-  Future<OrderRecord> _createOrder({
-    required String paymentMethod,
-    required int amountReceived,
-  }) async {
-    final orders = await widget.orderRepository.getOrders();
-    int highestOrderNumber = 1000;
-
-    for (final order in orders) {
-      final numeric = int.tryParse(order.id.replaceAll(RegExp(r'[^0-9]'), ''));
-      if (numeric != null && numeric > highestOrderNumber) {
-        highestOrderNumber = numeric;
-      }
-    }
-
-    final order = OrderRecord(
-      id: '#${highestOrderNumber + 1}',
-      createdAt: _orderCreatedAt,
-      employee: _prototypeEmployeeName,
-      employeeId: _prototypeEmployeeId,
-      type: _orderType,
-      amount: _total,
-      status: 'Completed',
-      customerName: _customerNameController.text.trim(),
-      tableNumber: _tableNumberController.text.trim(),
-      deliveryReference: _deliveryReferenceController.text.trim(),
-      items: _buildOrderItems(),
-      paymentMethod: paymentMethod,
-      amountReceived: amountReceived,
-      changeAmount: amountReceived - _total,
-    );
-
-    await widget.orderRepository.createOrder(order);
-    return order;
+  void setDialogStateSafe(
+    BuildContext dialogContext,
+    VoidCallback callback,
+  ) {
+    if (!dialogContext.mounted) return;
+    (dialogContext as Element).markNeedsBuild();
+    callback();
   }
 
   Future<void> _showReceiptDialog(OrderRecord order) async {
@@ -808,12 +869,17 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             const SizedBox(height: 4),
             Center(child: Text(order.id, style: AppTextStyles.caption)),
             const SizedBox(height: 18),
-            _paymentInfoRow('Date & Time', _formatDateTime(order.createdAt)),
-            _paymentInfoRow('Customer / Table', order.customerOrTable),
+            _paymentInfoRow(
+              'Customer / Table',
+              order.customerOrTable,
+            ),
             _paymentInfoRow('Order Type', order.type),
             _paymentInfoRow('Handled by', order.employee),
             if (order.deliveryReference.isNotEmpty)
-              _paymentInfoRow('Delivery Reference', order.deliveryReference),
+              _paymentInfoRow(
+                'Delivery Reference',
+                order.deliveryReference,
+              ),
             const Divider(height: 28),
             ...order.items.map(
               (item) => Padding(
@@ -826,25 +892,26 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                         style: AppTextStyles.body,
                       ),
                     ),
-                    Text('₱${item.lineTotal}', style: AppTextStyles.bodyMedium),
+                    Text(
+                      '₱${item.lineTotal}',
+                      style: AppTextStyles.bodyMedium,
+                    ),
                   ],
                 ),
               ),
             ),
             const Divider(height: 28),
-            _paymentInfoRow('Total', '₱${order.amount}', emphasized: true),
-            _paymentInfoRow('Payment', order.paymentMethod),
-            _paymentInfoRow('Amount Received', '₱${order.amountReceived}'),
-            _paymentInfoRow('Change', '₱${order.changeAmount}'),
-            const SizedBox(height: 18),
-            Center(
-              child: Text(
-                'Thank you!',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
+            _paymentInfoRow(
+              'Total',
+              '₱${order.amount}',
+              emphasized: true,
             ),
+            _paymentInfoRow('Payment', order.paymentMethod),
+            _paymentInfoRow(
+              'Amount Received',
+              '₱${order.amountReceived}',
+            ),
+            _paymentInfoRow('Change', '₱${order.changeAmount}'),
           ],
         ),
       ),
@@ -860,6 +927,69 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
+  String? _validateOrderDetails() {
+    if (_cart.isEmpty) return 'Add at least one item to the order.';
+
+    if (_openShiftId == null) {
+      return 'Start a shift before creating an order.';
+    }
+
+    if (_orderType == 'Dine In' &&
+        _tableNumberController.text.trim().isEmpty) {
+      return 'Enter the table number for this dine-in order.';
+    }
+
+    if ((_orderType == 'Take Out' || _orderType == 'Delivery') &&
+        _customerNameController.text.trim().isEmpty) {
+      return 'Enter the customer name for this order.';
+    }
+
+    return null;
+  }
+
+  void _addItem(String variantId) {
+    setState(() {
+      _cart.update(variantId, (quantity) => quantity + 1, ifAbsent: () => 1);
+    });
+  }
+
+  void _decreaseItem(String variantId) {
+    final current = _cart[variantId];
+    if (current == null) return;
+
+    setState(() {
+      if (current <= 1) {
+        _cart.remove(variantId);
+      } else {
+        _cart[variantId] = current - 1;
+      }
+    });
+  }
+
+  void _removeItem(String variantId) {
+    setState(() => _cart.remove(variantId));
+  }
+
+  Widget _summaryRow(
+    String label,
+    String value, {
+    bool emphasized = false,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
+        ),
+        Text(
+          value,
+          style: emphasized ? AppTextStyles.h2 : AppTextStyles.bodyMedium,
+        ),
+      ],
+    );
+  }
+
   Widget _paymentInfoRow(
     String label,
     String value, {
@@ -868,12 +998,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Text(
               label,
-              style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
+              style:
+                  emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
             ),
           ),
           const SizedBox(width: 20),
@@ -881,7 +1011,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
+              style:
+                  emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
             ),
           ),
         ],
@@ -892,54 +1023,37 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   String _currentOrderReference() {
     if (_orderType == 'Dine In') {
       final table = _tableNumberController.text.trim();
-      return table.isEmpty ? 'Table not set' : 'Table $table';
+      final customer = _customerNameController.text.trim();
+      if (customer.isEmpty) return 'Table $table';
+      return 'Table $table • $customer';
     }
 
-    final customer = _customerNameController.text.trim();
-    return customer.isEmpty ? 'Customer not set' : customer;
+    return _customerNameController.text.trim();
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
+  IconData _iconForCategory(String category) {
+    final value = category.toLowerCase();
 
-    return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year} • ${_formatTime(dateTime)}';
+    if (value.contains('coffee')) return Icons.coffee_outlined;
+    if (value.contains('baked')) return Icons.cake_outlined;
+    if (value.contains('rice') || value.contains('meal')) {
+      return Icons.rice_bowl_outlined;
+    }
+    if (value.contains('beverage')) return Icons.local_drink_outlined;
+    if (value.contains('snack')) return Icons.cookie_outlined;
+    return Icons.fastfood_outlined;
   }
 
-  String _formatTime(DateTime dateTime) {
-    int hour = dateTime.hour;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    hour %= 12;
-    if (hour == 0) hour = 12;
-    return '$hour:$minute $period';
+  String _money(double value) {
+    final whole = value == value.roundToDouble();
+    return whole
+        ? '₱${value.toInt()}'
+        : '₱${value.toStringAsFixed(2)}';
   }
-}
 
-class _Product {
-  final String id;
-  final String name;
-  final String category;
-  final int price;
-  final IconData icon;
-
-  const _Product({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.price,
-    required this.icon,
-  });
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 }
