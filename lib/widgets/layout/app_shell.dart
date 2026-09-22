@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/app_user_profile.dart';
 import 'app_sidebar.dart';
 
+class AppNavigationItem {
+  final String label;
+  final IconData icon;
+
+  const AppNavigationItem({
+    required this.label,
+    required this.icon,
+  });
+}
+
 class AppShell extends StatefulWidget {
+  final AppUserProfile profile;
+  final List<AppNavigationItem> items;
   final List<Widget> pages;
+  final Future<void> Function() onSignOut;
 
   const AppShell({
     super.key,
+    required this.profile,
+    required this.items,
     required this.pages,
+    required this.onSignOut,
   });
 
   @override
@@ -19,14 +36,28 @@ class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
   @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (_selectedIndex >= widget.pages.length) {
+      _selectedIndex = 0;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.gray100,
       body: Row(
         children: [
           AppSidebar(
+            profile: widget.profile,
+            items: widget.items,
             selectedIndex: _selectedIndex,
-            onItemSelected: (index) => setState(() => _selectedIndex = index),
+            onItemSelected: (index) {
+              setState(() => _selectedIndex = index);
+            },
+            onSignOut: widget.onSignOut,
           ),
           Expanded(
             child: IndexedStack(
