@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
-import 'data/repositories/mock_expense_repository.dart';
+import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
+import 'data/repositories/supabase_supplier_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/order_repository.dart';
+import 'domain/repositories/supplier_repository.dart';
 import 'models/app_navigation_item.dart';
 import 'models/app_user_profile.dart';
 import 'screens/auth/auth_gate.dart';
@@ -32,13 +34,15 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final OrderRepository _orderRepository;
   late final InventoryRepository _inventoryRepository;
   late final ExpenseRepository _expenseRepository;
+  late final SupplierRepository _supplierRepository;
 
   @override
   void initState() {
     super.initState();
     _orderRepository = SupabaseOrderRepository();
     _inventoryRepository = SupabaseInventoryRepository();
-    _expenseRepository = MockExpenseRepository();
+    _expenseRepository = SupabaseExpenseRepository();
+    _supplierRepository = SupabaseSupplierRepository();
   }
 
   @override
@@ -104,7 +108,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
         ExpensesScreen(expenseRepository: _expenseRepository),
         const SalesFinanceScreen(),
         const ReportsScreen(),
-        const SuppliersScreen(),
+        SuppliersScreen(supplierRepository: _supplierRepository),
         const UsersScreen(),
       ],
     ];
