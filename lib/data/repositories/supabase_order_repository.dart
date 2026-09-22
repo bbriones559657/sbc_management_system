@@ -105,6 +105,22 @@ class SupabaseOrderRepository implements OrderRepository {
   }
 
   @override
+  Future<void> endShift({
+    required String shiftId,
+    double? closingCashCounted,
+    String notes = '',
+  }) async {
+    await _client.rpc(
+      'end_shift',
+      params: {
+        'p_shift_id': shiftId,
+        'p_closing_cash_counted': closingCashCounted,
+        'p_notes': _nullable(notes),
+      },
+    );
+  }
+
+  @override
   Future<OrderRecord> placeOrder({
     required String orderType,
     required List<PosCheckoutItem> items,
