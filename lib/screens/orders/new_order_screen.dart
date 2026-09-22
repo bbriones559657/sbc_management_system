@@ -564,13 +564,27 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            product.variantName == 'Regular'
+            product.variantName.trim().isEmpty
                 ? product.category
                 : '${product.category} • ${product.variantName}',
             style: AppTextStyles.caption,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          if (product.tracksInventory) ...[
+            const SizedBox(height: 4),
+            Text(
+              product.isOutOfStock
+                  ? 'Out of stock'
+                  : '${product.availableQuantity?.toStringAsFixed(0) ?? '0'} available',
+              style: AppTextStyles.caption.copyWith(
+                color: product.isOutOfStock
+                    ? AppColors.primary
+                    : AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           const Spacer(),
           Row(
             children: [
@@ -582,7 +596,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               SizedBox(
                 height: 34,
                 child: OutlinedButton.icon(
-                  onPressed: () => _addItem(product.variantId),
+                  onPressed: product.isOutOfStock
+                      ? null
+                      : () => _addItem(product),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                 ),
@@ -736,10 +752,18 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 Text(product.name, style: AppTextStyles.bodyMedium),
                 const SizedBox(height: 3),
                 Text(
+                  '${product.variantName} • '
                   '${_money(product.price)} each • '
                   '${_money(product.price * quantity)}',
                   style: AppTextStyles.caption,
                 ),
+                if (product.tracksInventory)
+                  Text(
+                    '${product.availableQuantity?.toStringAsFixed(0) ?? '0'} available',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -756,7 +780,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => _addItem(product.variantId),
+            onPressed: () => _addItem(product),
             icon: const Icon(Icons.add_circle_outline, size: 20),
           ),
           IconButton(
@@ -1100,9 +1124,26 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return null;
   }
 
-  void _addItem(String variantId) {
+  void _addItem(PosMenuItem product) {
+    final current = _cart[product.variantId] ?? 0;
+    final available = product.availableQuantity;
+
+    if (product.tracksInventory &&
+        available != null &&
+        current + 1 > available) {
+      _showError(
+        '${product.name} (${product.variantName}) only has '
+        '${available.toStringAsFixed(0)} available.',
+      );
+      return;
+    }
+
     setState(() {
-      _cart.update(variantId, (quantity) => quantity + 1, ifAbsent: () => 1);
+      _cart.update(
+        product.variantId,
+        (quantity) => quantity + 1,
+        ifAbsent: () => 1,
+      );
     });
   }
 
