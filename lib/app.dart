@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
+import 'data/repositories/supabase_dashboard_repository.dart';
 import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
+import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/order_repository.dart';
@@ -31,6 +33,7 @@ class StreetBowlApp extends StatefulWidget {
 }
 
 class _StreetBowlAppState extends State<StreetBowlApp> {
+  late final DashboardRepository _dashboardRepository;
   late final OrderRepository _orderRepository;
   late final InventoryRepository _inventoryRepository;
   late final ExpenseRepository _expenseRepository;
@@ -39,6 +42,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   @override
   void initState() {
     super.initState();
+    _dashboardRepository = SupabaseDashboardRepository();
     _orderRepository = SupabaseOrderRepository();
     _inventoryRepository = SupabaseInventoryRepository();
     _expenseRepository = SupabaseExpenseRepository();
@@ -98,7 +102,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     ];
 
     final pages = <Widget>[
-      DashboardScreen(orderRepository: _orderRepository),
+      DashboardScreen(
+        orderRepository: _orderRepository,
+        dashboardRepository: _dashboardRepository,
+      ),
       OrdersScreen(orderRepository: _orderRepository),
       InventoryScreen(
         inventoryRepository: _inventoryRepository,
