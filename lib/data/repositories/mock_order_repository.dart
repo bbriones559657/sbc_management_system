@@ -1,5 +1,8 @@
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
+import '../../models/pos_checkout.dart';
+import '../../models/pos_menu_item.dart';
+import '../../models/pos_payment_method.dart';
 import '../mock_data.dart';
 
 class MockOrderRepository implements OrderRepository {
@@ -25,7 +28,7 @@ class MockOrderRepository implements OrderRepository {
 
   @override
   Future<void> updateOrder(OrderRecord order) async {
-    final index = _orders.indexWhere((item) => item.id == order.id);
+    final index = _orders.indexWhere((entry) => entry.id == order.id);
     if (index == -1) return;
     _orders[index] = order;
   }
@@ -36,7 +39,7 @@ class MockOrderRepository implements OrderRepository {
     String reason = '',
     String authorizedBy = '',
   }) async {
-    final index = _orders.indexWhere((item) => item.id == id);
+    final index = _orders.indexWhere((entry) => entry.id == id);
     if (index == -1) return;
 
     _orders[index] = _orders[index].copyWith(
@@ -52,7 +55,7 @@ class MockOrderRepository implements OrderRepository {
     String reason = '',
     String authorizedBy = '',
   }) async {
-    final index = _orders.indexWhere((item) => item.id == id);
+    final index = _orders.indexWhere((entry) => entry.id == id);
     if (index == -1) return;
 
     _orders[index] = _orders[index].copyWith(
@@ -60,5 +63,30 @@ class MockOrderRepository implements OrderRepository {
       lastActionReason: reason,
       authorizedBy: authorizedBy,
     );
+  }
+
+  @override
+  Future<List<PosMenuItem>> getPosMenu() async => const [];
+
+  @override
+  Future<List<PosPaymentMethod>> getPaymentMethods() async => const [];
+
+  @override
+  Future<String?> getOpenShiftId() async => 'mock-shift';
+
+  @override
+  Future<String> startShift({double? openingCash}) async => 'mock-shift';
+
+  @override
+  Future<OrderRecord> placeOrder({
+    required String orderType,
+    required List<PosCheckoutItem> items,
+    required List<PosPaymentInput> payments,
+    String tableNumber = '',
+    String customerName = '',
+    String deliveryReference = '',
+    String notes = '',
+  }) {
+    throw UnimplementedError('Mock POS placement is not used by the live app.');
   }
 }
