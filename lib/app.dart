@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
 import 'data/repositories/mock_expense_repository.dart';
-import 'data/repositories/mock_order_repository.dart';
+import 'data/repositories/supabase_order_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/order_repository.dart';
 import 'models/app_navigation_item.dart';
@@ -33,7 +33,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   @override
   void initState() {
     super.initState();
-    _orderRepository = MockOrderRepository();
+    _orderRepository = SupabaseOrderRepository();
     _expenseRepository = MockExpenseRepository();
   }
 
