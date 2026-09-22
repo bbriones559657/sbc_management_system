@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/app_navigation_item.dart';
 import '../../models/app_user_profile.dart';
-import 'app_shell.dart';
 
 class AppSidebar extends StatelessWidget {
   final AppUserProfile profile;
