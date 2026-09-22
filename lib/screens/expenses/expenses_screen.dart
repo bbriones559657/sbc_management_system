@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../../models/expense_record.dart';
@@ -19,7 +20,20 @@ class ExpensesScreen extends StatefulWidget {
 
 class _ExpensesScreenState extends State<ExpensesScreen> {
   List<ExpenseRecord> _expenses = [];
+  List<ExpenseRecord> _filteredExpenses = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+  String _selectedCategory = 'All Categories';
+
+  final List<String> _categories = [
+    'All Categories',
+    'Ingredients',
+    'Utilities',
+    'Supplies',
+    'Equipment',
+    'Maintenance',
+    'Others',
+  ];
 
   @override
   void initState() {
@@ -32,12 +46,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final expenses = await widget.expenseRepository.getExpenses();
     setState(() {
       _expenses = expenses;
+      _filteredExpenses = expenses;
       _isLoading = false;
     });
   }
 
+  void _filterExpenses() {
+    setState(() {
+      _filteredExpenses = _expenses.where((expense) {
+        final matchesSearch =
+            _searchQuery.isEmpty ||
+            expense.description.toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            ) ||
+            expense.category.toLowerCase().contains(_searchQuery.toLowerCase());
+
+        final matchesCategory =
+            _selectedCategory == 'All Categories' ||
+            expense.category == _selectedCategory;
+
+        return matchesSearch && matchesCategory;
+      }).toList();
+    });
+  }
+
   int _calculateTotalExpenses() {
-    return _expenses.fold(0, (sum, expense) => sum + expense.amount);
+    return _filteredExpenses.fold(0, (sum, expense) => sum + expense.amount);
   }
 
   @override
@@ -62,38 +96,37 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: TextField(
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Search expense...',
                   ),
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value);
+                    _filterExpenses();
+                  },
                 ),
               ),
               const SizedBox(width: 12),
               SizedBox(
                 width: 180,
                 child: DropdownButtonFormField<String>(
-                  initialValue: 'All Categories',
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'All Categories',
-                      child: Text('All Categories'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Ingredients',
-                      child: Text('Ingredients'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Utilities',
-                      child: Text('Utilities'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Supplies',
-                      child: Text('Supplies'),
-                    ),
-                  ],
-                  onChanged: (_) {},
+                  value: _selectedCategory,
+                  items: _categories
+                      .map(
+                        (category) => DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedCategory = value);
+                      _filterExpenses();
+                    }
+                  },
                 ),
               ),
             ],
@@ -109,9 +142,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       'Description',
                       'Category',
                       'Amount',
+                      'Actions',
                     ],
-                    flexes: const [2, 4, 3, 2],
-                    rows: _expenses
+                    flexes: const [2, 4, 3, 2, 2],
+                    rows: _filteredExpenses
                         .map(
                           (expense) => [
                             Text(expense.date, style: AppTextStyles.bodyMedium),
@@ -123,6 +157,23 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             Text(
                               '₱${expense.amount}',
                               style: AppTextStyles.bodyMedium,
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  onPressed: () =>
+                                      _showEditExpense(context, expense),
+                                  tooltip: 'Edit',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 18),
+                                  onPressed: () =>
+                                      _confirmDeleteExpense(context, expense),
+                                  tooltip: 'Delete',
+                                ),
+                              ],
                             ),
                           ],
                         )
@@ -159,36 +210,360 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   void _showAddExpense(BuildContext context) {
     final descriptionController = TextEditingController();
     final amountController = TextEditingController();
-    final categoryController = TextEditingController();
+    final notesController = TextEditingController();
+    String selectedCategory = 'Ingredients';
+    final customCategoryController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Expense', style: AppTextStyles.h2),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                dialogField(
+                  'Description',
+                  hint: 'Enter description',
+                  controller: descriptionController,
+                ),
+                dialogField(
+                  'Amount',
+                  hint: 'Enter amount',
+                  controller: amountController,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Category',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.gray700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedCategory,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Ingredients',
+                            child: Text('Ingredients'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Utilities',
+                            child: Text('Utilities'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Supplies',
+                            child: Text('Supplies'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Equipment',
+                            child: Text('Equipment'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Maintenance',
+                            child: Text('Maintenance'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Others',
+                            child: Text('Others'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Custom',
+                            child: Text('Custom...'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedCategory = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                if (selectedCategory == 'Custom')
+                  dialogField(
+                    'Custom Category',
+                    hint: 'Enter category name',
+                    controller: customCategoryController,
+                  ),
+                dialogField(
+                  'Notes',
+                  hint: 'Optional notes...',
+                  maxLines: 3,
+                  controller: notesController,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final description = descriptionController.text.trim();
+                final amountText = amountController.text.trim();
+                final category = selectedCategory == 'Custom'
+                    ? customCategoryController.text.trim()
+                    : selectedCategory;
+
+                if (description.isEmpty ||
+                    amountText.isEmpty ||
+                    category.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in all required fields'),
+                    ),
+                  );
+                  return;
+                }
+
+                final amount = int.tryParse(amountText);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid amount'),
+                    ),
+                  );
+                  return;
+                }
+
+                final now = DateTime.now();
+                final months = [
+                  'Jan',
+                  'Feb',
+                  'Mar',
+                  'Apr',
+                  'May',
+                  'Jun',
+                  'Jul',
+                  'Aug',
+                  'Sep',
+                  'Oct',
+                  'Nov',
+                  'Dec',
+                ];
+                final dateStr = '${months[now.month - 1]} ${now.day}';
+
+                final newExpense = ExpenseRecord(
+                  id: 'EXP-${DateTime.now().millisecondsSinceEpoch}',
+                  date: dateStr,
+                  description: description,
+                  category: category,
+                  amount: amount,
+                );
+
+                await widget.expenseRepository.createExpense(newExpense);
+                await _loadExpenses();
+
+                if (context.mounted) {
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Expense added successfully')),
+                  );
+                }
+              },
+              child: const Text('Save Expense'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditExpense(BuildContext context, ExpenseRecord expense) {
+    final descriptionController = TextEditingController(
+      text: expense.description,
+    );
+    final amountController = TextEditingController(
+      text: expense.amount.toString(),
+    );
     final notesController = TextEditingController();
 
+    String selectedCategory = _categories.contains(expense.category)
+        ? expense.category
+        : 'Custom';
+    final customCategoryController = TextEditingController(
+      text: _categories.contains(expense.category) ? '' : expense.category,
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Expense', style: AppTextStyles.h2),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                dialogField(
+                  'Description',
+                  hint: 'Enter description',
+                  controller: descriptionController,
+                ),
+                dialogField(
+                  'Amount',
+                  hint: 'Enter amount',
+                  controller: amountController,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Category',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.gray700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedCategory,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Ingredients',
+                            child: Text('Ingredients'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Utilities',
+                            child: Text('Utilities'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Supplies',
+                            child: Text('Supplies'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Equipment',
+                            child: Text('Equipment'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Maintenance',
+                            child: Text('Maintenance'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Others',
+                            child: Text('Others'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Custom',
+                            child: Text('Custom...'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedCategory = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                if (selectedCategory == 'Custom')
+                  dialogField(
+                    'Custom Category',
+                    hint: 'Enter category name',
+                    controller: customCategoryController,
+                  ),
+                dialogField(
+                  'Notes',
+                  hint: 'Optional notes...',
+                  maxLines: 3,
+                  controller: notesController,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final description = descriptionController.text.trim();
+                final amountText = amountController.text.trim();
+                final category = selectedCategory == 'Custom'
+                    ? customCategoryController.text.trim()
+                    : selectedCategory;
+
+                if (description.isEmpty ||
+                    amountText.isEmpty ||
+                    category.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in all required fields'),
+                    ),
+                  );
+                  return;
+                }
+
+                final amount = int.tryParse(amountText);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid amount'),
+                    ),
+                  );
+                  return;
+                }
+
+                final updatedExpense = expense.copyWith(
+                  description: description,
+                  category: category,
+                  amount: amount,
+                );
+
+                await widget.expenseRepository.updateExpense(updatedExpense);
+                await _loadExpenses();
+
+                if (context.mounted) {
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Expense updated successfully'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Update Expense'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteExpense(BuildContext context, ExpenseRecord expense) {
     showPrototypeDialog(
       context: context,
-      title: 'Add Expense',
+      title: 'Delete Expense',
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          dialogField(
-            'Description',
-            hint: 'Enter description',
-            controller: descriptionController,
+          const Text(
+            'Are you sure you want to delete this expense?',
+            style: AppTextStyles.body,
           ),
-          dialogField(
-            'Amount',
-            hint: 'Enter amount',
-            controller: amountController,
+          const SizedBox(height: 16),
+          Text(
+            'Description: ${expense.description}',
+            style: AppTextStyles.bodyMedium,
           ),
-          dialogField(
-            'Category',
-            hint: 'Ingredients / Utilities / Supplies',
-            controller: categoryController,
-          ),
-          dialogField(
-            'Notes',
-            hint: 'Optional notes...',
-            maxLines: 3,
-            controller: notesController,
-          ),
+          Text('Category: ${expense.category}', style: AppTextStyles.body),
+          Text('Amount: ₱${expense.amount}', style: AppTextStyles.body),
         ],
       ),
       actions: [
@@ -198,63 +573,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final description = descriptionController.text.trim();
-            final amountText = amountController.text.trim();
-            final category = categoryController.text.trim();
-
-            if (description.isEmpty || amountText.isEmpty || category.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please fill in all required fields'),
-                ),
-              );
-              return;
-            }
-
-            final amount = int.tryParse(amountText);
-            if (amount == null || amount <= 0) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a valid amount')),
-              );
-              return;
-            }
-
-            final now = DateTime.now();
-            final months = [
-              'Jan',
-              'Feb',
-              'Mar',
-              'Apr',
-              'May',
-              'Jun',
-              'Jul',
-              'Aug',
-              'Sep',
-              'Oct',
-              'Nov',
-              'Dec',
-            ];
-            final dateStr = '${months[now.month - 1]} ${now.day}';
-
-            final newExpense = ExpenseRecord(
-              id: 'EXP-${DateTime.now().millisecondsSinceEpoch}',
-              date: dateStr,
-              description: description,
-              category: category,
-              amount: amount,
-            );
-
-            await widget.expenseRepository.createExpense(newExpense);
+            await widget.expenseRepository.deleteExpense(expense.id);
             await _loadExpenses();
 
             if (context.mounted) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Expense added successfully')),
+                const SnackBar(content: Text('Expense deleted successfully')),
               );
             }
           },
-          child: const Text('Save Expense'),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+          child: const Text('Delete'),
         ),
       ],
     );
