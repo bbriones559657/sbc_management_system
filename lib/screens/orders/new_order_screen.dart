@@ -44,6 +44,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   String? _openShiftId;
   bool _loadingShift = true;
   bool _startingShift = false;
+  bool _endingShift = false;
   bool _submittingOrder = false;
 
   @override
@@ -102,6 +103,153 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         setState(() => _startingShift = false);
       }
     }
+  }
+
+
+  Future<void> _showEndShiftDialog() async {
+    final shiftId = _openShiftId;
+    if (shiftId == null || _endingShift) return;
+
+    final closingCashController = TextEditingController();
+    final notesController = TextEditingController();
+    String? errorMessage;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'End Shift',
+      width: 520,
+      content: StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          updateDialogState = setDialogState;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.gray100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.gray200),
+                ),
+                child: Text(
+                  'Ending the shift will close this cashier session. '
+                  'You can start a new shift later.',
+                  style: AppTextStyles.body,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: closingCashController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Closing Cash Count',
+                  prefixText: '₱',
+                  helperText:
+                      'Optional for now. Leave blank if you are not counting cash yet.',
+                ),
+                onChanged: (_) {
+                  updateDialogState?.call(() => errorMessage = null);
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Closing Notes',
+                  hintText: 'Optional notes...',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: _endingShift ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _endingShift
+              ? null
+              : () async {
+                  final cashText = closingCashController.text.trim();
+                  final closingCash =
+                      cashText.isEmpty ? null : double.tryParse(cashText);
+
+                  if (cashText.isNotEmpty && closingCash == null) {
+                    updateDialogState?.call(() {
+                      errorMessage = 'Enter a valid closing cash amount.';
+                    });
+                    return;
+                  }
+
+                  setState(() => _endingShift = true);
+
+                  try {
+                    await widget.orderRepository.endShift(
+                      shiftId: shiftId,
+                      closingCashCounted: closingCash,
+                      notes: notesController.text.trim(),
+                    );
+
+                    if (!mounted) return;
+
+                    Navigator.pop(context);
+
+                    setState(() {
+                      _openShiftId = null;
+                      _cart.clear();
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Shift ended successfully.'),
+                      ),
+                    );
+                  } on PostgrestException catch (error) {
+                    if (!mounted) return;
+                    updateDialogState?.call(() {
+                      errorMessage = error.message;
+                    });
+                  } catch (error) {
+                    if (!mounted) return;
+                    updateDialogState?.call(() {
+                      errorMessage = error.toString();
+                    });
+                  } finally {
+                    if (mounted) {
+                      setState(() => _endingShift = false);
+                    }
+                  }
+                },
+          child: _endingShift
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('End Shift'),
+        ),
+      ],
+    );
+
+    closingCashController.dispose();
+    notesController.dispose();
   }
 
   List<PosMenuItem> _filteredMenu(List<PosMenuItem> menu) {
@@ -233,18 +381,35 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
 
     if (_openShiftId != null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAF7EE),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          'Shift Active',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.success,
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF7EE),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Shift Active',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.success,
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: _endingShift ? null : _showEndShiftDialog,
+            icon: _endingShift
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.stop_circle_outlined, size: 18),
+            label: Text(_endingShift ? 'Ending...' : 'End Shift'),
+          ),
+        ],
       );
     }
 
