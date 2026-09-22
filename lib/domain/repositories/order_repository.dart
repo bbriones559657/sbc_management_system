@@ -9,5 +9,15 @@ abstract class OrderRepository {
 
   Future<void> updateOrder(OrderRecord order);
 
-  Future<void> voidOrder(String id);
+  Future<void> voidOrder(
+    String id, {
+    String reason = '',
+    String authorizedBy = '',
+  });
+
+  Future<void> refundOrder(
+    String id, {
+    String reason = '',
+    String authorizedBy = '',
+  });
 }

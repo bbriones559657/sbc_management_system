@@ -31,9 +31,34 @@ class MockOrderRepository implements OrderRepository {
   }
 
   @override
-  Future<void> voidOrder(String id) async {
+  Future<void> voidOrder(
+    String id, {
+    String reason = '',
+    String authorizedBy = '',
+  }) async {
     final index = _orders.indexWhere((item) => item.id == id);
     if (index == -1) return;
-    _orders[index] = _orders[index].copyWith(status: 'Void');
+
+    _orders[index] = _orders[index].copyWith(
+      status: 'Void',
+      lastActionReason: reason,
+      authorizedBy: authorizedBy,
+    );
+  }
+
+  @override
+  Future<void> refundOrder(
+    String id, {
+    String reason = '',
+    String authorizedBy = '',
+  }) async {
+    final index = _orders.indexWhere((item) => item.id == id);
+    if (index == -1) return;
+
+    _orders[index] = _orders[index].copyWith(
+      status: 'Refunded',
+      lastActionReason: reason,
+      authorizedBy: authorizedBy,
+    );
   }
 }

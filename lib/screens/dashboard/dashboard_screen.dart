@@ -24,7 +24,9 @@ class DashboardScreen extends StatelessWidget {
       title: 'Dashboard',
       action: ElevatedButton.icon(
         onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const NewOrderScreen()),
+          MaterialPageRoute(
+            builder: (_) => NewOrderScreen(orderRepository: orderRepository),
+          ),
         ),
         icon: const Icon(Icons.add, size: 18),
         label: const Text('New Order'),
