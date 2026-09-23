@@ -15,6 +15,15 @@ abstract class InventoryRepository {
     int limit = 8,
   });
 
+  Future<List<InventoryLotRecord>> getLots(String inventoryItemId);
+
+  Future<void> disposeLot({
+    required String inventoryLotId,
+    required String movementType,
+    required double quantity,
+    required String reason,
+  });
+
   Future<void> createInventoryItemWithInitialStock({
     required String name,
     required String categoryId,
