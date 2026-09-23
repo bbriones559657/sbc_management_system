@@ -21,3 +21,20 @@ abstract class OrderRepository {
     String authorizedBy = '',
   });
 }
+
+class InsufficientStockException implements Exception {
+  final String productName;
+  final int requestedQuantity;
+  final int availableQuantity;
+
+  const InsufficientStockException({
+    required this.productName,
+    required this.requestedQuantity,
+    required this.availableQuantity,
+  });
+
+  @override
+  String toString() =>
+      'Only $availableQuantity $productName item(s) are available; '
+      '$requestedQuantity requested.';
+}

@@ -4,6 +4,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
+import '../../domain/repositories/product_repository.dart';
+import '../../models/menu_product.dart';
 import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../widgets/common/app_dialog.dart';
@@ -12,8 +14,13 @@ import '../../widgets/layout/header_brand_motif.dart';
 
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final ProductRepository productRepository;
 
-  const NewOrderScreen({super.key, required this.orderRepository});
+  const NewOrderScreen({
+    super.key,
+    required this.orderRepository,
+    required this.productRepository,
+  });
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -30,83 +37,20 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       TextEditingController();
 
   final Map<String, int> _cart = {};
+  final Map<String, int?> _availableQuantities = {};
   late final DateTime _orderCreatedAt;
+  List<MenuProduct> _products = [];
+  bool _isLoadingProducts = true;
 
   String _selectedCategory = 'All';
   String _orderType = 'Dine In';
   String _searchQuery = '';
 
-  static const List<_Product> _products = [
-    _Product(
-      id: 'PRD-001',
-      name: 'Chicken Bowl',
-      category: 'Rice Bowls',
-      price: 150,
-      icon: Icons.rice_bowl_outlined,
-    ),
-    _Product(
-      id: 'PRD-002',
-      name: 'Beef Bowl',
-      category: 'Rice Bowls',
-      price: 170,
-      icon: Icons.rice_bowl,
-    ),
-    _Product(
-      id: 'PRD-003',
-      name: 'Iced Coffee',
-      category: 'Coffee',
-      price: 150,
-      icon: Icons.coffee_outlined,
-    ),
-    _Product(
-      id: 'PRD-004',
-      name: 'Hot Coffee',
-      category: 'Coffee',
-      price: 120,
-      icon: Icons.local_cafe_outlined,
-    ),
-    _Product(
-      id: 'PRD-005',
-      name: 'Bottled Water',
-      category: 'Beverages',
-      price: 40,
-      icon: Icons.local_drink_outlined,
-    ),
-    _Product(
-      id: 'PRD-006',
-      name: 'Chocolate Cake',
-      category: 'Baked Goods',
-      price: 180,
-      icon: Icons.cake_outlined,
-    ),
-    _Product(
-      id: 'PRD-007',
-      name: 'Cookie',
-      category: 'Baked Goods',
-      price: 50,
-      icon: Icons.cookie_outlined,
-    ),
-    _Product(
-      id: 'PRD-008',
-      name: 'Canned Soda',
-      category: 'Beverages',
-      price: 60,
-      icon: Icons.local_drink,
-    ),
-  ];
-
-  static const List<String> _categories = [
-    'All',
-    'Rice Bowls',
-    'Coffee',
-    'Beverages',
-    'Baked Goods',
-  ];
-
   @override
   void initState() {
     super.initState();
     _orderCreatedAt = DateTime.now();
+    _loadProducts();
   }
 
   @override
@@ -118,7 +62,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.dispose();
   }
 
-  List<_Product> get _filteredProducts {
+  List<String> get _categories => [
+    'All',
+    ..._products.map((product) => product.category).toSet(),
+  ];
+
+  List<MenuProduct> get _filteredProducts {
     return _products.where((product) {
       final categoryMatches =
           _selectedCategory == 'All' || product.category == _selectedCategory;
@@ -127,6 +76,23 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       );
       return categoryMatches && searchMatches;
     }).toList();
+  }
+
+  Future<void> _loadProducts() async {
+    final products = await widget.productRepository.getProducts();
+    final quantities = <String, int?>{};
+    for (final product in products) {
+      quantities[product.id] =
+          await widget.productRepository.getAvailableQuantity(product.id);
+    }
+    if (!mounted) return;
+    setState(() {
+      _products = products;
+      _availableQuantities
+        ..clear()
+        ..addAll(quantities);
+      _isLoadingProducts = false;
+    });
   }
 
   int get _total {
@@ -241,7 +207,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: products.isEmpty
+          child: _isLoadingProducts
+              ? const Center(child: CircularProgressIndicator())
+              : products.isEmpty
               ? const Center(child: Text('No products found.'))
               : GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -261,7 +229,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildProductCard(_Product product) {
+  Widget _buildProductCard(MenuProduct product) {
+    final available = _availableQuantities[product.id];
+    final soldOut = available != null && available <= 0;
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +243,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(product.icon, color: AppColors.primary, size: 22),
+            child: Icon(
+              _iconForCategory(product.category),
+              color: AppColors.primary,
+              size: 22,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
@@ -284,6 +258,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
           const SizedBox(height: 2),
           Text(product.category, style: AppTextStyles.caption),
+          if (available != null)
+            Text(
+              soldOut ? 'Out of stock' : '$available available',
+              style: AppTextStyles.caption.copyWith(
+                color: soldOut ? AppColors.error : AppColors.gray700,
+              ),
+            ),
           const Spacer(),
           Row(
             children: [
@@ -295,7 +276,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               SizedBox(
                 height: 34,
                 child: OutlinedButton.icon(
-                  onPressed: () => _addItem(product.id),
+                  onPressed: soldOut ? null : () => _addItem(product.id),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                 ),
@@ -434,7 +415,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildCartItem(_Product product, int quantity) {
+  Widget _buildCartItem(MenuProduct product, int quantity) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -505,6 +486,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   void _addItem(String productId) {
+    final available = _availableQuantities[productId];
+    final cartQuantity = _cart[productId] ?? 0;
+    if (available != null && cartQuantity >= available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Only $available item(s) are available.')),
+      );
+      return;
+    }
     setState(() {
       _cart.update(productId, (quantity) => quantity + 1, ifAbsent: () => 1);
     });
@@ -527,7 +516,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     setState(() => _cart.remove(productId));
   }
 
-  _Product? _productById(String productId) {
+  MenuProduct? _productById(String productId) {
     for (final product in _products) {
       if (product.id == productId) return product;
     }
@@ -740,10 +729,19 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               return;
             }
 
-            final order = await _createOrder(
-              paymentMethod: paymentMethod,
-              amountReceived: paymentMethod == 'Cash' ? received : _total,
-            );
+            OrderRecord order;
+            try {
+              order = await _createOrder(
+                paymentMethod: paymentMethod,
+                amountReceived: paymentMethod == 'Cash' ? received : _total,
+              );
+            } on InsufficientStockException catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.toString();
+              });
+              await _loadProducts();
+              return;
+            }
 
             if (!mounted) return;
             Navigator.pop(context);
@@ -926,20 +924,17 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     if (hour == 0) hour = 12;
     return '$hour:$minute $period';
   }
-}
 
-class _Product {
-  final String id;
-  final String name;
-  final String category;
-  final int price;
-  final IconData icon;
-
-  const _Product({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.price,
-    required this.icon,
-  });
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case 'Rice Bowls':
+        return Icons.rice_bowl_outlined;
+      case 'Coffee':
+        return Icons.coffee_outlined;
+      case 'Baked Goods':
+        return Icons.cake_outlined;
+      default:
+        return Icons.local_drink_outlined;
+    }
+  }
 }

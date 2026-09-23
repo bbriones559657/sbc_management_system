@@ -55,14 +55,14 @@ class MockData {
       employee: 'Josh',
       employeeId: 'USR-003',
       type: 'Delivery',
-      amount: 740,
+      amount: 750,
       status: 'Open',
       customerName: 'Andrea',
       deliveryReference: 'Phone order',
       items: const [
         OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
         OrderItem(productId: 'PRD-006', productName: 'Chocolate Cake', unitPrice: 180, quantity: 2),
-        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 1),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 50, quantity: 1),
       ],
     ),
     OrderRecord(
@@ -71,7 +71,7 @@ class MockData {
       employee: 'Brian',
       employeeId: 'USR-004',
       type: 'Take Out',
-      amount: 420,
+      amount: 440,
       status: 'Completed',
       customerName: 'Paolo',
       paymentMethod: 'Cash',
@@ -79,7 +79,7 @@ class MockData {
       changeAmount: 80,
       items: const [
         OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
-        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 2),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 50, quantity: 2),
       ],
     ),
     OrderRecord(
@@ -88,7 +88,7 @@ class MockData {
       employee: 'Carl',
       employeeId: 'USR-002',
       type: 'Dine In',
-      amount: 680,
+      amount: 690,
       status: 'Completed',
       tableNumber: '2',
       paymentMethod: 'Card',
@@ -97,7 +97,7 @@ class MockData {
       items: const [
         OrderItem(productId: 'PRD-001', productName: 'Chicken Bowl', unitPrice: 150, quantity: 2),
         OrderItem(productId: 'PRD-002', productName: 'Beef Bowl', unitPrice: 170, quantity: 2),
-        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 40, quantity: 1),
+        OrderItem(productId: 'PRD-005', productName: 'Bottled Water', unitPrice: 50, quantity: 1),
       ],
     ),
   ];
@@ -107,7 +107,7 @@ class MockData {
       id: 'BAT-001',
       itemId: 'INV-001',
       batchNumber: 'BTL-001',
-      quantity: 12,
+      quantity: 8,
       unitCost: 25.0,
       supplier: 'Café Supplies',
       supplierId: 'SUP-003',
@@ -152,7 +152,7 @@ class MockData {
       id: 'BAT-005',
       itemId: 'INV-003',
       batchNumber: 'CHK-002',
-      quantity: 1,
+      quantity: 0,
       unitCost: 180.0,
       supplier: 'ABC Foods',
       supplierId: 'SUP-001',
@@ -176,7 +176,7 @@ class MockData {
       id: 'BAT-007',
       itemId: 'INV-004',
       batchNumber: 'COF-002',
-      quantity: 300,
+      quantity: 150,
       unitCost: 2.5,
       supplier: 'ABC Foods',
       supplierId: 'SUP-001',
@@ -500,7 +500,7 @@ class MockData {
   static const suppliers = [
     SupplierRecord(id: 'SUP-001', name: 'ABC Foods', contact: '0917-123-4567', itemsSupplied: 'Ingredients', status: 'Active'),
     SupplierRecord(id: 'SUP-002', name: 'Fresh Dairy', contact: '0918-234-5678', itemsSupplied: 'Dairy Products', status: 'Active'),
-    SupplierRecord(id: 'SUP-003', name: 'Café Supplies', contact: '0919-345-6789', itemsSupplied: 'Packaging', status: 'Active'),
+    SupplierRecord(id: 'SUP-003', name: 'Café Supplies', contact: '0919-345-6789', itemsSupplied: 'Beverages and Packaging', status: 'Active'),
     SupplierRecord(id: 'SUP-004', name: 'Local Bakery', contact: '0920-456-7890', itemsSupplied: 'Baked Goods', status: 'Active'),
   ];
 

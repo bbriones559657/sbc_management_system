@@ -4,11 +4,17 @@ import '../../models/inventory_item.dart';
 import '../../models/movement.dart';
 import '../../models/supplier_record.dart';
 import '../mock_data.dart';
+import '../prototype_data_store.dart';
 
 class MockInventoryRepository implements InventoryRepository {
-  final List<InventoryItem> _items = List<InventoryItem>.from(MockData.inventory);
-  final List<Batch> _batches = List<Batch>.from(MockData.batches);
-  final List<Movement> _movements = List<Movement>.from(MockData.movements);
+  MockInventoryRepository([PrototypeDataStore? store])
+      : _store = store ?? PrototypeDataStore();
+
+  final PrototypeDataStore _store;
+
+  List<InventoryItem> get _items => _store.inventoryItems;
+  List<Batch> get _batches => _store.batches;
+  List<Movement> get _movements => _store.movements;
 
   @override
   Future<List<InventoryItem>> getInventoryItems() async {
@@ -26,6 +32,7 @@ class MockInventoryRepository implements InventoryRepository {
   @override
   Future<void> createInventoryItem(InventoryItem item) async {
     _items.add(item);
+    _store.markChanged();
   }
 
   @override
@@ -33,6 +40,7 @@ class MockInventoryRepository implements InventoryRepository {
     final index = _items.indexWhere((entry) => entry.id == item.id);
     if (index == -1) return;
     _items[index] = item;
+    _store.markChanged();
   }
 
   @override
@@ -40,6 +48,7 @@ class MockInventoryRepository implements InventoryRepository {
     final index = _items.indexWhere((item) => item.id == id);
     if (index == -1) return;
     _items[index] = _items[index].copyWith(isActive: false);
+    _store.markChanged();
   }
 
   @override
@@ -65,6 +74,7 @@ class MockInventoryRepository implements InventoryRepository {
       final updatedBatches = List<Batch>.from(_items[itemIndex].batches)..add(batch);
       _items[itemIndex] = _items[itemIndex].copyWith(batches: updatedBatches);
     }
+    _store.markChanged();
   }
 
   @override
@@ -78,6 +88,7 @@ class MockInventoryRepository implements InventoryRepository {
       final updatedBatches = _items[itemIndex].batches.map((b) => b.id == batch.id ? batch : b).toList();
       _items[itemIndex] = _items[itemIndex].copyWith(batches: updatedBatches);
     }
+    _store.markChanged();
   }
 
   @override
@@ -120,6 +131,7 @@ class MockInventoryRepository implements InventoryRepository {
     } else if (movement.movementType == 'Stock Out') {
       await _deductStockFEFO(movement.itemId, movement.quantity);
     }
+    _store.markChanged();
   }
 
   Future<void> _deductStockFEFO(String itemId, int quantityToDeduct) async {
@@ -189,7 +201,9 @@ class MockInventoryRepository implements InventoryRepository {
 
   @override
   Future<List<SupplierRecord>> getSuppliers() async {
-    return List<SupplierRecord>.unmodifiable(MockData.suppliers.where((s) => s.status == 'Active').toList());
+    return List<SupplierRecord>.unmodifiable(
+      _store.suppliers.where((supplier) => supplier.status == 'Active').toList(),
+    );
   }
 
   bool _isStockIncrease(String movementType) {

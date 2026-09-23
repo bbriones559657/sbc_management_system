@@ -27,6 +27,11 @@ The project is currently in the:
 
 The application currently uses sample/mock data.
 
+For the presentation prototype, every repository is connected to one shared
+in-memory data store. Orders, inventory, expenses, suppliers, users, dashboard,
+finance, and reports therefore read the same session data instead of maintaining
+separate mock lists.
+
 The following are not yet fully implemented:
 
 - Real database persistence
@@ -166,6 +171,12 @@ The prototype does not need to permanently save data yet.
 
 Refreshing or restarting the application may reset prototype data.
 
+The simplified prototype ERD is documented in:
+
+```text
+docs/PROTOTYPE_DATABASE_ERD.md
+```
+
 ---
 
 ## Project Structure
@@ -225,7 +236,7 @@ Screen
   ↓
 Repository
   ↓
-MockData
+Shared PrototypeDataStore
 ```
 
 Future implementation:

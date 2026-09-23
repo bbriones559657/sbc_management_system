@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
 import '../../data/repositories/mock_inventory_repository.dart';
 import '../../domain/repositories/inventory_repository.dart';
 import '../../models/batch.dart';
@@ -32,6 +31,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _selectedCategory = 'All Categories';
   String _selectedStatus = 'All Stock';
   List<String> _categories = [];
+  List<String> _itemTypes = [];
+  List<String> _uoms = [];
+  List<String> _storageLocations = [];
   List<String> _movementTypes = [];
   List<SupplierRecord> _suppliers = [];
   Map<String, InventoryItem> _itemLookup = {};
@@ -44,6 +46,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _loadItems();
     _loadDropdownData();
     _movementsFuture = _inventoryRepository.getAllMovements();
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadItems();
+    _movementsFuture = _inventoryRepository.getAllMovements();
+    _loadDropdownData();
   }
 
   void _loadItems() {
@@ -59,6 +69,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _loadDropdownData() async {
     _categories = await _inventoryRepository.getCategories();
+    _itemTypes = await _inventoryRepository.getItemTypes();
+    _uoms = await _inventoryRepository.getUoms();
+    _storageLocations = await _inventoryRepository.getStorageLocations();
     _movementTypes = await _inventoryRepository.getMovementTypes();
     _suppliers = await _inventoryRepository.getSuppliers();
     final items = await _inventoryRepository.getInventoryItems();
@@ -387,9 +400,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
       barrierDismissible: true,
       builder: (dialogContext) => _AddItemDialog(
         categories: _categories,
-        itemTypes: MockData.itemTypes,
-        uoms: MockData.uoms,
-        storageLocations: MockData.storageLocations,
+        itemTypes: _itemTypes,
+        uoms: _uoms,
+        storageLocations: _storageLocations,
         suppliers: _suppliers,
       ),
     );
@@ -408,7 +421,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         await _inventoryRepository.getInventoryItemById(item.id) ?? item;
     final batches = await _inventoryRepository.getBatchesForItem(item.id);
     final movements = await _inventoryRepository.getMovementsForItem(item.id);
-    final updatedBatches = batches.map((b) => _batches[b.id] ?? b).toList();
+    final updatedBatches = batches;
 
     if (!context.mounted) return;
 
@@ -704,16 +717,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  Map<String, Batch> get _batches {
-    final batchMap = <String, Batch>{};
-    for (final item in MockData.inventory) {
-      for (final batch in item.batches) {
-        batchMap[batch.id] = batch;
-      }
-    }
-    return batchMap;
-  }
-
   Future<void> _showReceiveStock(
     BuildContext context,
     InventoryItem item,
@@ -729,7 +732,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
 
     if (result == null) return;
-    await _inventoryRepository.createBatch(result);
+    await _inventoryRepository.createBatch(result.copyWith(quantity: 0));
 
     final receiveMovement = Movement(
       id: 'MOV-${DateTime.now().millisecondsSinceEpoch}',

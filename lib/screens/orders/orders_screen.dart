@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
+import '../../domain/repositories/product_repository.dart';
 import '../../models/order_record.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
@@ -12,10 +13,12 @@ import 'new_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final ProductRepository productRepository;
 
   const OrdersScreen({
     super.key,
     required this.orderRepository,
+    required this.productRepository,
   });
 
   @override
@@ -37,6 +40,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _loadOrders();
   }
 
+  @override
+  void didUpdateWidget(covariant OrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadOrders();
+  }
+
   void _loadOrders() {
     _ordersFuture = widget.orderRepository.getOrders();
   }
@@ -55,6 +64,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             MaterialPageRoute(
               builder: (_) => NewOrderScreen(
                 orderRepository: widget.orderRepository,
+                productRepository: widget.productRepository,
               ),
             ),
           );

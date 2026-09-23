@@ -13,7 +13,7 @@ void main() {
 
     final water = items.firstWhere((item) => item.id == 'INV-001');
     expect(water.name, 'Bottled Water');
-    expect(water.stock, '24 pcs');
+    expect(water.stock, '20 pcs');
     expect(water.status, 'In Stock');
   });
 
@@ -95,7 +95,7 @@ void main() {
 
     final water = await repository.getInventoryItemById('INV-001');
     expect(water, isNotNull);
-    expect(water!.stock, '19 pcs');
+    expect(water!.stock, '15 pcs');
   });
 
   test('mock inventory repository creates movement (Stock In) for specific batch', () async {

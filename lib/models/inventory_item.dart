@@ -47,7 +47,7 @@ class InventoryItem {
 
     DateTime? nearestExpiry;
     for (final batch in batches) {
-      if (batch.expiryDate == null) continue;
+      if (batch.quantity <= 0 || batch.expiryDate == null) continue;
       if (nearestExpiry == null ||
           batch.expiryDate!.isBefore(nearestExpiry)) {
         nearestExpiry = batch.expiryDate;

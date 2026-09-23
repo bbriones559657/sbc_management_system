@@ -41,9 +41,16 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     _loadExpenses();
   }
 
-  Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
+  @override
+  void didUpdateWidget(covariant ExpensesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadExpenses(showLoading: false);
+  }
+
+  Future<void> _loadExpenses({bool showLoading = true}) async {
+    if (showLoading && mounted) setState(() => _isLoading = true);
     final expenses = await widget.expenseRepository.getExpenses();
+    if (!mounted) return;
     setState(() {
       _expenses = expenses;
       _filteredExpenses = expenses;
