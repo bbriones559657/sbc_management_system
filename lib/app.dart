@@ -128,7 +128,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
         orderRepository: _orderRepository,
         dashboardRepository: _dashboardRepository,
       ),
-      OrdersScreen(orderRepository: _orderRepository),
+      OrdersScreen(
+        orderRepository: _orderRepository,
+        canManageOrders: !isCashier,
+      ),
       InventoryScreen(
         inventoryRepository: _inventoryRepository,
         canManageInventory: !isCashier,
