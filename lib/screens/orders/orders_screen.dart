@@ -401,6 +401,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 _showRefundDialog(context, order);
               },
             ),
+          if (order.status == 'Partially Refunded' ||
+              order.status == 'Refunded')
+            ListTile(
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: const Text('Review Refund Restock'),
+              subtitle: const Text(
+                'Only returned finished goods can be restored to stock',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showRefundRestock(context, order);
+              },
+            ),
           if (order.status == 'Open')
             ListTile(
               leading: const Icon(
@@ -717,6 +730,223 @@ class _OrdersScreenState extends State<OrdersScreen> {
     for (final controller in quantityControllers.values) {
       controller.dispose();
     }
+  }
+
+
+
+  Future<void> _showRefundRestock(
+    BuildContext context,
+    OrderRecord order,
+  ) async {
+    List<RefundRestockCandidate> candidates;
+
+    try {
+      candidates = await widget.orderRepository
+          .getRefundRestockCandidates(order.id);
+    } on PostgrestException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+      return;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Refund Restock — ${order.id}',
+      width: 700,
+      content: SizedBox(
+        height: 430,
+        child: candidates.isEmpty
+            ? const Center(
+                child: Text('No refunded items found for this order.'),
+              )
+            : ListView.separated(
+                itemCount: candidates.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 18),
+                itemBuilder: (_, index) {
+                  final item = candidates[index];
+
+                  String statusText;
+                  if (item.restockApproved) {
+                    statusText = 'Restocked';
+                  } else if (!item.eligibleForRestock) {
+                    statusText = 'Not eligible';
+                  } else {
+                    statusText = 'Awaiting decision';
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.itemName,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                            Text(
+                              item.variantName.isEmpty
+                                  ? '${_refundQty(item.refundedQuantity)} refunded'
+                                  : '${item.variantName} • ${_refundQty(item.refundedQuantity)} refunded',
+                              style: AppTextStyles.caption,
+                            ),
+                            if (item.inventoryItemName.isNotEmpty)
+                              Text(
+                                'Inventory: ${item.inventoryItemName}',
+                                style: AppTextStyles.caption,
+                              ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 135,
+                        child: StatusBadge(statusText),
+                      ),
+                      if (item.eligibleForRestock &&
+                          !item.restockApproved)
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _confirmRefundRestock(
+                              context,
+                              order,
+                              item,
+                            );
+                          },
+                          child: const Text('Restock'),
+                        ),
+                    ],
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmRefundRestock(
+    BuildContext context,
+    OrderRecord order,
+    RefundRestockCandidate candidate,
+  ) async {
+    final notesController = TextEditingController();
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Approve Restock',
+      width: 540,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Only approve this when the returned finished good is '
+                  'physically safe and suitable to return to sellable stock. '
+                  'Prepared recipe products are never restored automatically.',
+                  style: AppTextStyles.body,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _detailRow('Item', candidate.itemName),
+              _detailRow(
+                'Quantity',
+                _refundQty(candidate.refundedQuantity),
+              ),
+              _detailRow(
+                'Inventory Item',
+                candidate.inventoryItemName,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Restock Notes',
+                  hintText: 'Optional inspection or condition notes',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await widget.orderRepository.approveRefundItemRestock(
+                candidate.refundItemId,
+                notes: notesController.text.trim(),
+              );
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Returned item restored to inventory.'),
+                ),
+              );
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Approve Restock'),
+        ),
+      ],
+    );
+
+    notesController.dispose();
   }
 
 
