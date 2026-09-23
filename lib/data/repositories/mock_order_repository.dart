@@ -4,6 +4,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
 import '../mock_data.dart';
 
@@ -65,6 +66,21 @@ class MockOrderRepository implements OrderRepository {
       lastActionReason: reason,
       authorizedBy: authorizedBy,
     );
+  }
+
+  @override
+  Future<RefundPreview> getRefundPreview(String id) async {
+    throw UnsupportedError('Mock refund preview is not implemented.');
+  }
+
+  @override
+  Future<void> refundOrderItems(
+    String id, {
+    required Map<String, double> quantities,
+    required String reason,
+    String externalReference = '',
+  }) async {
+    await refundOrder(id, reason: reason);
   }
 
   @override
