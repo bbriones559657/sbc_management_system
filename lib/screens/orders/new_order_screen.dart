@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
-import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
@@ -28,11 +27,10 @@ class NewOrderScreen extends StatefulWidget {
 }
 
 class _NewOrderScreenState extends State<NewOrderScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _customerNameController = TextEditingController();
-  final TextEditingController _tableNumberController = TextEditingController();
-  final TextEditingController _deliveryReferenceController =
-      TextEditingController();
+  final _searchController = TextEditingController();
+  final _customerNameController = TextEditingController();
+  final _tableNumberController = TextEditingController();
+  final _deliveryReferenceController = TextEditingController();
 
   final List<_PosCartLine> _cart = [];
 
@@ -51,8 +49,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   @override
   void initState() {
     super.initState();
-    _menuFuture = widget.orderRepository.getPosMenu();
-    _paymentMethodsFuture = widget.orderRepository.getPaymentMethods();
+    _reloadPosData();
     _loadShift();
   }
 
@@ -65,6 +62,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.dispose();
   }
 
+  void _reloadPosData() {
+    _menuFuture = widget.orderRepository.getPosMenu();
+    _paymentMethodsFuture = widget.orderRepository.getPaymentMethods();
+  }
+
   Future<void> _loadShift() async {
     try {
       final id = await widget.orderRepository.getOpenShiftId();
@@ -73,98 +75,71 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         _openShiftId = id;
         _loadingShift = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _loadingShift = false);
+      _showError(error.toString());
     }
   }
 
   Future<void> _startShift() async {
     if (_startingShift) return;
-
     setState(() => _startingShift = true);
 
     try {
       final id = await widget.orderRepository.startShift();
       if (!mounted) return;
-
       setState(() => _openShiftId = id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shift started successfully.')),
-      );
+      _showMessage('Shift started successfully.');
     } on PostgrestException catch (error) {
-      if (!mounted) return;
-      _showError(error.message);
+      if (mounted) _showError(error.message);
     } catch (error) {
-      if (!mounted) return;
-      _showError(error.toString());
+      if (mounted) _showError(error.toString());
     } finally {
-      if (mounted) {
-        setState(() => _startingShift = false);
-      }
+      if (mounted) setState(() => _startingShift = false);
     }
   }
-
 
   Future<void> _showEndShiftDialog() async {
     final shiftId = _openShiftId;
     if (shiftId == null || _endingShift) return;
 
-    final closingCashController = TextEditingController();
+    final cashController = TextEditingController();
     final notesController = TextEditingController();
     String? errorMessage;
-    StateSetter? updateDialogState;
+    StateSetter? dialogSetState;
 
     await showPrototypeDialog(
       context: context,
       title: 'End Shift',
       width: 520,
       content: StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          updateDialogState = setDialogState;
-
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
           return Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.gray200),
-                ),
-                child: Text(
-                  'Ending the shift will close this cashier session. '
-                  'You can start a new shift later.',
-                  style: AppTextStyles.body,
-                ),
+              Text(
+                'Ending the shift closes this cashier session. '
+                'You can start another shift later.',
+                style: AppTextStyles.body,
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: closingCashController,
+                controller: cashController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Closing Cash Count',
                   prefixText: '₱',
-                  helperText:
-                      'Optional for now. Leave blank if you are not counting cash yet.',
+                  helperText: 'Optional while closing cash is not required.',
                 ),
-                onChanged: (_) {
-                  updateDialogState?.call(() => errorMessage = null);
-                },
               ),
               const SizedBox(height: 14),
               TextField(
                 controller: notesController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Closing Notes',
-                  hintText: 'Optional notes...',
-                ),
+                decoration: const InputDecoration(labelText: 'Closing Notes'),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 10),
@@ -188,12 +163,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           onPressed: _endingShift
               ? null
               : () async {
-                  final cashText = closingCashController.text.trim();
-                  final closingCash =
-                      cashText.isEmpty ? null : double.tryParse(cashText);
+                  final rawCash = cashController.text.trim();
+                  final cash = rawCash.isEmpty ? null : double.tryParse(rawCash);
 
-                  if (cashText.isNotEmpty && closingCash == null) {
-                    updateDialogState?.call(() {
+                  if (rawCash.isNotEmpty && cash == null) {
+                    dialogSetState?.call(() {
                       errorMessage = 'Enter a valid closing cash amount.';
                     });
                     return;
@@ -204,38 +178,27 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   try {
                     await widget.orderRepository.endShift(
                       shiftId: shiftId,
-                      closingCashCounted: closingCash,
+                      closingCashCounted: cash,
                       notes: notesController.text.trim(),
                     );
 
                     if (!mounted) return;
-
                     Navigator.pop(context);
-
                     setState(() {
                       _openShiftId = null;
                       _cart.clear();
                     });
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Shift ended successfully.'),
-                      ),
-                    );
+                    _showMessage('Shift ended successfully.');
                   } on PostgrestException catch (error) {
-                    if (!mounted) return;
-                    updateDialogState?.call(() {
+                    dialogSetState?.call(() {
                       errorMessage = error.message;
                     });
                   } catch (error) {
-                    if (!mounted) return;
-                    updateDialogState?.call(() {
+                    dialogSetState?.call(() {
                       errorMessage = error.toString();
                     });
                   } finally {
-                    if (mounted) {
-                      setState(() => _endingShift = false);
-                    }
+                    if (mounted) setState(() => _endingShift = false);
                   }
                 },
           child: _endingShift
@@ -249,52 +212,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       ],
     );
 
-    closingCashController.dispose();
+    cashController.dispose();
     notesController.dispose();
-  }
-
-  List<PosMenuItem> _filteredMenu(List<PosMenuItem> menu) {
-    final query = _searchQuery.trim().toLowerCase();
-
-    return menu.where((item) {
-      final categoryMatches =
-          _selectedCategory == 'All' || item.category == _selectedCategory;
-      final searchMatches =
-          query.isEmpty ||
-          item.name.toLowerCase().contains(query) ||
-          item.variantName.toLowerCase().contains(query) ||
-          item.sku.toLowerCase().contains(query);
-
-      return categoryMatches && searchMatches;
-    }).toList();
-  }
-
-  List<String> _categories(List<PosMenuItem> menu) {
-    final values = menu.map((item) => item.category).toSet().toList()..sort();
-    return ['All', ...values];
-  }
-
-  double _total(List<PosMenuItem> menu) {
-    return _cart.fold<double>(
-      0,
-      (sum, line) => sum + line.lineTotal,
-    );
-  }
-
-  int _cartQuantityForVariant(String variantId) {
-    return _cart
-        .where((line) => line.product.variantId == variantId)
-        .fold<int>(0, (sum, line) => sum + line.quantity);
-  }
-
-  PosMenuItem? _menuItemByVariantId(
-    List<PosMenuItem> menu,
-    String variantId,
-  ) {
-    for (final item in menu) {
-      if (item.variantId == variantId) return item;
-    }
-    return null;
   }
 
   @override
@@ -337,9 +256,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                           child: Center(child: CircularProgressIndicator()),
                         )
                       else if (snapshot.hasError)
-                        Expanded(
-                          child: _buildLoadError(snapshot.error),
-                        )
+                        Expanded(child: _buildLoadError(snapshot.error))
                       else if (menu.isEmpty)
                         Expanded(
                           child: _buildLoadError(
@@ -358,7 +275,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               const SizedBox(width: 20),
                               SizedBox(
                                 width: 410,
-                                child: _buildCurrentOrderPanel(menu),
+                                child: _buildCurrentOrderPanel(),
                               ),
                             ],
                           ),
@@ -403,14 +320,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _endingShift ? null : _showEndShiftDialog,
-            icon: _endingShift
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.stop_circle_outlined, size: 18),
-            label: Text(_endingShift ? 'Ending...' : 'End Shift'),
+            icon: const Icon(Icons.stop_circle_outlined, size: 18),
+            label: const Text('End Shift'),
           ),
         ],
       );
@@ -418,13 +329,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     return ElevatedButton.icon(
       onPressed: _startingShift ? null : _startShift,
-      icon: _startingShift
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.play_arrow, size: 18),
+      icon: const Icon(Icons.play_arrow, size: 18),
       label: Text(_startingShift ? 'Starting...' : 'Start Shift'),
     );
   }
@@ -432,7 +337,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   Widget _buildLoadError(Object? error) {
     return Center(
       child: SizedBox(
-        width: 480,
+        width: 500,
         child: SectionCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -440,7 +345,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               const Icon(
                 Icons.error_outline,
                 color: AppColors.primary,
-                size: 38,
+                size: 40,
               ),
               const SizedBox(height: 12),
               const Text('Unable to load POS data', style: AppTextStyles.h3),
@@ -448,16 +353,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               Text(
                 error?.toString() ?? 'Unknown error',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: AppColors.gray700),
               ),
               const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: () {
-                  setState(() {
-                    _menuFuture = widget.orderRepository.getPosMenu();
-                    _paymentMethodsFuture =
-                        widget.orderRepository.getPaymentMethods();
-                  });
+                  setState(_reloadPosData);
                 },
                 child: const Text('Retry'),
               ),
@@ -469,12 +369,25 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Widget _buildProductsPanel(List<PosMenuItem> menu) {
-    final products = _filteredMenu(menu);
-    final categories = _categories(menu);
+    final categories = <String>[
+      'All',
+      ...(menu.map((item) => item.category).toSet().toList()..sort()),
+    ];
 
     if (!categories.contains(_selectedCategory)) {
       _selectedCategory = 'All';
     }
+
+    final query = _searchQuery.trim().toLowerCase();
+    final products = menu.where((item) {
+      final categoryMatches =
+          _selectedCategory == 'All' || item.category == _selectedCategory;
+      final searchMatches = query.isEmpty ||
+          item.name.toLowerCase().contains(query) ||
+          item.variantName.toLowerCase().contains(query) ||
+          item.sku.toLowerCase().contains(query);
+      return categoryMatches && searchMatches;
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,25 +408,15 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: categories.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, index) {
               final category = categories[index];
-              final selected = category == _selectedCategory;
-
               return ChoiceChip(
                 label: Text(category),
-                selected: selected,
+                selected: category == _selectedCategory,
                 onSelected: (_) {
                   setState(() => _selectedCategory = category);
                 },
-                selectedColor: AppColors.primarySoft,
-                side: BorderSide(
-                  color: selected ? AppColors.primary : AppColors.gray300,
-                ),
-                labelStyle: AppTextStyles.caption.copyWith(
-                  color: selected ? AppColors.primary : AppColors.gray700,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
               );
             },
           ),
@@ -528,12 +431,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
-                    mainAxisExtent: 190,
+                    mainAxisExtent: 200,
                   ),
                   itemCount: products.length,
-                  itemBuilder: (_, index) {
-                    return _buildProductCard(products[index]);
-                  },
+                  itemBuilder: (_, index) =>
+                      _buildProductCard(products[index]),
                 ),
         ),
       ],
@@ -541,6 +443,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Widget _buildProductCard(PosMenuItem product) {
+    final variantLabel = product.variantName.trim().isEmpty
+        ? product.category
+        : '${product.category} • ${product.variantName}';
+
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -565,11 +471,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
           Text(
-            product.variantName.trim().isEmpty
-                ? product.category
-                : '${product.category} • ${product.variantName}',
+            variantLabel,
             style: AppTextStyles.caption,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -579,7 +482,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             Text(
               product.isOutOfStock
                   ? 'Out of stock'
-                  : '${product.availableQuantity?.toStringAsFixed(0) ?? '0'} available',
+                  : '${_quantity(product.availableQuantity ?? 0)} available',
               style: AppTextStyles.caption.copyWith(
                 color: product.isOutOfStock
                     ? AppColors.primary
@@ -593,18 +496,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             children: [
               Text(
                 _money(product.price),
-                style: AppTextStyles.h3.copyWith(color: AppColors.primary),
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.primary,
+                ),
               ),
               const Spacer(),
-              SizedBox(
-                height: 34,
-                child: OutlinedButton.icon(
-                  onPressed: product.isOutOfStock
-                      ? null
-                      : () => _addProduct(product),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add'),
-                ),
+              OutlinedButton.icon(
+                onPressed:
+                    product.isOutOfStock ? null : () => _addProduct(product),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add'),
               ),
             ],
           ),
@@ -613,8 +514,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildCurrentOrderPanel(List<PosMenuItem> menu) {
-    final total = _total(menu);
+  Widget _buildCurrentOrderPanel() {
+    final total = _cart.fold<double>(
+      0,
+      (sum, line) => sum + line.lineTotal,
+    );
 
     return SectionCard(
       child: Column(
@@ -631,15 +535,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
             ],
             onChanged: (value) {
-              if (value == null) return;
-              setState(() => _orderType = value);
+              if (value != null) setState(() => _orderType = value);
             },
           ),
           const SizedBox(height: 12),
           _buildOrderIdentityFields(),
           const SizedBox(height: 14),
           const Divider(),
-          const SizedBox(height: 4),
           Expanded(
             child: _cart.isEmpty
                 ? Center(
@@ -652,9 +554,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   )
                 : ListView.builder(
                     itemCount: _cart.length,
-                    itemBuilder: (_, index) {
-                      return _buildCartItem(_cart[index], index);
-                    },
+                    itemBuilder: (_, index) =>
+                        _buildCartItem(_cart[index], index),
                   ),
           ),
           const Divider(),
@@ -667,7 +568,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             child: ElevatedButton.icon(
               onPressed: _cart.isEmpty || _openShiftId == null
                   ? null
-                  : () => _showPaymentDialog(menu),
+                  : _showPaymentDialog,
               icon: const Icon(Icons.payments_outlined, size: 18),
               label: Text(
                 _openShiftId == null
@@ -689,7 +590,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _tableNumberController,
             decoration: const InputDecoration(
               labelText: 'Table Number *',
-              hintText: 'e.g. 4',
             ),
           ),
           const SizedBox(height: 10),
@@ -711,7 +611,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _customerNameController,
             decoration: const InputDecoration(
               labelText: 'Customer / Recipient Name *',
-              hintText: 'Name for the order',
             ),
           ),
           const SizedBox(height: 10),
@@ -719,7 +618,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _deliveryReferenceController,
             decoration: const InputDecoration(
               labelText: 'Delivery Reference / Platform',
-              hintText: 'e.g. Phone order',
             ),
           ),
         ],
@@ -730,14 +628,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       controller: _customerNameController,
       decoration: const InputDecoration(
         labelText: 'Customer Name *',
-        hintText: 'Name to call when the order is ready',
       ),
     );
   }
 
   Widget _buildCartItem(_PosCartLine line, int index) {
-    final product = line.product;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -752,27 +647,24 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(product.name, style: AppTextStyles.bodyMedium),
-                const SizedBox(height: 3),
+                Text(line.product.name, style: AppTextStyles.bodyMedium),
                 Text(
-                  '${product.variantName} • '
+                  '${line.product.variantName} • '
                   '${_money(line.unitPriceWithModifiers)} each • '
                   '${_money(line.lineTotal)}',
                   style: AppTextStyles.caption,
                 ),
                 if (line.modifiers.isNotEmpty)
                   Text(
-                    line.modifiers.map((modifier) => modifier.name).join(', '),
+                    line.modifiers.map((item) => item.name).join(', '),
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.gray700,
                     ),
                   ),
-                if (product.tracksInventory)
+                if (line.specialInstructions.isNotEmpty)
                   Text(
-                    '${product.availableQuantity?.toStringAsFixed(0) ?? '0'} available',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.gray500,
-                    ),
+                    'Note: ${line.specialInstructions}',
+                    style: AppTextStyles.caption,
                   ),
               ],
             ),
@@ -806,7 +698,280 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Future<void> _showPaymentDialog(List<PosMenuItem> menu) async {
+  Future<void> _addProduct(PosMenuItem product) async {
+    if (!_hasStockForAdditional(product, 1)) {
+      _showError(
+        '${product.name} only has '
+        '${_quantity(product.availableQuantity ?? 0)} available.',
+      );
+      return;
+    }
+
+    List<PosModifierGroup> groups;
+    try {
+      groups = await widget.orderRepository.getModifierGroups(
+        product.menuItemId,
+      );
+    } on PostgrestException catch (error) {
+      _showError(error.message);
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (groups.isEmpty) {
+      _addOrMergeLine(
+        _PosCartLine(
+          product: product,
+          quantity: 1,
+          modifiers: const [],
+          specialInstructions: '',
+        ),
+      );
+      return;
+    }
+
+    final configured = await _showModifierDialog(product, groups);
+    if (configured == null || !mounted) return;
+
+    _addOrMergeLine(configured);
+  }
+
+  Future<_PosCartLine?> _showModifierDialog(
+    PosMenuItem product,
+    List<PosModifierGroup> groups,
+  ) async {
+    final selectedIds = <String>{};
+    final instructionsController = TextEditingController();
+    String? errorMessage;
+
+    final result = await showDialog<_PosCartLine>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              '${product.name} — ${product.variantName}',
+              style: AppTextStyles.h2,
+            ),
+            content: SizedBox(
+              width: 620,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final group in groups) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                          ),
+                          Text(
+                            group.isRequired
+                                ? 'Required'
+                                : 'Optional',
+                            style: AppTextStyles.caption.copyWith(
+                              color: group.isRequired
+                                  ? AppColors.primary
+                                  : AppColors.gray500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _groupRule(group),
+                        style: AppTextStyles.caption,
+                      ),
+                      const SizedBox(height: 6),
+                      for (final option in group.options)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: selectedIds.contains(option.id),
+                          title: Text(option.name),
+                          secondary: Text(
+                            option.priceDelta == 0
+                                ? 'Included'
+                                : '+${_money(option.priceDelta)}',
+                            style: AppTextStyles.caption,
+                          ),
+                          onChanged: (checked) {
+                            setDialogState(() {
+                              errorMessage = null;
+                              if (checked == true) {
+                                final selectedInGroup = group.options
+                                    .where(
+                                      (item) =>
+                                          selectedIds.contains(item.id),
+                                    )
+                                    .length;
+                                final max = group.maxSelections;
+                                if (max != null &&
+                                    selectedInGroup >= max) {
+                                  errorMessage =
+                                      '${group.name} allows up to $max selection(s).';
+                                  return;
+                                }
+                                selectedIds.add(option.id);
+                              } else {
+                                selectedIds.remove(option.id);
+                              }
+                            });
+                          },
+                        ),
+                      const Divider(height: 24),
+                    ],
+                    TextField(
+                      controller: instructionsController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Special Instructions',
+                        hintText: 'Optional',
+                      ),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        errorMessage!,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  for (final group in groups) {
+                    final selectedCount = group.options
+                        .where((item) => selectedIds.contains(item.id))
+                        .length;
+
+                    if (selectedCount < group.minSelections) {
+                      setDialogState(() {
+                        errorMessage =
+                            'Select at least ${group.minSelections} option(s) from ${group.name}.';
+                      });
+                      return;
+                    }
+
+                    final max = group.maxSelections;
+                    if (max != null && selectedCount > max) {
+                      setDialogState(() {
+                        errorMessage =
+                            'Select at most $max option(s) from ${group.name}.';
+                      });
+                      return;
+                    }
+                  }
+
+                  final selected = <PosModifierOption>[];
+                  for (final group in groups) {
+                    selected.addAll(
+                      group.options.where(
+                        (item) => selectedIds.contains(item.id),
+                      ),
+                    );
+                  }
+
+                  Navigator.pop(
+                    dialogContext,
+                    _PosCartLine(
+                      product: product,
+                      quantity: 1,
+                      modifiers: selected,
+                      specialInstructions:
+                          instructionsController.text.trim(),
+                    ),
+                  );
+                },
+                child: const Text('Add to Order'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    instructionsController.dispose();
+    return result;
+  }
+
+  void _addOrMergeLine(_PosCartLine incoming) {
+    final existingIndex = _cart.indexWhere(
+      (line) =>
+          line.product.variantId == incoming.product.variantId &&
+          line.modifierSignature == incoming.modifierSignature &&
+          line.specialInstructions == incoming.specialInstructions,
+    );
+
+    setState(() {
+      if (existingIndex == -1) {
+        _cart.add(incoming);
+      } else {
+        final existing = _cart[existingIndex];
+        _cart[existingIndex] = existing.copyWith(
+          quantity: existing.quantity + incoming.quantity,
+        );
+      }
+    });
+  }
+
+  void _increaseLine(int index) {
+    final line = _cart[index];
+
+    if (!_hasStockForAdditional(line.product, 1)) {
+      _showError(
+        '${line.product.name} only has '
+        '${_quantity(line.product.availableQuantity ?? 0)} available.',
+      );
+      return;
+    }
+
+    setState(() {
+      _cart[index] = line.copyWith(quantity: line.quantity + 1);
+    });
+  }
+
+  void _decreaseLine(int index) {
+    final line = _cart[index];
+    setState(() {
+      if (line.quantity <= 1) {
+        _cart.removeAt(index);
+      } else {
+        _cart[index] = line.copyWith(quantity: line.quantity - 1);
+      }
+    });
+  }
+
+  void _removeLine(int index) {
+    setState(() => _cart.removeAt(index));
+  }
+
+  bool _hasStockForAdditional(PosMenuItem product, int additional) {
+    if (!product.tracksInventory || product.availableQuantity == null) {
+      return true;
+    }
+
+    final alreadyInCart = _cart
+        .where((line) => line.product.variantId == product.variantId)
+        .fold<int>(0, (sum, line) => sum + line.quantity);
+
+    return alreadyInCart + additional <= product.availableQuantity!;
+  }
+
+  Future<void> _showPaymentDialog() async {
     final validation = _validateOrderDetails();
     if (validation != null) {
       _showError(validation);
@@ -821,127 +986,98 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       return;
     }
 
-    PosPaymentMethod selectedMethod = methods.first;
-    String? errorMessage;
-    StateSetter? updateDialogState;
+    final total = _cart.fold<double>(
+      0,
+      (sum, line) => sum + line.lineTotal,
+    );
 
-    final total = _total(menu);
+    var selectedMethod = methods.first;
     final amountController =
         TextEditingController(text: total.toStringAsFixed(2));
     final referenceController = TextEditingController();
+    String? errorMessage;
+    StateSetter? dialogSetState;
 
     await showPrototypeDialog(
       context: context,
       title: 'Proceed to Payment',
       width: 650,
       content: StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          updateDialogState = setDialogState;
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
           final received =
               double.tryParse(amountController.text.trim()) ?? 0;
-          final change =
-              selectedMethod.isCash ? (received - total).clamp(0, double.infinity) : 0;
+          final change = selectedMethod.isCash
+              ? (received - total).clamp(0, double.infinity).toDouble()
+              : 0.0;
 
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _paymentInfoRow(
-                  'Customer / Table',
-                  _currentOrderReference(),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _paymentInfoRow('Order Type', _orderType),
+              _paymentInfoRow('Total', _money(total), emphasized: true),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: selectedMethod.id,
+                decoration: const InputDecoration(
+                  labelText: 'Payment Method',
                 ),
-                _paymentInfoRow('Order Type', _orderType),
-                _paymentInfoRow('Total', _money(total), emphasized: true),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedMethod.id,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Method',
-                  ),
-                  items: methods
-                      .map(
-                        (method) => DropdownMenuItem(
-                          value: method.id,
-                          child: Text(method.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-
-                    setDialogState(() {
-                      selectedMethod =
-                          methods.firstWhere((method) => method.id == value);
-                      errorMessage = null;
-                      if (!selectedMethod.isCash) {
-                        amountController.text = total.toStringAsFixed(2);
-                      }
-                    });
-                  },
+                items: methods
+                    .map(
+                      (method) => DropdownMenuItem(
+                        value: method.id,
+                        child: Text(method.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() {
+                    selectedMethod = methods.firstWhere(
+                      (method) => method.id == value,
+                    );
+                    errorMessage = null;
+                    if (!selectedMethod.isCash) {
+                      amountController.text = total.toStringAsFixed(2);
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: amountController,
+                enabled: selectedMethod.isCash,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Amount Received',
+                  prefixText: '₱',
                 ),
+                onChanged: (_) {
+                  dialogSetState?.call(() => errorMessage = null);
+                },
+              ),
+              if (selectedMethod.requiresReference) ...[
                 const SizedBox(height: 14),
                 TextField(
-                  controller: amountController,
-                  enabled: selectedMethod.isCash,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) {
-                    setDialogState(() => errorMessage = null);
-                  },
+                  controller: referenceController,
                   decoration: InputDecoration(
-                    labelText: 'Amount Received',
-                    prefixText: '₱',
-                    helperText: selectedMethod.isCash
-                        ? 'Enter the cash received.'
-                        : 'Exact payment is used for non-cash methods.',
+                    labelText: '${selectedMethod.name} Reference *',
                   ),
                 ),
-                if (selectedMethod.requiresReference) ...[
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: referenceController,
-                    decoration: InputDecoration(
-                      labelText: '${selectedMethod.name} Reference *',
-                      hintText: 'Enter transaction/reference number',
-                    ),
-                    onChanged: (_) {
-                      setDialogState(() => errorMessage = null);
-                    },
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Change', style: AppTextStyles.bodyMedium),
-                      Text(
-                        _money(change.toDouble()),
-                        style: AppTextStyles.h2.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    errorMessage!,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ],
               ],
-            ),
+              const SizedBox(height: 14),
+              _paymentInfoRow('Change', _money(change)),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
           );
         },
       ),
@@ -958,7 +1094,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       double.tryParse(amountController.text.trim()) ?? 0;
 
                   if (selectedMethod.isCash && received < total) {
-                    updateDialogState?.call(() {
+                    dialogSetState?.call(() {
                       errorMessage =
                           'Amount received cannot be less than the total.';
                     });
@@ -967,8 +1103,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
                   if (selectedMethod.requiresReference &&
                       referenceController.text.trim().isEmpty) {
-                    updateDialogState?.call(() {
-                      errorMessage = 'A transaction reference is required.';
+                    dialogSetState?.call(() {
+                      errorMessage =
+                          'A transaction reference is required.';
                     });
                     return;
                   }
@@ -978,11 +1115,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   try {
                     final order = await widget.orderRepository.placeOrder(
                       orderType: _orderType,
-                      items: _cart.entries
+                      items: _cart
                           .map(
-                            (entry) => PosCheckoutItem(
-                              menuVariantId: entry.key,
-                              quantity: entry.value,
+                            (line) => PosCheckoutItem(
+                              menuVariantId: line.product.variantId,
+                              quantity: line.quantity,
+                              modifierIds: line.modifiers
+                                  .map((modifier) => modifier.id)
+                                  .toList(),
+                              specialInstructions:
+                                  line.specialInstructions,
                             ),
                           )
                           .toList(),
@@ -1010,13 +1152,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     Navigator.pop(context);
                     await _showReceiptDialog(order);
                   } on PostgrestException catch (error) {
-                    if (!mounted) return;
-                    updateDialogState?.call(() {
+                    dialogSetState?.call(() {
                       errorMessage = error.message;
                     });
                   } catch (error) {
-                    if (!mounted) return;
-                    updateDialogState?.call(() {
+                    dialogSetState?.call(() {
                       errorMessage = error.toString();
                     });
                   } finally {
@@ -1056,17 +1196,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             const SizedBox(height: 4),
             Center(child: Text(order.id, style: AppTextStyles.caption)),
             const SizedBox(height: 18),
-            _paymentInfoRow(
-              'Customer / Table',
-              order.customerOrTable,
-            ),
+            _paymentInfoRow('Customer / Table', order.customerOrTable),
             _paymentInfoRow('Order Type', order.type),
             _paymentInfoRow('Handled by', order.employee),
-            if (order.deliveryReference.isNotEmpty)
-              _paymentInfoRow(
-                'Delivery Reference',
-                order.deliveryReference,
-              ),
             const Divider(height: 28),
             ...order.items.map(
               (item) => Padding(
@@ -1116,7 +1248,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   String? _validateOrderDetails() {
     if (_cart.isEmpty) return 'Add at least one item to the order.';
-
     if (_openShiftId == null) {
       return 'Start a shift before creating an order.';
     }
@@ -1134,44 +1265,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return null;
   }
 
-  void _addItem(PosMenuItem product) {
-    final current = _cart[product.variantId] ?? 0;
-    final available = product.availableQuantity;
-
-    if (product.tracksInventory &&
-        available != null &&
-        current + 1 > available) {
-      _showError(
-        '${product.name} (${product.variantName}) only has '
-        '${available.toStringAsFixed(0)} available.',
-      );
-      return;
+  String _groupRule(PosModifierGroup group) {
+    if (group.maxSelections == null) {
+      return 'Select at least ${group.minSelections}';
     }
-
-    setState(() {
-      _cart.update(
-        product.variantId,
-        (quantity) => quantity + 1,
-        ifAbsent: () => 1,
-      );
-    });
-  }
-
-  void _decreaseItem(String variantId) {
-    final current = _cart[variantId];
-    if (current == null) return;
-
-    setState(() {
-      if (current <= 1) {
-        _cart.remove(variantId);
-      } else {
-        _cart[variantId] = current - 1;
-      }
-    });
-  }
-
-  void _removeItem(String variantId) {
-    setState(() => _cart.remove(variantId));
+    if (group.minSelections == group.maxSelections) {
+      return 'Select exactly ${group.minSelections}';
+    }
+    return 'Select ${group.minSelections}–${group.maxSelections}';
   }
 
   Widget _summaryRow(
@@ -1210,34 +1311,18 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
             ),
           ),
-          const SizedBox(width: 20),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style:
-                  emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
-            ),
+          const SizedBox(width: 16),
+          Text(
+            value,
+            style: emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
           ),
         ],
       ),
     );
   }
 
-  String _currentOrderReference() {
-    if (_orderType == 'Dine In') {
-      final table = _tableNumberController.text.trim();
-      final customer = _customerNameController.text.trim();
-      if (customer.isEmpty) return 'Table $table';
-      return 'Table $table • $customer';
-    }
-
-    return _customerNameController.text.trim();
-  }
-
   IconData _iconForCategory(String category) {
     final value = category.toLowerCase();
-
     if (value.contains('coffee')) return Icons.coffee_outlined;
     if (value.contains('baked')) return Icons.cake_outlined;
     if (value.contains('rice') || value.contains('meal')) {
@@ -1255,9 +1340,56 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         : '₱${value.toStringAsFixed(2)}';
   }
 
-  void _showError(String message) {
+  String _quantity(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
+
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showError(String message) => _showMessage(message);
+}
+
+class _PosCartLine {
+  final PosMenuItem product;
+  final int quantity;
+  final List<PosModifierOption> modifiers;
+  final String specialInstructions;
+
+  const _PosCartLine({
+    required this.product,
+    required this.quantity,
+    required this.modifiers,
+    required this.specialInstructions,
+  });
+
+  double get modifierTotal => modifiers.fold<double>(
+        0,
+        (sum, modifier) => sum + modifier.priceDelta,
+      );
+
+  double get unitPriceWithModifiers => product.price + modifierTotal;
+
+  double get lineTotal => unitPriceWithModifiers * quantity;
+
+  String get modifierSignature {
+    final ids = modifiers.map((item) => item.id).toList()..sort();
+    return ids.join('|');
+  }
+
+  _PosCartLine copyWith({
+    int? quantity,
+  }) {
+    return _PosCartLine(
+      product: product,
+      quantity: quantity ?? this.quantity,
+      modifiers: modifiers,
+      specialInstructions: specialInstructions,
     );
   }
 }
