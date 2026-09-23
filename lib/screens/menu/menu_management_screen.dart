@@ -205,6 +205,15 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                           size: 19,
                                         ),
                                       ),
+                                      IconButton(
+                                        tooltip: 'Modifiers',
+                                        onPressed: () =>
+                                            _showModifiers(variant),
+                                        icon: const Icon(
+                                          Icons.tune_outlined,
+                                          size: 19,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -782,6 +791,550 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     quantityController.dispose();
     wastageController.dispose();
     return result;
+  }
+
+
+  Future<void> _showModifiers(MenuVariantRecord variant) async {
+    final results = await Future.wait([
+      widget.menuRepository.getModifierGroupsForMenuItem(
+        variant.menuItemId,
+      ),
+      widget.menuRepository.getInventoryOptions(),
+    ]);
+
+    if (!mounted) return;
+
+    final groups = results[0] as List<MenuModifierGroupRecord>;
+    final inventory = results[1] as List<MenuInventoryOption>;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Modifiers — ${variant.itemName}',
+      width: 720,
+      content: SizedBox(
+        height: 430,
+        child: groups.isEmpty
+            ? Center(
+                child: Text(
+                  'No modifier groups configured yet.',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                ),
+              )
+            : ListView.separated(
+                itemCount: groups.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 24),
+                itemBuilder: (_, index) {
+                  final group = groups[index];
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  group.groupName,
+                                  style: AppTextStyles.h3,
+                                ),
+                                Text(
+                                  _modifierGroupRule(group),
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusBadge(
+                            group.isActive ? 'Active' : 'Inactive',
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: 'Edit Group',
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showModifierGroupEditor(
+                                variant,
+                                existing: group,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 19,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Add Modifier',
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showModifierEditor(
+                                variant,
+                                group,
+                                inventory,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              size: 19,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (group.modifiers.isEmpty)
+                        Text(
+                          'No options in this group.',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.gray500,
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: group.modifiers
+                              .map(
+                                (modifier) => ActionChip(
+                                  avatar: Icon(
+                                    modifier.isActive
+                                        ? Icons.check_circle_outline
+                                        : Icons.hide_source_outlined,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    modifier.priceDelta == 0
+                                        ? modifier.name
+                                        : '${modifier.name} (+${_money(modifier.priceDelta)})',
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _showModifierEditor(
+                                      variant,
+                                      group,
+                                      inventory,
+                                      existing: modifier,
+                                    );
+                                  },
+                                ),
+                              )
+                              .toList(),
+                        ),
+                    ],
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pop(context);
+            _showModifierGroupEditor(variant);
+          },
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add Modifier Group'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showModifierGroupEditor(
+    MenuVariantRecord variant, {
+    MenuModifierGroupRecord? existing,
+  }) async {
+    final nameController = TextEditingController(
+      text: existing?.groupName ?? '',
+    );
+    final minController = TextEditingController(
+      text: '${existing?.minSelections ?? 0}',
+    );
+    final maxController = TextEditingController(
+      text: existing?.maxSelections?.toString() ?? '',
+    );
+    var required = existing?.isRequired ?? false;
+    var active = existing?.isActive ?? true;
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: existing == null
+          ? 'Add Modifier Group'
+          : 'Edit Modifier Group',
+      width: 540,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Group Name *',
+                  hintText: 'e.g. Milk Choice, Add-ons',
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: minController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Minimum Selections',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: maxController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Maximum',
+                        hintText: 'Blank = no limit',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Required'),
+                value: required,
+                onChanged: (value) {
+                  setDialogState(() {
+                    required = value;
+                    if (required &&
+                        (int.tryParse(minController.text) ?? 0) < 1) {
+                      minController.text = '1';
+                    }
+                  });
+                },
+              ),
+              if (existing != null)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Active'),
+                  value: active,
+                  onChanged: (value) =>
+                      setDialogState(() => active = value),
+                ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final name = nameController.text.trim();
+            final min = int.tryParse(minController.text.trim());
+            final maxText = maxController.text.trim();
+            final max = maxText.isEmpty ? null : int.tryParse(maxText);
+
+            if (name.isEmpty ||
+                min == null ||
+                min < 0 ||
+                (maxText.isNotEmpty && max == null) ||
+                (max != null && (max < 1 || max < min)) ||
+                (required && min < 1)) {
+              dialogSetState?.call(() {
+                errorMessage =
+                    'Check the name and minimum/maximum selection rules.';
+              });
+              return;
+            }
+
+            try {
+              if (existing == null) {
+                await widget.menuRepository.createModifierGroup(
+                  menuItemId: variant.menuItemId,
+                  groupName: name,
+                  minSelections: min,
+                  maxSelections: max,
+                  isRequired: required,
+                );
+              } else {
+                await widget.menuRepository.updateModifierGroup(
+                  groupId: existing.groupId,
+                  groupName: name,
+                  minSelections: min,
+                  maxSelections: max,
+                  isRequired: required,
+                  isActive: active,
+                );
+              }
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _showModifiers(variant);
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: Text(existing == null ? 'Create Group' : 'Save Changes'),
+        ),
+      ],
+    );
+
+    nameController.dispose();
+    minController.dispose();
+    maxController.dispose();
+  }
+
+  Future<void> _showModifierEditor(
+    MenuVariantRecord variant,
+    MenuModifierGroupRecord group,
+    List<MenuInventoryOption> inventory, {
+    MenuModifierRecord? existing,
+  }) async {
+    final nameController = TextEditingController(
+      text: existing?.name ?? '',
+    );
+    final priceController = TextEditingController(
+      text: existing == null
+          ? '0'
+          : existing.priceDelta.toStringAsFixed(2),
+    );
+
+    var active = existing?.isActive ?? true;
+    var recipe = existing == null
+        ? <MenuRecipeComponent>[]
+        : await widget.menuRepository.getModifierRecipeComponents(
+            existing.id,
+          );
+
+    if (!mounted) return;
+
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: existing == null
+          ? 'Add Modifier — ${group.groupName}'
+          : 'Edit ${existing.name}',
+      width: 650,
+      content: StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          dialogSetState = setDialogState;
+
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Modifier Name *',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: priceController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Additional Price',
+                    prefixText: '₱',
+                  ),
+                ),
+                if (existing != null)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Active'),
+                    value: active,
+                    onChanged: (value) =>
+                        setDialogState(() => active = value),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Inventory Recipe',
+                        style: AppTextStyles.h3,
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: inventory.isEmpty
+                          ? null
+                          : () async {
+                              final component =
+                                  await _showAddRecipeComponent(
+                                dialogContext,
+                                inventory,
+                              );
+                              if (component == null) return;
+
+                              setDialogState(() {
+                                recipe = [
+                                  ...recipe.where(
+                                    (item) =>
+                                        item.inventoryItemId !=
+                                        component.inventoryItemId,
+                                  ),
+                                  component,
+                                ];
+                              });
+                            },
+                      icon: const Icon(Icons.add, size: 17),
+                      label: const Text('Add Component'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (recipe.isEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'No inventory ingredient is deducted by this modifier.',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.gray500,
+                      ),
+                    ),
+                  )
+                else
+                  for (final component in recipe)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(component.inventoryItemName),
+                      subtitle: Text(
+                        '${_qty(component.quantityBaseUom)} '
+                        '${component.unitCode} per selection'
+                        '${component.wastagePercent > 0 ? ' • ${_qty(component.wastagePercent)}% wastage' : ''}',
+                      ),
+                      trailing: IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () {
+                          setDialogState(() {
+                            recipe = recipe
+                                .where(
+                                  (item) =>
+                                      item.inventoryItemId !=
+                                      component.inventoryItemId,
+                                )
+                                .toList();
+                          });
+                        },
+                      ),
+                    ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final name = nameController.text.trim();
+            final price =
+                double.tryParse(priceController.text.trim());
+
+            if (name.isEmpty || price == null) {
+              dialogSetState?.call(() {
+                errorMessage =
+                    'Enter a modifier name and a valid price.';
+              });
+              return;
+            }
+
+            try {
+              if (existing == null) {
+                await widget.menuRepository.createModifier(
+                  groupId: group.groupId,
+                  name: name,
+                  priceDelta: price,
+                  recipe: recipe,
+                );
+              } else {
+                await widget.menuRepository.updateModifier(
+                  modifierId: existing.id,
+                  name: name,
+                  priceDelta: price,
+                  isActive: active,
+                  recipe: recipe,
+                );
+              }
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _showModifiers(variant);
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: Text(existing == null ? 'Add Modifier' : 'Save Changes'),
+        ),
+      ],
+    );
+
+    nameController.dispose();
+    priceController.dispose();
+  }
+
+  String _modifierGroupRule(MenuModifierGroupRecord group) {
+    final max = group.maxSelections;
+    if (max == null) {
+      return 'Minimum ${group.minSelections}'
+          '${group.isRequired ? ' • Required' : ''}';
+    }
+    if (group.minSelections == max) {
+      return 'Select exactly $max'
+          '${group.isRequired ? ' • Required' : ''}';
+    }
+    return 'Select ${group.minSelections}–$max'
+        '${group.isRequired ? ' • Required' : ''}';
   }
 
   String _inventorySummary(MenuVariantRecord variant) {
