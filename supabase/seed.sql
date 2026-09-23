@@ -197,7 +197,7 @@ with wanted(name, category_name, sku, price) as (
     ('Bottled Water','Non-Coffee Beverages','PRD-005',40.00::numeric),
     ('Chocolate Cake','Baked Goods','PRD-006',180.00::numeric),
     ('Cookie','Baked Goods','PRD-007',50.00::numeric),
-    ('Canned Soda','Non-Coffee Beverages','PRD-008',60.00::numeric)
+    ('Coca-Cola','Non-Coffee Beverages','PRD-008',60.00::numeric)
 )
 insert into public.menu_items(name, category_id, is_active)
 select w.name, mc.id, true
@@ -218,7 +218,7 @@ with wanted(name, category_name, sku, price) as (
     ('Bottled Water','Non-Coffee Beverages','PRD-005',40.00::numeric),
     ('Chocolate Cake','Baked Goods','PRD-006',180.00::numeric),
     ('Cookie','Baked Goods','PRD-007',50.00::numeric),
-    ('Canned Soda','Non-Coffee Beverages','PRD-008',60.00::numeric)
+    ('Coca-Cola','Non-Coffee Beverages','PRD-008',60.00::numeric)
 )
 insert into public.menu_variants(
   menu_item_id,
@@ -319,3 +319,27 @@ select
   inventory_item_id,id,'MANUAL_IN',received_quantity,
   unit_cost_base,'SEED','Development seed opening stock'
 from created_lots;
+
+
+-- Ensure development sellable finished goods are linked after inventory rows exist.
+update public.menu_variants mv
+set
+  track_finished_inventory = true,
+  finished_inventory_item_id = ii.id,
+  name = case
+    when mv.sku = 'PRD-008' then '330 ml Can'
+    else mv.name
+  end
+from public.inventory_items ii
+where (
+    (mv.sku = 'PRD-005' and ii.sku = 'INV-001')
+    or
+    (mv.sku = 'PRD-006' and ii.sku = 'INV-006')
+    or
+    (mv.sku = 'PRD-008' and ii.sku = 'INV-002')
+  )
+  and not exists (
+    select 1
+    from public.variant_recipe_components rc
+    where rc.menu_variant_id = mv.id
+  );
