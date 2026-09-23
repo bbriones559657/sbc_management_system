@@ -518,7 +518,7 @@ class SupabaseOrderRepository implements OrderRepository {
       return OrderItem(
         productId: item['id']?.toString() ?? '',
         productName: item['item_name_snapshot']?.toString() ?? '',
-        unitPrice: ((item['unit_price'] as num?) ?? 0).round(),
+        unitPrice: ((item['unit_price'] as num?) ?? 0).toDouble(),
         quantity: ((item['quantity'] as num?) ?? 0).round(),
       );
     }).toList();
@@ -558,15 +558,15 @@ class SupabaseOrderRepository implements OrderRepository {
       employee: row['employee_name_snapshot']?.toString() ?? 'Employee',
       employeeId: '',
       type: _uiOrderType(row['order_type']?.toString() ?? ''),
-      amount: ((row['total_amount'] as num?) ?? 0).round(),
+      amount: ((row['total_amount'] as num?) ?? 0).toDouble(),
       status: _uiStatus(row['status']?.toString() ?? ''),
       customerName: row['customer_name']?.toString() ?? '',
       tableNumber: row['table_number']?.toString() ?? '',
       deliveryReference: row['delivery_reference']?.toString() ?? '',
       items: items,
       paymentMethod: method['name']?.toString() ?? '',
-      amountReceived: (amountTendered ?? paymentAmount ?? 0).round(),
-      changeAmount: ((payment?['change_amount'] as num?) ?? 0).round(),
+      amountReceived: (amountTendered ?? paymentAmount ?? 0).toDouble(),
+      changeAmount: ((payment?['change_amount'] as num?) ?? 0).toDouble(),
       invoiceNumber: invoiceNumber,
     );
   }
