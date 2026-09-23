@@ -6,15 +6,15 @@ class OrderRecord {
   final String employee;
   final String employeeId;
   final String type;
-  final int amount;
+  final double amount;
   final String status;
   final String customerName;
   final String tableNumber;
   final String deliveryReference;
   final List<OrderItem> items;
   final String paymentMethod;
-  final int amountReceived;
-  final int changeAmount;
+  final double amountReceived;
+  final double changeAmount;
   final String lastActionReason;
   final String authorizedBy;
   final String invoiceNumber;
@@ -64,15 +64,15 @@ class OrderRecord {
     String? employee,
     String? employeeId,
     String? type,
-    int? amount,
+    double? amount,
     String? status,
     String? customerName,
     String? tableNumber,
     String? deliveryReference,
     List<OrderItem>? items,
     String? paymentMethod,
-    int? amountReceived,
-    int? changeAmount,
+    double? amountReceived,
+    double? changeAmount,
     String? lastActionReason,
     String? authorizedBy,
     String? invoiceNumber,
