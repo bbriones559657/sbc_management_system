@@ -1,6 +1,7 @@
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
 
 abstract class OrderRepository {
@@ -27,6 +28,8 @@ abstract class OrderRepository {
   Future<List<PosMenuItem>> getPosMenu();
 
   Future<List<PosPaymentMethod>> getPaymentMethods();
+
+  Future<List<PosModifierGroup>> getModifierGroups(String menuItemId);
 
   Future<String?> getOpenShiftId();
 
