@@ -97,6 +97,45 @@ class SupabaseInventoryRepository implements InventoryRepository {
         .toList();
   }
 
+
+  @override
+  Future<List<InventoryLotRecord>> getLots(
+    String inventoryItemId,
+  ) async {
+    final rows = await _client
+        .from('v_inventory_lots')
+        .select()
+        .eq('inventory_item_id', inventoryItemId)
+        .order('expiration_date')
+        .order('received_at');
+
+    return (rows as List)
+        .map(
+          (row) => InventoryLotRecord.fromMap(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> disposeLot({
+    required String inventoryLotId,
+    required String movementType,
+    required double quantity,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'dispose_inventory_lot',
+      params: {
+        'p_inventory_lot_id': inventoryLotId,
+        'p_movement_type': movementType,
+        'p_quantity': quantity,
+        'p_reason': reason.trim(),
+      },
+    );
+  }
+
   @override
   Future<void> createInventoryItemWithInitialStock({
     required String name,
