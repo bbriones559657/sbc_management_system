@@ -1191,7 +1191,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                           ? null
                           : () async {
                               final component =
-                                  await _showAddRecipeComponent(
+                                  await _showRecipeComponentDialog(
                                 dialogContext,
                                 inventory,
                               );
