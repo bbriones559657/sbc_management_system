@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/supabase_dashboard_repository.dart';
 import 'data/repositories/supabase_expense_repository.dart';
+import 'data/repositories/supabase_finance_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_menu_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
@@ -13,6 +14,7 @@ import 'data/repositories/supabase_supplier_repository.dart';
 import 'data/repositories/supabase_user_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
+import 'domain/repositories/finance_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/menu_repository.dart';
 import 'domain/repositories/order_repository.dart';
@@ -50,6 +52,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final InventoryRepository _inventoryRepository;
   late final MenuRepository _menuRepository;
   late final ExpenseRepository _expenseRepository;
+  late final FinanceRepository _financeRepository;
   late final SupplierRepository _supplierRepository;
   late final UserRepository _userRepository;
 
@@ -63,6 +66,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _inventoryRepository = SupabaseInventoryRepository();
     _menuRepository = SupabaseMenuRepository();
     _expenseRepository = SupabaseExpenseRepository();
+    _financeRepository = SupabaseFinanceRepository();
     _supplierRepository = SupabaseSupplierRepository();
     _userRepository = SupabaseUserRepository();
   }
@@ -143,7 +147,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       if (!isCashier) ...[
         MenuManagementScreen(menuRepository: _menuRepository),
         ExpensesScreen(expenseRepository: _expenseRepository),
-        SalesFinanceScreen(reportingRepository: _reportingRepository),
+        SalesFinanceScreen(
+          reportingRepository: _reportingRepository,
+          financeRepository: _financeRepository,
+        ),
         ReportsScreen(reportingRepository: _reportingRepository),
         PurchasingScreen(purchasingRepository: _purchasingRepository),
         SuppliersScreen(supplierRepository: _supplierRepository),
