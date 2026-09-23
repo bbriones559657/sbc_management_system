@@ -7,7 +7,6 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
-import '../../models/refund_workflow.dart';
 import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
 
@@ -386,6 +385,42 @@ class SupabaseOrderRepository implements OrderRepository {
         ],
         'p_reason': reason,
         'p_authorized_by': userId,
+      },
+    );
+  }
+
+  @override
+  Future<List<RefundRestockCandidate>> getRefundRestockCandidates(
+    String id,
+  ) async {
+    final orderUuid = await _resolveOrderUuid(id);
+
+    final rows = await _client
+        .from('v_refund_restock_candidates')
+        .select()
+        .eq('order_id', orderUuid)
+        .order('refund_number')
+        .order('item_name_snapshot');
+
+    return (rows as List)
+        .map(
+          (raw) => RefundRestockCandidate.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> approveRefundItemRestock(
+    String refundItemId, {
+    String notes = '',
+  }) async {
+    await _client.rpc(
+      'approve_refund_item_restock',
+      params: {
+        'p_refund_item_id': refundItemId,
+        'p_notes': _nullable(notes),
       },
     );
   }
