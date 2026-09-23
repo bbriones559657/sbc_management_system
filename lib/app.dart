@@ -10,6 +10,7 @@ import 'data/repositories/supabase_order_repository.dart';
 import 'data/repositories/supabase_purchasing_repository.dart';
 import 'data/repositories/supabase_reporting_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
+import 'data/repositories/supabase_user_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
@@ -18,6 +19,7 @@ import 'domain/repositories/order_repository.dart';
 import 'domain/repositories/purchasing_repository.dart';
 import 'domain/repositories/reporting_repository.dart';
 import 'domain/repositories/supplier_repository.dart';
+import 'domain/repositories/user_repository.dart';
 import 'models/app_navigation_item.dart';
 import 'models/app_user_profile.dart';
 import 'screens/auth/auth_gate.dart';
@@ -49,6 +51,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final MenuRepository _menuRepository;
   late final ExpenseRepository _expenseRepository;
   late final SupplierRepository _supplierRepository;
+  late final UserRepository _userRepository;
 
   @override
   void initState() {
@@ -61,6 +64,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _menuRepository = SupabaseMenuRepository();
     _expenseRepository = SupabaseExpenseRepository();
     _supplierRepository = SupabaseSupplierRepository();
+    _userRepository = SupabaseUserRepository();
   }
 
   @override
@@ -143,7 +147,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
         ReportsScreen(reportingRepository: _reportingRepository),
         PurchasingScreen(purchasingRepository: _purchasingRepository),
         SuppliersScreen(supplierRepository: _supplierRepository),
-        const UsersScreen(),
+        UsersScreen(
+          userRepository: _userRepository,
+          canManageRoles: profile.roleCode.toUpperCase() == 'ADMIN',
+        ),
       ],
     ];
 
