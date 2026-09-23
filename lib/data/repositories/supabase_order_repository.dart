@@ -7,6 +7,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
 
 class SupabaseOrderRepository implements OrderRepository {
@@ -52,6 +53,50 @@ class SupabaseOrderRepository implements OrderRepository {
   Future<void> updateOrder(OrderRecord order) async {
     throw UnsupportedError(
       'Live order changes must use the protected order RPCs.',
+    );
+  }
+
+
+  @override
+  Future<RefundPreview> getRefundPreview(String id) async {
+    final orderUuid = await _resolveOrderUuid(id);
+    final result = await _client.rpc(
+      'get_refund_preview',
+      params: {'p_order_id': orderUuid},
+    );
+
+    return RefundPreview.fromMap(
+      Map<String, dynamic>.from(result as Map),
+    );
+  }
+
+  @override
+  Future<void> refundOrderItems(
+    String id, {
+    required Map<String, double> quantities,
+    required String reason,
+    String externalReference = '',
+  }) async {
+    final orderUuid = await _resolveOrderUuid(id);
+
+    final items = quantities.entries
+        .where((entry) => entry.value > 0)
+        .map(
+          (entry) => {
+            'order_item_id': entry.key,
+            'quantity': entry.value,
+          },
+        )
+        .toList();
+
+    await _client.rpc(
+      'process_refund_items',
+      params: {
+        'p_order_id': orderUuid,
+        'p_items': items,
+        'p_reason': reason.trim(),
+        'p_external_reference': _nullable(externalReference),
+      },
     );
   }
 
