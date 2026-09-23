@@ -3,27 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/app_navigation_item.dart';
+import '../../models/demo_user.dart';
 
 class AppSidebar extends StatelessWidget {
   final int selectedIndex;
+  final List<AppNavigationItem> items;
+  final DemoUser user;
   final ValueChanged<int> onItemSelected;
+  final VoidCallback onSignOut;
 
   const AppSidebar({
     super.key,
     required this.selectedIndex,
+    required this.items,
+    required this.user,
     required this.onItemSelected,
+    required this.onSignOut,
   });
-
-  static const _items = [
-    ('Dashboard', Icons.dashboard_outlined),
-    ('Orders', Icons.receipt_long_outlined),
-    ('Inventory', Icons.inventory_2_outlined),
-    ('Expenses', Icons.payments_outlined),
-    ('Sales & Finance', Icons.account_balance_wallet_outlined),
-    ('Reports', Icons.bar_chart_outlined),
-    ('Suppliers', Icons.local_shipping_outlined),
-    ('Users', Icons.people_outline),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,16 +45,48 @@ class AppSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          for (int i = 0; i < _items.length; i++)
+          for (int i = 0; i < items.length; i++)
             _SidebarItem(
-              label: _items[i].$1,
-              icon: _items[i].$2,
+              label: items[i].label,
+              icon: items[i].icon,
               selected: selectedIndex == i,
               onTap: () => onItemSelected(i),
             ),
           const Spacer(),
+          Container(
+            margin: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.gray100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(user.displayName, style: AppTextStyles.bodyMedium),
+                const SizedBox(height: 2),
+                Text(
+                  user.roleLabel,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: onSignOut,
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: EdgeInsets.zero,
+                  ),
+                  icon: const Icon(Icons.logout, size: 17),
+                  label: const Text('Sign out'),
+                ),
+              ],
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
             child: Text(
               'Prototype — UI Demonstration Only',
               style: AppTextStyles.caption.copyWith(color: AppColors.gray500),

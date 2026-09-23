@@ -16,8 +16,13 @@ import '../../widgets/layout/app_page.dart';
 
 class InventoryScreen extends StatefulWidget {
   final InventoryRepository? inventoryRepository;
+  final bool canManageCatalog;
 
-  const InventoryScreen({super.key, this.inventoryRepository});
+  const InventoryScreen({
+    super.key,
+    this.inventoryRepository,
+    this.canManageCatalog = true,
+  });
 
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
@@ -97,11 +102,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Inventory',
-      action: ElevatedButton.icon(
-        onPressed: () => _showAddItem(context),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add Item'),
-      ),
+      action: widget.canManageCatalog
+          ? ElevatedButton.icon(
+              onPressed: () => _showAddItem(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add Item'),
+            )
+          : null,
       child: Column(
         children: [
           _buildFilters(),
@@ -472,14 +479,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             child: const Text('Close'),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _showReceiveStock(context, latestItem);
-                            },
-                            child: const Text('Receive Stock'),
-                          ),
-                          const SizedBox(width: 8),
+                          if (widget.canManageCatalog) ...[
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showReceiveStock(context, latestItem);
+                              },
+                              child: const Text('Receive Stock'),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           ElevatedButton(
                             onPressed: () {
                               Navigator.pop(context);

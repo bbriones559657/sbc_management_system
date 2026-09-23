@@ -92,7 +92,13 @@ May mainly access operational functions such as:
 - Processing payments
 - Viewing receipts
 
-Role-based restrictions are not fully implemented yet.
+The prototype includes a simple in-memory role check for presentation use:
+
+- `admin` / `123` — access to all modules
+- `cashier` / `123` — access to Orders and Inventory operations
+
+This is demonstration-only authentication. It does not replace backend
+authentication and authorization for production.
 
 ---
 
