@@ -132,7 +132,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             ),
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
-                            Text('₱${order.amount}', style: AppTextStyles.body),
+                            Text(_moneyDouble(order.amount), style: AppTextStyles.body),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: StatusBadge(order.status),
@@ -321,7 +321,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ),
                       Text(
-                        '₱${item.lineTotal}',
+                        _moneyDouble(item.lineTotal),
                         style: AppTextStyles.bodyMedium,
                       ),
                     ],
@@ -329,10 +329,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
             const Divider(height: 28),
-            _detailRow('Total', '₱${order.amount}', emphasized: true),
+            _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             if (order.paymentMethod.isNotEmpty) ...[
-              _detailRow('Amount Received', '₱${order.amountReceived}'),
-              _detailRow('Change', '₱${order.changeAmount}'),
+              _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
+              _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
             if (order.lastActionReason.isNotEmpty) ...[
               const Divider(height: 28),
@@ -412,19 +412,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
               onTap: () {
                 Navigator.pop(context);
                 _showRefundRestockDialog(context, order);
-              },
-            ),
-          if (order.status == 'Partially Refunded' ||
-              order.status == 'Refunded')
-            ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Review Refund Restock'),
-              subtitle: const Text(
-                'Only returned finished goods can be restored to stock',
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showRefundRestock(context, order);
               },
             ),
           if (order.status == 'Open')
@@ -746,114 +733,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
 
-
-  Future<void> _showRefundRestock(
-    BuildContext context,
-    OrderRecord order,
-  ) async {
-    List<RefundRestockCandidate> candidates;
-
-    try {
-      candidates = await widget.orderRepository
-          .getRefundRestockCandidates(order.id);
-    } on PostgrestException catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
-      }
-      return;
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
-      }
-      return;
-    }
-
-    if (!context.mounted) return;
-
-    await showPrototypeDialog(
-      context: context,
-      title: 'Refund Restock — ${order.id}',
-      width: 700,
-      content: SizedBox(
-        height: 430,
-        child: candidates.isEmpty
-            ? const Center(
-                child: Text('No refunded items found for this order.'),
-              )
-            : ListView.separated(
-                itemCount: candidates.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 18),
-                itemBuilder: (_, index) {
-                  final item = candidates[index];
-
-                  String statusText;
-                  if (item.restockApproved) {
-                    statusText = 'Restocked';
-                  } else if (!item.eligibleForRestock) {
-                    statusText = 'Not eligible';
-                  } else {
-                    statusText = 'Awaiting decision';
-                  }
-
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.itemName,
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                            Text(
-                              item.variantName.isEmpty
-                                  ? '${_refundQty(item.refundedQuantity)} refunded'
-                                  : '${item.variantName} • ${_refundQty(item.refundedQuantity)} refunded',
-                              style: AppTextStyles.caption,
-                            ),
-                            if (item.inventoryItemName.isNotEmpty)
-                              Text(
-                                'Inventory: ${item.inventoryItemName}',
-                                style: AppTextStyles.caption,
-                              ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        width: 135,
-                        child: StatusBadge(statusText),
-                      ),
-                      if (item.eligibleForRestock &&
-                          !item.restockApproved)
-                        OutlinedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _confirmRefundRestock(
-                              context,
-                              order,
-                              item,
-                            );
-                          },
-                          child: const Text('Restock'),
-                        ),
-                    ],
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
 
   Future<void> _confirmRefundRestock(
     BuildContext context,
@@ -1372,7 +1251,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ),
                       Text(
-                        '₱${item.lineTotal}',
+                        _moneyDouble(item.lineTotal),
                         style: AppTextStyles.bodyMedium,
                       ),
                     ],
@@ -1380,14 +1259,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
             const Divider(height: 28),
-            _detailRow('Total', '₱${order.amount}', emphasized: true),
+            _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             _detailRow(
               'Payment',
               order.paymentMethod.isEmpty ? 'Not paid yet' : order.paymentMethod,
             ),
             if (order.paymentMethod.isNotEmpty) ...[
-              _detailRow('Amount Received', '₱${order.amountReceived}'),
-              _detailRow('Change', '₱${order.changeAmount}'),
+              _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
+              _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
             const SizedBox(height: 12),
             Center(child: StatusBadge(order.status)),
