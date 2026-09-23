@@ -17,6 +17,7 @@ class OrderRecord {
   final int changeAmount;
   final String lastActionReason;
   final String authorizedBy;
+  final String invoiceNumber;
 
   const OrderRecord({
     required this.id,
@@ -35,6 +36,7 @@ class OrderRecord {
     this.changeAmount = 0,
     this.lastActionReason = '',
     this.authorizedBy = '',
+    this.invoiceNumber = '',
   });
 
   String get time {
@@ -73,6 +75,7 @@ class OrderRecord {
     int? changeAmount,
     String? lastActionReason,
     String? authorizedBy,
+    String? invoiceNumber,
   }) {
     return OrderRecord(
       id: id ?? this.id,
@@ -91,6 +94,7 @@ class OrderRecord {
       changeAmount: changeAmount ?? this.changeAmount,
       lastActionReason: lastActionReason ?? this.lastActionReason,
       authorizedBy: authorizedBy ?? this.authorizedBy,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
     );
   }
 }
