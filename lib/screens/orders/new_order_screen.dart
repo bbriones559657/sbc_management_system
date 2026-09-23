@@ -9,6 +9,7 @@ import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/section_card.dart';
@@ -33,7 +34,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   final TextEditingController _deliveryReferenceController =
       TextEditingController();
 
-  final Map<String, int> _cart = {};
+  final List<_PosCartLine> _cart = [];
 
   late Future<List<PosMenuItem>> _menuFuture;
   late Future<List<PosPaymentMethod>> _paymentMethodsFuture;
@@ -274,14 +275,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   double _total(List<PosMenuItem> menu) {
-    double total = 0;
-    for (final entry in _cart.entries) {
-      final product = _menuItemByVariantId(menu, entry.key);
-      if (product != null) {
-        total += product.price * entry.value;
-      }
-    }
-    return total;
+    return _cart.fold<double>(
+      0,
+      (sum, line) => sum + line.lineTotal,
+    );
+  }
+
+  int _cartQuantityForVariant(String variantId) {
+    return _cart
+        .where((line) => line.product.variantId == variantId)
+        .fold<int>(0, (sum, line) => sum + line.quantity);
   }
 
   PosMenuItem? _menuItemByVariantId(
