@@ -5,6 +5,7 @@ import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
 
 class SupabaseOrderRepository implements OrderRepository {
@@ -81,6 +82,63 @@ class SupabaseOrderRepository implements OrderRepository {
         .map((row) => PosPaymentMethod.fromMap(
               Map<String, dynamic>.from(row as Map),
             ))
+        .toList();
+  }
+
+  @override
+  Future<List<PosModifierGroup>> getModifierGroups(
+    String menuItemId,
+  ) async {
+    final rows = await _client
+        .from('v_pos_modifiers')
+        .select()
+        .eq('menu_item_id', menuItemId)
+        .order('group_sort_order')
+        .order('modifier_sort_order')
+        .order('modifier_name');
+
+    final groups = <String, _MutableModifierGroup>{};
+
+    for (final raw in rows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final groupId = row['modifier_group_id']?.toString() ?? '';
+
+      final group = groups.putIfAbsent(
+        groupId,
+        () => _MutableModifierGroup(
+          id: groupId,
+          name: row['group_name']?.toString() ?? '',
+          minSelections:
+              (row['min_selections'] as num?)?.toInt() ?? 0,
+          maxSelections:
+              (row['max_selections'] as num?)?.toInt(),
+          isRequired: row['is_required'] == true,
+        ),
+      );
+
+      group.options.add(
+        PosModifierOption(
+          id: row['modifier_id']?.toString() ?? '',
+          name: row['modifier_name']?.toString() ?? '',
+          priceDelta:
+              (row['price_delta'] as num?)?.toDouble() ?? 0,
+        ),
+      );
+    }
+
+    return groups.values
+        .map(
+          (group) => PosModifierGroup(
+            id: group.id,
+            name: group.name,
+            minSelections: group.minSelections,
+            maxSelections: group.maxSelections,
+            isRequired: group.isRequired,
+            options: List<PosModifierOption>.unmodifiable(
+              group.options,
+            ),
+          ),
+        )
         .toList();
   }
 
@@ -390,4 +448,22 @@ class SupabaseOrderRepository implements OrderRepository {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
+}
+
+
+class _MutableModifierGroup {
+  final String id;
+  final String name;
+  final int minSelections;
+  final int? maxSelections;
+  final bool isRequired;
+  final List<PosModifierOption> options = [];
+
+  _MutableModifierGroup({
+    required this.id,
+    required this.name,
+    required this.minSelections,
+    required this.maxSelections,
+    required this.isRequired,
+  });
 }
