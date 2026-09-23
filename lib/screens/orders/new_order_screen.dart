@@ -1386,6 +1386,15 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
             const SizedBox(height: 4),
             Center(child: Text(order.id, style: AppTextStyles.caption)),
+            if (order.invoiceNumber.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Center(
+                child: Text(
+                  'Invoice ${order.invoiceNumber}',
+                  style: AppTextStyles.caption,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             _paymentInfoRow('Customer / Table', order.customerOrTable),
             _paymentInfoRow('Order Type', order.type),
