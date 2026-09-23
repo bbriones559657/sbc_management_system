@@ -3,7 +3,7 @@ class ExpenseRecord {
   final String date;
   final String description;
   final String category;
-  final int amount;
+  final double amount;
 
   const ExpenseRecord({
     this.id = '',
@@ -18,7 +18,7 @@ class ExpenseRecord {
     String? date,
     String? description,
     String? category,
-    int? amount,
+    double? amount,
   }) {
     return ExpenseRecord(
       id: id ?? this.id,
