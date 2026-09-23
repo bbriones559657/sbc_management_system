@@ -253,7 +253,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             SizedBox(
               width: controlWidth,
               child: DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 items: [
                   const DropdownMenuItem(
                     value: 'All Categories',
@@ -280,7 +280,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             SizedBox(
               width: controlWidth,
               child: DropdownButtonFormField<String>(
-                value: _selectedStatus,
+                initialValue: _selectedStatus,
                 items: const [
                   DropdownMenuItem(
                     value: 'All Stock',
@@ -1039,7 +1039,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items.asMap().entries.map((e) {
             final labelText = itemLabels != null && e.key < itemLabels.length
                 ? itemLabels[e.key]
@@ -1241,7 +1241,7 @@ class _ReceiveStockDialogState extends State<_ReceiveStockDialog> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _supplierId.isNotEmpty ? _supplierId : null,
+          initialValue: _supplierId.isNotEmpty ? _supplierId : null,
           items: widget.suppliers
               .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
               .toList(),
@@ -1444,7 +1444,7 @@ class _StockMovementDialogState extends State<_StockMovementDialog> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _movementType.isNotEmpty ? _movementType : null,
+          initialValue: _movementType.isNotEmpty ? _movementType : null,
           items: widget.movementTypes
               .map((t) => DropdownMenuItem(value: t, child: Text(t)))
               .toList(),
@@ -1487,7 +1487,7 @@ class _StockMovementDialogState extends State<_StockMovementDialog> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _batchId ?? availableBatches.first.id,
+          initialValue: _batchId ?? availableBatches.first.id,
           items: availableBatches.map((b) {
             final exp = b.expiryDate != null
                 ? ' • Expires: ${_formatDate(b.expiryDate!)}'

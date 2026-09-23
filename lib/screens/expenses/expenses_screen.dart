@@ -119,7 +119,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               SizedBox(
                 width: 180,
                 child: DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   items: _categories
                       .map(
                         (category) => DropdownMenuItem(
@@ -255,7 +255,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: selectedCategory,
+                        initialValue: selectedCategory,
                         items: const [
                           DropdownMenuItem(
                             value: 'Ingredients',
@@ -437,7 +437,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: selectedCategory,
+                        initialValue: selectedCategory,
                         items: const [
                           DropdownMenuItem(
                             value: 'Ingredients',

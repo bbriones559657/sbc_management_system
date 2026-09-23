@@ -47,7 +47,7 @@ class MockProductRepository implements ProductRepository {
               batch.quantity > 0 &&
               (batch.expiryDate == null || batch.expiryDate!.isAfter(now)),
         )
-        .fold(0, (sum, batch) => sum + batch.quantity);
+        .fold<int>(0, (sum, batch) => sum + batch.quantity);
   }
 
   MenuProduct _withCurrentInventoryDetails(MenuProduct product) {
