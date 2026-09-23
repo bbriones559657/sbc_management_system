@@ -7,6 +7,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
@@ -36,6 +37,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   late Future<List<PosMenuItem>> _menuFuture;
   late Future<List<PosPaymentMethod>> _paymentMethodsFuture;
+  late Future<List<PosDiscountType>> _discountTypesFuture;
 
   String _selectedCategory = 'All';
   String _orderType = 'Dine In';
@@ -65,6 +67,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   void _reloadPosData() {
     _menuFuture = widget.orderRepository.getPosMenu();
     _paymentMethodsFuture = widget.orderRepository.getPaymentMethods();
+    _discountTypesFuture = widget.orderRepository.getPosDiscountTypes();
   }
 
   Future<void> _loadShift() async {
@@ -1265,125 +1268,300 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       return;
     }
 
-    final methods = await _paymentMethodsFuture;
+    final results = await Future.wait([
+      _paymentMethodsFuture,
+      _discountTypesFuture,
+    ]);
+
     if (!mounted) return;
+
+    final methods = results[0] as List<PosPaymentMethod>;
+    final discounts = results[1] as List<PosDiscountType>;
 
     if (methods.isEmpty) {
       _showError('No active payment methods are configured.');
       return;
     }
 
-    final total = _cart.fold<double>(
+    final subtotal = _cart.fold<double>(
       0,
       (sum, line) => sum + line.lineTotal,
     );
 
     var selectedMethod = methods.first;
+    PosDiscountType? selectedDiscount;
+
     final amountController =
-        TextEditingController(text: total.toStringAsFixed(2));
+        TextEditingController(text: subtotal.toStringAsFixed(2));
     final referenceController = TextEditingController();
+    final discountValueController = TextEditingController();
+    final discountNotesController = TextEditingController();
+
     String? errorMessage;
     StateSetter? dialogSetState;
+
+    double discountValue() {
+      return double.tryParse(discountValueController.text.trim()) ?? 0;
+    }
+
+    double discountAmount() {
+      final discount = selectedDiscount;
+      if (discount == null) return 0;
+      return discount.calculateDiscount(subtotal, discountValue());
+    }
+
+    double finalTotal() {
+      return (subtotal - discountAmount())
+          .clamp(0, double.infinity)
+          .toDouble();
+    }
 
     await showPrototypeDialog(
       context: context,
       title: 'Proceed to Payment',
-      width: 650,
+      width: 700,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
           dialogSetState = setDialogState;
+
+          final discountedTotal = finalTotal();
           final received =
               double.tryParse(amountController.text.trim()) ?? 0;
           final change = selectedMethod.isCash
-              ? (received - total).clamp(0, double.infinity).toDouble()
+              ? (received - discountedTotal)
+                  .clamp(0, double.infinity)
+                  .toDouble()
               : 0.0;
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _paymentInfoRow('Order Type', _orderType),
-              _paymentInfoRow('Total', _money(total), emphasized: true),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: selectedMethod.id,
-                decoration: const InputDecoration(
-                  labelText: 'Payment Method',
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _paymentInfoRow('Order Type', _orderType),
+                _paymentInfoRow('Subtotal', _money(subtotal)),
+                if (selectedDiscount != null)
+                  _paymentInfoRow(
+                    'Discount',
+                    '-${_money(discountAmount())}',
+                  ),
+                _paymentInfoRow(
+                  'Total',
+                  _money(discountedTotal),
+                  emphasized: true,
                 ),
-                items: methods
-                    .map(
-                      (method) => DropdownMenuItem(
-                        value: method.id,
-                        child: Text(method.name),
+                if (discounts.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: selectedDiscount?.id ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'Promotional Discount',
+                      helperText:
+                          'Senior/PWD rules are not enabled until the café tax setup is confirmed.',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('No Discount'),
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setDialogState(() {
-                    selectedMethod = methods.firstWhere(
-                      (method) => method.id == value,
-                    );
-                    errorMessage = null;
-                    if (!selectedMethod.isCash) {
-                      amountController.text = total.toStringAsFixed(2);
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: amountController,
-                enabled: selectedMethod.isCash,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Amount Received',
-                  prefixText: '₱',
+                      for (final discount in discounts)
+                        DropdownMenuItem(
+                          value: discount.id,
+                          child: Text(discount.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedDiscount =
+                            value == null || value.isEmpty
+                            ? null
+                            : discounts.firstWhere(
+                                (item) => item.id == value,
+                              );
+
+                        final defaultValue =
+                            selectedDiscount?.defaultValue;
+                        discountValueController.text =
+                            defaultValue == null
+                            ? ''
+                            : defaultValue.toStringAsFixed(
+                                defaultValue ==
+                                        defaultValue.roundToDouble()
+                                    ? 0
+                                    : 2,
+                              );
+
+                        amountController.text =
+                            finalTotal().toStringAsFixed(2);
+                        errorMessage = null;
+                      });
+                    },
+                  ),
+                  if (selectedDiscount != null) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: discountValueController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText:
+                            selectedDiscount!.calculationMethod ==
+                                    'PERCENTAGE'
+                                ? 'Discount Percentage *'
+                                : 'Discount Amount *',
+                        suffixText:
+                            selectedDiscount!.calculationMethod ==
+                                    'PERCENTAGE'
+                                ? '%'
+                                : null,
+                        prefixText:
+                            selectedDiscount!.calculationMethod ==
+                                    'PERCENTAGE'
+                                ? null
+                                : '₱',
+                      ),
+                      onChanged: (_) {
+                        setDialogState(() {
+                          errorMessage = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: discountNotesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Discount Notes',
+                        hintText: 'Optional promo/reference notes',
+                      ),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: selectedMethod.id,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Method',
+                  ),
+                  items: methods
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method.id,
+                          child: Text(method.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      selectedMethod = methods.firstWhere(
+                        (method) => method.id == value,
+                      );
+                      errorMessage = null;
+                      if (!selectedMethod.isCash) {
+                        amountController.text =
+                            finalTotal().toStringAsFixed(2);
+                      }
+                    });
+                  },
                 ),
-                onChanged: (_) {
-                  dialogSetState?.call(() => errorMessage = null);
-                },
-              ),
-              if (selectedMethod.requiresReference) ...[
                 const SizedBox(height: 14),
                 TextField(
-                  controller: referenceController,
-                  decoration: InputDecoration(
-                    labelText: '${selectedMethod.name} Reference *',
+                  controller: amountController,
+                  enabled: selectedMethod.isCash,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount Received',
+                    prefixText: '₱',
                   ),
+                  onChanged: (_) {
+                    dialogSetState?.call(() {
+                      errorMessage = null;
+                    });
+                  },
                 ),
-              ],
-              const SizedBox(height: 14),
-              _paymentInfoRow('Change', _money(change)),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
+                if (selectedMethod.requiresReference) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: referenceController,
+                    decoration: InputDecoration(
+                      labelText: '${selectedMethod.name} Reference *',
+                    ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 14),
+                _paymentInfoRow('Change', _money(change)),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           );
         },
       ),
       actions: [
         TextButton(
-          onPressed: _submittingOrder ? null : () => Navigator.pop(context),
+          onPressed:
+              _submittingOrder ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: _submittingOrder
               ? null
               : () async {
+                  final discountedTotal = finalTotal();
                   final received =
                       double.tryParse(amountController.text.trim()) ?? 0;
 
-                  if (selectedMethod.isCash && received < total) {
+                  final discount = selectedDiscount;
+                  final enteredDiscountValue = discountValue();
+
+                  if (discount != null) {
+                    if (enteredDiscountValue <= 0) {
+                      dialogSetState?.call(() {
+                        errorMessage =
+                            'Enter a discount value greater than zero.';
+                      });
+                      return;
+                    }
+
+                    if (discount.calculationMethod == 'PERCENTAGE' &&
+                        enteredDiscountValue > 100) {
+                      dialogSetState?.call(() {
+                        errorMessage =
+                            'Discount percentage cannot exceed 100%.';
+                      });
+                      return;
+                    }
+
+                    if (discountAmount() <= 0 ||
+                        discountAmount() > subtotal) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Invalid discount amount.';
+                      });
+                      return;
+                    }
+                  }
+
+                  if (discountedTotal <= 0) {
                     dialogSetState?.call(() {
                       errorMessage =
-                          'Amount received cannot be less than the total.';
+                          'The payable total must be greater than zero.';
+                    });
+                    return;
+                  }
+
+                  if (selectedMethod.isCash &&
+                      received < discountedTotal) {
+                    dialogSetState?.call(() {
+                      errorMessage =
+                          'Amount received cannot be less than the discounted total.';
                     });
                     return;
                   }
@@ -1400,7 +1578,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   setState(() => _submittingOrder = true);
 
                   try {
-                    final order = await widget.orderRepository.placeOrder(
+                    final order =
+                        await widget.orderRepository.placeOrder(
                       orderType: _orderType,
                       items: _cart
                           .map(
@@ -1418,11 +1597,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       payments: [
                         PosPaymentInput(
                           paymentMethodId: selectedMethod.id,
-                          amount: total,
+                          amount: discountedTotal,
                           amountTendered:
                               selectedMethod.isCash ? received : null,
                           changeAmount:
-                              selectedMethod.isCash ? received - total : 0,
+                              selectedMethod.isCash
+                                  ? received - discountedTotal
+                                  : 0,
                           externalReference:
                               selectedMethod.requiresReference
                                   ? referenceController.text.trim()
@@ -1430,9 +1611,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                         ),
                       ],
                       tableNumber: _tableNumberController.text.trim(),
-                      customerName: _customerNameController.text.trim(),
+                      customerName:
+                          _customerNameController.text.trim(),
                       deliveryReference:
                           _deliveryReferenceController.text.trim(),
+                      discountTypeId: discount?.id ?? '',
+                      discountValue: discount == null
+                          ? null
+                          : enteredDiscountValue,
+                      discountNotes:
+                          discountNotesController.text.trim(),
                     );
 
                     if (!mounted) return;
@@ -1465,8 +1653,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     amountController.dispose();
     referenceController.dispose();
+    discountValueController.dispose();
+    discountNotesController.dispose();
   }
-
   Future<void> _showReceiptDialog(OrderRecord order) async {
     await showPrototypeDialog(
       context: context,
