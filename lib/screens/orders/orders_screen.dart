@@ -290,6 +290,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             const SizedBox(height: 18),
             _detailRow('Customer / Table', _orderReference(order)),
             _detailRow('Order Type', order.type),
+            if (order.invoiceNumber.isNotEmpty)
+              _detailRow('Invoice', order.invoiceNumber),
             _detailRow('Employee', order.employee),
             if (order.deliveryReference.isNotEmpty)
               _detailRow('Delivery Reference', order.deliveryReference),
@@ -577,6 +579,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
             Center(
               child: Text(order.id, style: AppTextStyles.caption),
             ),
+            if (order.invoiceNumber.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Center(
+                child: Text(
+                  'Invoice ${order.invoiceNumber}',
+                  style: AppTextStyles.caption,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             _detailRow('Date & Time', _formatFullDateTime(order.createdAt)),
             _detailRow('Customer / Table', _orderReference(order)),
