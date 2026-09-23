@@ -151,71 +151,89 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildFilters() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextField(
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search order, customer, or table...',
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 165,
-          child: DropdownButtonFormField<String>(
-            initialValue: _dateFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Dates', child: Text('All Dates')),
-              DropdownMenuItem(value: 'Today', child: Text('Today')),
-              DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
-              DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _dateFilter = value);
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 160,
-          child: DropdownButtonFormField<String>(
-            initialValue: _typeFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Types', child: Text('All Types')),
-              DropdownMenuItem(value: 'Dine In', child: Text('Dine In')),
-              DropdownMenuItem(value: 'Take Out', child: Text('Take Out')),
-              DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _typeFilter = value);
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 155,
-          child: DropdownButtonFormField<String>(
-            initialValue: _statusFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Status', child: Text('All Status')),
-              DropdownMenuItem(value: 'Open', child: Text('Open')),
-              DropdownMenuItem(value: 'Completed', child: Text('Completed')),
-              DropdownMenuItem(value: 'Refunded', child: Text('Refunded')),
-              DropdownMenuItem(value: 'Void', child: Text('Void')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _statusFilter = value);
-            },
-          ),
-        ),
+    final search = TextField(
+      onChanged: (value) => setState(() => _searchQuery = value),
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search),
+        hintText: 'Search order, customer, or table...',
+      ),
+    );
+    final date = DropdownButtonFormField<String>(
+      initialValue: _dateFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Dates', child: Text('All Dates')),
+        DropdownMenuItem(value: 'Today', child: Text('Today')),
+        DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
+        DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
       ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _dateFilter = value);
+      },
+    );
+    final type = DropdownButtonFormField<String>(
+      initialValue: _typeFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Types', child: Text('All Types')),
+        DropdownMenuItem(value: 'Dine In', child: Text('Dine In')),
+        DropdownMenuItem(value: 'Take Out', child: Text('Take Out')),
+        DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _typeFilter = value);
+      },
+    );
+    final status = DropdownButtonFormField<String>(
+      initialValue: _statusFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+        DropdownMenuItem(value: 'Open', child: Text('Open')),
+        DropdownMenuItem(value: 'Completed', child: Text('Completed')),
+        DropdownMenuItem(value: 'Refunded', child: Text('Refunded')),
+        DropdownMenuItem(value: 'Void', child: Text('Void')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _statusFilter = value);
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: date),
+                  const SizedBox(width: 12),
+                  Expanded(child: type),
+                ],
+              ),
+              const SizedBox(height: 12),
+              status,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 12),
+            SizedBox(width: 165, child: date),
+            const SizedBox(width: 12),
+            SizedBox(width: 160, child: type),
+            const SizedBox(width: 12),
+            SizedBox(width: 155, child: status),
+          ],
+        );
+      },
     );
   }
 

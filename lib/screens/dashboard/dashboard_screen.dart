@@ -61,7 +61,7 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 Container(
                   width: double.infinity,
-                  height: 116,
+                  constraints: const BoxConstraints(minHeight: 116),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
                     vertical: 20,
@@ -77,63 +77,72 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "TODAY'S NET SALES",
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final sales = Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "TODAY'S NET SALES",
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(height: 5),
-                            Text(
-                              _money(summary.netSales),
-                              style: AppTextStyles.display.copyWith(
-                                color: AppColors.white,
-                              ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _money(summary.netSales),
+                            style: AppTextStyles.display.copyWith(
+                              color: AppColors.white,
                             ),
-                          ],
-                        ),
-                      ),
-                      Text(
+                          ),
+                        ],
+                      );
+                      final contextLabel = Text(
                         '${summary.completedOrders} completed orders'
                         '  •  ${_money(summary.averageOrder)} average',
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.white,
                         ),
-                      ),
-                      const SizedBox(width: 80),
-                    ],
+                      );
+
+                      if (constraints.maxWidth < 700) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            sales,
+                            const SizedBox(height: 12),
+                            contextLabel,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: sales),
+                          contextLabel,
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
+                SummaryCardGrid(
                   children: [
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Orders',
                         value: '${summary.completedOrders}',
                         subtitle: '${summary.openOrders} currently open',
                         accentColor: AppColors.primary,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Refunds',
                         value: _money(summary.refunds),
                         subtitle: 'Completed refunds today',
                         accentColor: AppColors.orange,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: summary.businessScope
                             ? 'Expenses'
                             : 'Your Sales',
@@ -144,19 +153,14 @@ class DashboardScreen extends StatelessWidget {
                             ? 'Posted expenses today'
                             : 'Your completed sales today',
                         accentColor: AppColors.black,
-                      ),
                     ),
-                    if (summary.businessScope) ...[
-                      const SizedBox(width: 18),
-                      Expanded(
-                        child: SummaryCard(
+                    if (summary.businessScope)
+                      SummaryCard(
                           label: 'Net After Expenses',
                           value: _money(summary.netAfterExpenses ?? 0),
                           subtitle: 'Sales less refunds and expenses',
                           accentColor: AppColors.success,
-                        ),
                       ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 26),

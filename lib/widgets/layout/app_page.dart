@@ -25,48 +25,59 @@ class AppPage extends StatelessWidget {
 
     return ColoredBox(
       color: AppColors.gray100,
-      child: Stack(
-        children: [
-          const Positioned(
-            top: 0,
-            right: 0,
-            left: 0,
-            child: HeaderBrandMotif(),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.page),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 600;
+          final pagePadding = compact ? 16.0 : AppSpacing.page;
+          final titleBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: AppTextStyles.h1),
+              const SizedBox(height: 2),
+              Text(
+                effectiveSubtitle,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.gray500,
+                ),
+              ),
+            ],
+          );
+
+          return Stack(
+            children: [
+              const Positioned(
+                top: 0,
+                right: 0,
+                left: 0,
+                child: HeaderBrandMotif(),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(pagePadding),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
+                      if (compact && action != null) ...[
+                        titleBlock,
+                        const SizedBox(height: 14),
+                        action!,
+                      ] else
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title, style: AppTextStyles.h1),
-                            const SizedBox(height: 2),
-                            Text(
-                              effectiveSubtitle,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.gray500,
-                              ),
-                            ),
+                            Expanded(child: titleBlock),
+                            ?action,
                           ],
                         ),
-                      ),
-                      ?action,
+                      const SizedBox(height: 24),
+                      Expanded(child: child),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Expanded(child: child),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

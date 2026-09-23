@@ -33,6 +33,12 @@ class MockInventoryRepository implements InventoryRepository {
       const [];
 
   @override
+  Future<List<InventoryMovementRecord>> getAllRecentMovements({
+    int limit = 10,
+  }) async =>
+      const [];
+
+  @override
   Future<List<InventoryLotRecord>> getLots(String inventoryItemId) async =>
       const [];
 
@@ -81,6 +87,12 @@ class MockInventoryRepository implements InventoryRepository {
 
   @override
   Future<void> deleteInventoryItem(String id) async {
+    final index = _items.indexWhere((item) => item.id == id);
+    if (index != -1 && _items[index].currentQuantity > 0) {
+      throw StateError(
+        'Stock must be zero before an inventory item can be archived.',
+      );
+    }
     _items.removeWhere((item) => item.id == id);
   }
 }

@@ -36,12 +36,14 @@ class InventoryUnitOption {
 }
 
 class InventoryMovementRecord {
+  final String inventoryItemId;
   final String movementType;
   final double quantityDelta;
   final String reason;
   final DateTime createdAt;
 
   const InventoryMovementRecord({
+    this.inventoryItemId = '',
     required this.movementType,
     required this.quantityDelta,
     required this.reason,
@@ -50,6 +52,7 @@ class InventoryMovementRecord {
 
   factory InventoryMovementRecord.fromMap(Map<String, dynamic> map) {
     return InventoryMovementRecord(
+      inventoryItemId: map['inventory_item_id']?.toString() ?? '',
       movementType: map['movement_type']?.toString() ?? '',
       quantityDelta: (map['quantity_delta'] as num?)?.toDouble() ?? 0,
       reason: map['reason']?.toString() ?? '',

@@ -514,7 +514,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.page),
+              padding: EdgeInsets.all(
+                MediaQuery.sizeOf(context).width < 600
+                    ? 16
+                    : AppSpacing.page,
+              ),
               child: FutureBuilder<List<PosMenuItem>>(
                 future: _menuFuture,
                 builder: (context, snapshot) {
@@ -522,17 +526,42 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
                   return Column(
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text('New Order', style: AppTextStyles.h1),
-                          const Spacer(),
-                          _buildShiftStatus(),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final title = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.arrow_back),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'New Order',
+                                style: AppTextStyles.h1,
+                              ),
+                            ],
+                          );
+
+                          if (constraints.maxWidth < 760) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                title,
+                                const SizedBox(height: 10),
+                                _buildShiftStatus(),
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              title,
+                              const Spacer(),
+                              _buildShiftStatus(),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 18),
                       if (snapshot.connectionState == ConnectionState.waiting)
@@ -548,22 +577,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                           ),
                         )
                       else
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _buildProductsPanel(menu),
-                              ),
-                              const SizedBox(width: 20),
-                              SizedBox(
-                                width: 410,
-                                child: _buildCurrentOrderPanel(),
-                              ),
-                            ],
-                          ),
-                        ),
+                        Expanded(child: _buildOrderWorkspace(menu)),
                     ],
                   );
                 },
@@ -585,8 +599,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
 
     if (_openShiftId != null) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -601,13 +617,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _showCashMovementDialog,
             icon: const Icon(Icons.payments_outlined, size: 18),
             label: const Text('Cash'),
           ),
-          const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _endingShift ? null : _showEndShiftDialog,
             icon: const Icon(Icons.stop_circle_outlined, size: 18),
@@ -621,6 +635,46 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       onPressed: _startingShift ? null : _startShift,
       icon: const Icon(Icons.play_arrow, size: 18),
       label: Text(_startingShift ? 'Starting...' : 'Start Shift'),
+    );
+  }
+
+  Widget _buildOrderWorkspace(List<PosMenuItem> menu) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Products'),
+                    Tab(text: 'Current Order'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildProductsPanel(menu),
+                      _buildCurrentOrderPanel(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: _buildProductsPanel(menu)),
+            const SizedBox(width: 20),
+            SizedBox(width: 410, child: _buildCurrentOrderPanel()),
+          ],
+        );
+      },
     );
   }
 
@@ -715,17 +769,27 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         Expanded(
           child: products.isEmpty
               ? const Center(child: Text('No products found.'))
-              : GridView.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    mainAxisExtent: 200,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (_, index) =>
-                      _buildProductCard(products[index]),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth < 420
+                        ? 1
+                        : constraints.maxWidth < 720
+                            ? 2
+                            : 3;
+
+                    return GridView.builder(
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        mainAxisExtent: 200,
+                      ),
+                      itemCount: products.length,
+                      itemBuilder: (_, index) =>
+                          _buildProductCard(products[index]),
+                    );
+                  },
                 ),
         ),
       ],

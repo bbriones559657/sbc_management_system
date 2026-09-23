@@ -97,44 +97,32 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
           return SingleChildScrollView(
             child: Column(
               children: [
-                Row(
+                SummaryCardGrid(
                   children: [
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Net Sales',
                         value: _money(finance.netSales),
                         subtitle:
                             '${_money(finance.refunds)} refunded in period',
                         accentColor: AppColors.primary,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Expenses',
                         value: _money(finance.expenses),
                         subtitle: 'Posted operating expenses',
                         accentColor: AppColors.orange,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Net After Expenses',
                         value: _money(finance.netAfterExpenses),
                         subtitle: 'Net sales less posted expenses',
                         accentColor: AppColors.black,
-                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Column(
+                ResponsiveSplit(
+                  primary: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
@@ -186,11 +174,8 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                                   .toList(),
                             ),
                         ],
-                      ),
                     ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: SectionCard(
+                  secondary: SectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -236,9 +221,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                             ),
                           ],
                         ),
-                      ),
                     ),
-                  ],
                 ),
                 const SizedBox(height: 26),
                 Row(

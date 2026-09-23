@@ -108,52 +108,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
+                SummaryCardGrid(
                   children: [
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Net Sales',
                         value: _money(finance.netSales),
                         subtitle: 'Current report period',
                         accentColor: AppColors.primary,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Orders',
                         value: '${finance.orders}',
                         subtitle: 'Completed transactions',
                         accentColor: AppColors.orange,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Average Order',
                         value: _money(finance.averageOrder),
                         subtitle: 'Net sales per completed order',
                         accentColor: AppColors.black,
-                      ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
+                    SummaryCard(
                         label: 'Expenses',
                         value: _money(finance.expenses),
                         subtitle: 'Posted operating expenses',
                         accentColor: AppColors.warning,
-                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: SectionCard(
+                ResponsiveSplit(
+                  primary: SectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -183,11 +168,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 ),
                           ],
                         ),
-                      ),
                     ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: SectionCard(
+                  secondary: SectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -223,9 +205,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             ),
                           ],
                         ),
-                      ),
                     ),
-                  ],
                 ),
                 const SizedBox(height: 22),
                 Align(

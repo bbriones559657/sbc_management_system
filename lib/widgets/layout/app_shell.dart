@@ -39,24 +39,31 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.gray100,
-      body: Row(
-        children: [
-          AppSidebar(
-            profile: widget.profile,
-            items: widget.items,
-            selectedIndex: _selectedIndex,
-            onItemSelected: (index) {
-              setState(() => _selectedIndex = index);
-            },
-            onSignOut: widget.onSignOut,
-          ),
-          Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: widget.pages,
-            ),
-          ),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compactNavigation = constraints.maxWidth < 900;
+
+          return Row(
+            children: [
+              AppSidebar(
+                profile: widget.profile,
+                items: widget.items,
+                selectedIndex: _selectedIndex,
+                compact: compactNavigation,
+                onItemSelected: (index) {
+                  setState(() => _selectedIndex = index);
+                },
+                onSignOut: widget.onSignOut,
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: widget.pages,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

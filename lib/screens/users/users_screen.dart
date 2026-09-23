@@ -95,41 +95,53 @@ class _UsersScreenState extends State<UsersScreen> {
 
           return Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      onChanged: (value) =>
-                          setState(() => _search = value),
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Search name or email...',
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final search = TextField(
+                    onChanged: (value) => setState(() => _search = value),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search name or email...',
+                    ),
+                  );
+                  final role = DropdownButtonFormField<String>(
+                    initialValue: _roleFilter,
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'All Roles',
+                        child: Text('All Roles'),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 190,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _roleFilter,
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'All Roles',
-                          child: Text('All Roles'),
+                      for (final role in roles)
+                        DropdownMenuItem(
+                          value: role,
+                          child: Text(role),
                         ),
-                        for (final role in roles)
-                          DropdownMenuItem(
-                            value: role,
-                            child: Text(role),
-                          ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _roleFilter = value);
+                    },
+                  );
+
+                  if (constraints.maxWidth < 620) {
+                    return Column(
+                      children: [
+                        search,
+                        const SizedBox(height: 12),
+                        role,
                       ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _roleFilter = value);
-                      },
-                    ),
-                  ),
-                ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: search),
+                      const SizedBox(width: 12),
+                      SizedBox(width: 190, child: role),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 18),
               Expanded(

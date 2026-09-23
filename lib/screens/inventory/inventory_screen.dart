@@ -8,6 +8,7 @@ import '../../models/inventory_item.dart';
 import '../../models/inventory_reference.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 
@@ -27,6 +28,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   late Future<List<InventoryItem>> _itemsFuture;
+  late Future<List<InventoryMovementRecord>> _movementsFuture;
 
   String _searchQuery = '';
   String _categoryFilter = 'All Categories';
@@ -40,6 +42,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _reload() {
     _itemsFuture = widget.inventoryRepository.getInventoryItems();
+    _movementsFuture = widget.inventoryRepository.getAllRecentMovements();
   }
 
   void _refresh() {
@@ -95,71 +98,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   ),
                                 ),
                               )
-                            : SingleChildScrollView(
-                                child: DataTableCard(
-                                  headers: const [
-                                    'Item',
-                                    'Category',
-                                    'Stock',
-                                    'Reorder Level',
-                                    'Next Expiry',
-                                    'Status',
-                                  ],
-                                  flexes: const [3, 2, 2, 2, 2, 2],
-                                  rows: filtered
-                                      .map(
-                                        (item) => [
-                                          InkWell(
-                                            onTap: () =>
-                                                _showItemDetails(item),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item.name,
-                                                  style: AppTextStyles.bodyMedium
-                                                      .copyWith(
-                                                    color: AppColors.primary,
-                                                  ),
-                                                ),
-                                                if (item.sku.isNotEmpty)
-                                                  Text(
-                                                    item.sku,
-                                                    style:
-                                                        AppTextStyles.caption,
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                          Text(
-                                            item.category,
-                                            style: AppTextStyles.body,
-                                          ),
-                                          Text(
-                                            item.stock,
-                                            style: AppTextStyles.bodyMedium,
-                                          ),
-                                          Text(
-                                            _quantityWithUnit(
-                                              item.reorderLevel,
-                                              item.baseUomCode,
-                                            ),
-                                            style: AppTextStyles.body,
-                                          ),
-                                          Text(
-                                            item.expiration,
-                                            style: AppTextStyles.body,
-                                          ),
-                                          Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: StatusBadge(item.status),
-                                          ),
-                                        ],
-                                      )
-                                      .toList(),
-                                ),
-                              ),
+                            : _buildInventoryContent(filtered, items),
               ),
             ],
           );
@@ -169,67 +108,259 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildFilters(List<String> categories) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextField(
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search item or SKU...',
-            ),
-          ),
+    final search = TextField(
+      onChanged: (value) => setState(() => _searchQuery = value),
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search),
+        hintText: 'Search item or SKU...',
+      ),
+    );
+    final category = DropdownButtonFormField<String>(
+      initialValue: _categoryFilter,
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem(
+          value: 'All Categories',
+          child: Text('All Categories'),
         ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 220,
-          child: DropdownButtonFormField<String>(
-            initialValue: _categoryFilter,
-            items: [
-              const DropdownMenuItem(
-                value: 'All Categories',
-                child: Text('All Categories'),
-              ),
-              for (final category in categories)
-                DropdownMenuItem(
-                  value: category,
-                  child: Text(category),
+        for (final category in categories)
+          DropdownMenuItem(
+            value: category,
+            child: Text(category),
+          ),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _categoryFilter = value);
+      },
+    );
+    final stock = DropdownButtonFormField<String>(
+      initialValue: _stockFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Stock', child: Text('All Stock')),
+        DropdownMenuItem(value: 'Low Stock', child: Text('Low Stock')),
+        DropdownMenuItem(
+          value: 'Expiring Soon',
+          child: Text('Expiring Soon'),
+        ),
+        DropdownMenuItem(value: 'Expired', child: Text('Expired')),
+        DropdownMenuItem(value: 'In Stock', child: Text('In Stock')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _stockFilter = value);
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 760) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: 12),
+              category,
+              const SizedBox(height: 12),
+              stock,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 12),
+            SizedBox(width: 220, child: category),
+            const SizedBox(width: 12),
+            SizedBox(width: 180, child: stock),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInventoryContent(
+    List<InventoryItem> filtered,
+    List<InventoryItem> allItems,
+  ) {
+    final table = DataTableCard(
+      headers: const [
+        'Item',
+        'Category',
+        'Stock',
+        'Reorder Level',
+        'Next Expiry',
+        'Status',
+      ],
+      flexes: const [3, 2, 2, 2, 2, 2],
+      rows: filtered
+          .map(
+            (item) => [
+              InkWell(
+                onTap: () => _showItemDetails(item),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    if (item.sku.isNotEmpty)
+                      Text(item.sku, style: AppTextStyles.caption),
+                  ],
                 ),
+              ),
+              Text(item.category, style: AppTextStyles.body),
+              Text(item.stock, style: AppTextStyles.bodyMedium),
+              Text(
+                _quantityWithUnit(item.reorderLevel, item.baseUomCode),
+                style: AppTextStyles.body,
+              ),
+              Text(item.expiration, style: AppTextStyles.body),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: StatusBadge(item.status),
+              ),
             ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _categoryFilter = value);
-            },
+          )
+          .toList(),
+    );
+    final activity = _buildRecentActivity(allItems);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 1080) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: SingleChildScrollView(child: table)),
+              const SizedBox(width: 18),
+              SizedBox(
+                width: 330,
+                child: SingleChildScrollView(child: activity),
+              ),
+            ],
+          );
+        }
+
+        return SingleChildScrollView(
+          child: Column(
+            children: [
+              table,
+              const SizedBox(height: 18),
+              activity,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentActivity(List<InventoryItem> items) {
+    final itemById = {for (final item in items) item.id: item};
+
+    return SectionCard(
+      child: FutureBuilder<List<InventoryMovementRecord>>(
+        future: _movementsFuture,
+        builder: (context, snapshot) {
+          final movements = snapshot.data ?? const <InventoryMovementRecord>[];
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Recent Activity', style: AppTextStyles.h3),
+              const SizedBox(height: 4),
+              Text(
+                'Latest inventory ledger entries',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.gray500,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const Center(child: CircularProgressIndicator())
+              else if (snapshot.hasError)
+                Text(
+                  'Unable to load recent activity.',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                )
+              else if (movements.isEmpty)
+                Text(
+                  'No stock movements recorded yet.',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                )
+              else
+                for (int index = 0; index < movements.length; index++) ...[
+                  _buildActivityRow(movements[index], itemById),
+                  if (index != movements.length - 1)
+                    const Divider(height: 20, color: AppColors.gray200),
+                ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildActivityRow(
+    InventoryMovementRecord movement,
+    Map<String, InventoryItem> itemById,
+  ) {
+    final item = itemById[movement.inventoryItemId];
+    final positive = movement.quantityDelta >= 0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: positive ? AppColors.gray100 : AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            positive ? Icons.south_west : Icons.north_east,
+            size: 17,
+            color: positive ? AppColors.success : AppColors.primary,
           ),
         ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 180,
-          child: DropdownButtonFormField<String>(
-            initialValue: _stockFilter,
-            items: const [
-              DropdownMenuItem(
-                value: 'All Stock',
-                child: Text('All Stock'),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item?.name ?? 'Inventory item',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.bodyMedium,
               ),
-              DropdownMenuItem(
-                value: 'Low Stock',
-                child: Text('Low Stock'),
-              ),
-              DropdownMenuItem(
-                value: 'Expiring Soon',
-                child: Text('Expiring Soon'),
-              ),
-              DropdownMenuItem(
-                value: 'In Stock',
-                child: Text('In Stock'),
+              Text(
+                '${_movementLabel(movement.movementType)} • '
+                '${_formatDateTime(movement.createdAt)}',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.gray500,
+                ),
               ),
             ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _stockFilter = value);
-            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _signedQuantity(
+            movement.quantityDelta,
+            item?.baseUomCode ?? '',
+          ),
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: positive ? AppColors.success : AppColors.primary,
           ),
         ),
       ],
@@ -394,6 +525,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
             },
             child: const Text('Manage Lots'),
           ),
+        if (widget.canManageInventory && latest.currentQuantity <= 0)
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _confirmArchiveItem(latest);
+            },
+            icon: const Icon(Icons.archive_outlined, size: 17),
+            label: const Text('Archive'),
+          ),
         if (widget.canManageInventory)
           ElevatedButton(
             onPressed: () {
@@ -402,6 +542,43 @@ class _InventoryScreenState extends State<InventoryScreen> {
             },
             child: const Text('Record Stock Movement'),
           ),
+      ],
+    );
+  }
+
+  Future<void> _confirmArchiveItem(InventoryItem item) async {
+    await showPrototypeDialog(
+      context: context,
+      title: 'Archive Inventory Item',
+      width: 460,
+      content: Text(
+        'Archive ${item.name}? It will be removed from active inventory, '
+        'while its ledger history remains available for audit records.',
+        style: AppTextStyles.body,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            try {
+              await widget.inventoryRepository.deleteInventoryItem(item.id);
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+              _showMessage('Inventory item archived.');
+            } on PostgrestException catch (error) {
+              if (mounted) _showMessage(error.message);
+            } catch (error) {
+              if (mounted) _showMessage(error.toString());
+            }
+          },
+          icon: const Icon(Icons.archive_outlined, size: 17),
+          label: const Text('Archive Item'),
+        ),
       ],
     );
   }

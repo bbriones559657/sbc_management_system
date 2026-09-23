@@ -97,6 +97,26 @@ class SupabaseInventoryRepository implements InventoryRepository {
         .toList();
   }
 
+  @override
+  Future<List<InventoryMovementRecord>> getAllRecentMovements({
+    int limit = 10,
+  }) async {
+    final rows = await _client
+        .from('stock_movements')
+        .select(
+          'inventory_item_id, movement_type, quantity_delta, reason, created_at',
+        )
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map(
+          (row) => InventoryMovementRecord.fromMap(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
 
   @override
   Future<List<InventoryLotRecord>> getLots(
@@ -206,6 +226,21 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
   @override
   Future<void> deleteInventoryItem(String id) async {
+    final rows = await _client
+        .from('v_inventory_catalog')
+        .select('current_quantity')
+        .eq('inventory_item_id', id)
+        .limit(1);
+    final currentQuantity = (rows as List).isEmpty
+        ? 0.0
+        : ((rows.first as Map)['current_quantity'] as num?)?.toDouble() ?? 0;
+
+    if (currentQuantity > 0) {
+      throw StateError(
+        'Stock must be zero before an inventory item can be archived.',
+      );
+    }
+
     await _client
         .from('inventory_items')
         .update({

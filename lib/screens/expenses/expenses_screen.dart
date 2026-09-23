@@ -119,42 +119,55 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             )
           : Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        onChanged: (value) {
-                          setState(() => _searchQuery = value);
-                        },
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          hintText: 'Search expense...',
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final search = TextField(
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Search expense...',
+                      ),
+                    );
+                    final category = DropdownButtonFormField<String>(
+                      initialValue: _selectedCategory,
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(
+                          value: 'All Categories',
+                          child: Text('All Categories'),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 230,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
-                        items: [
-                          const DropdownMenuItem(
-                            value: 'All Categories',
-                            child: Text('All Categories'),
+                        for (final category in _categories)
+                          DropdownMenuItem(
+                            value: category.name,
+                            child: Text(category.name),
                           ),
-                          for (final category in _categories)
-                            DropdownMenuItem(
-                              value: category.name,
-                              child: Text(category.name),
-                            ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _selectedCategory = value);
+                      },
+                    );
+
+                    if (constraints.maxWidth < 620) {
+                      return Column(
+                        children: [
+                          search,
+                          const SizedBox(height: 12),
+                          category,
                         ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _selectedCategory = value);
-                        },
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: search),
+                        const SizedBox(width: 12),
+                        SizedBox(width: 230, child: category),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 18),
                 Expanded(

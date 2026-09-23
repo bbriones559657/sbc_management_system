@@ -92,40 +92,53 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
           return Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      onChanged: (value) => setState(() => _search = value),
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Search product, variant, or SKU...',
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final search = TextField(
+                    onChanged: (value) => setState(() => _search = value),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search product, variant, or SKU...',
+                    ),
+                  );
+                  final category = DropdownButtonFormField<String>(
+                    initialValue: _categoryFilter,
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'All Categories',
+                        child: Text('All Categories'),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 220,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _categoryFilter,
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'All Categories',
-                          child: Text('All Categories'),
+                      for (final category in categories)
+                        DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
                         ),
-                        for (final category in categories)
-                          DropdownMenuItem(
-                            value: category,
-                            child: Text(category),
-                          ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _categoryFilter = value);
+                    },
+                  );
+
+                  if (constraints.maxWidth < 620) {
+                    return Column(
+                      children: [
+                        search,
+                        const SizedBox(height: 12),
+                        category,
                       ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _categoryFilter = value);
-                      },
-                    ),
-                  ),
-                ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: search),
+                      const SizedBox(width: 12),
+                      SizedBox(width: 220, child: category),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 18),
               Expanded(
