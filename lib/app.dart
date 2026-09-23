@@ -7,12 +7,14 @@ import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_menu_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
+import 'data/repositories/supabase_reporting_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/menu_repository.dart';
 import 'domain/repositories/order_repository.dart';
+import 'domain/repositories/reporting_repository.dart';
 import 'domain/repositories/supplier_repository.dart';
 import 'models/app_navigation_item.dart';
 import 'models/app_user_profile.dart';
@@ -38,6 +40,7 @@ class StreetBowlApp extends StatefulWidget {
 class _StreetBowlAppState extends State<StreetBowlApp> {
   late final DashboardRepository _dashboardRepository;
   late final OrderRepository _orderRepository;
+  late final ReportingRepository _reportingRepository;
   late final InventoryRepository _inventoryRepository;
   late final MenuRepository _menuRepository;
   late final ExpenseRepository _expenseRepository;
@@ -48,6 +51,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     super.initState();
     _dashboardRepository = SupabaseDashboardRepository();
     _orderRepository = SupabaseOrderRepository();
+    _reportingRepository = SupabaseReportingRepository();
     _inventoryRepository = SupabaseInventoryRepository();
     _menuRepository = SupabaseMenuRepository();
     _expenseRepository = SupabaseExpenseRepository();
@@ -123,8 +127,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       if (!isCashier) ...[
         MenuManagementScreen(menuRepository: _menuRepository),
         ExpensesScreen(expenseRepository: _expenseRepository),
-        const SalesFinanceScreen(),
-        const ReportsScreen(),
+        SalesFinanceScreen(reportingRepository: _reportingRepository),
+        ReportsScreen(reportingRepository: _reportingRepository),
         SuppliersScreen(supplierRepository: _supplierRepository),
         const UsersScreen(),
       ],
