@@ -61,7 +61,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
       action: SizedBox(
         width: 180,
         child: DropdownButtonFormField<int>(
-          value: _days,
+          initialValue: _days,
           decoration: const InputDecoration(
             labelText: 'Report Period',
           ),
@@ -383,7 +383,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               _dialogRow('Balance', _money(bill.balance)),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: selectedMethod.id,
+                initialValue: selectedMethod.id,
                 decoration: const InputDecoration(
                   labelText: 'Payment Method *',
                 ),

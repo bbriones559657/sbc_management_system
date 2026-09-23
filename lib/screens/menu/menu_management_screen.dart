@@ -107,7 +107,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   SizedBox(
                     width: 220,
                     child: DropdownButtonFormField<String>(
-                      value: _categoryFilter,
+                      initialValue: _categoryFilter,
                       items: [
                         const DropdownMenuItem(
                           value: 'All Categories',
@@ -334,7 +334,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: categoryId,
+                  initialValue: categoryId,
                   decoration: const InputDecoration(
                     labelText: 'Category *',
                   ),
@@ -388,7 +388,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: inventoryMode,
+                  initialValue: inventoryMode,
                   decoration: const InputDecoration(
                     labelText: 'Inventory Tracking',
                   ),
@@ -417,7 +417,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 if (inventoryMode == 'FINISHED_GOOD') ...[
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: finishedInventoryId.isEmpty
+                    initialValue: finishedInventoryId.isEmpty
                         ? null
                         : finishedInventoryId,
                     decoration: const InputDecoration(
@@ -696,7 +696,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: inventoryId,
+                    initialValue: inventoryId,
                     decoration: const InputDecoration(
                       labelText: 'Inventory Item',
                     ),
@@ -824,7 +824,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               )
             : ListView.separated(
                 itemCount: groups.length,
-                separatorBuilder: (_, __) =>
+                separatorBuilder: (_, _) =>
                     const Divider(height: 24),
                 itemBuilder: (_, index) {
                   final group = groups[index];

@@ -298,7 +298,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: supplierId,
+                  initialValue: supplierId,
                   decoration: const InputDecoration(
                     labelText: 'Supplier *',
                   ),
@@ -517,7 +517,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: supplierId,
+                  initialValue: supplierId,
                   decoration: const InputDecoration(
                     labelText: 'Supplier *',
                   ),
@@ -808,7 +808,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: inventoryId,
+                      initialValue: inventoryId,
                       decoration: const InputDecoration(
                         labelText: 'Inventory Item *',
                       ),
@@ -836,7 +836,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: purchaseUomId,
+                      initialValue: purchaseUomId,
                       decoration: const InputDecoration(
                         labelText: 'Purchase Unit *',
                       ),

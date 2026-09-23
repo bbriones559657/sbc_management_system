@@ -111,7 +111,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   SizedBox(
                     width: 190,
                     child: DropdownButtonFormField<String>(
-                      value: _roleFilter,
+                      initialValue: _roleFilter,
                       items: [
                         const DropdownMenuItem(
                           value: 'All Roles',
@@ -280,7 +280,7 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: roleCode,
+                initialValue: roleCode,
                 decoration: const InputDecoration(
                   labelText: 'Role *',
                 ),
@@ -408,7 +408,7 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: roleId.isEmpty ? null : roleId,
+                initialValue: roleId.isEmpty ? null : roleId,
                 decoration: const InputDecoration(
                   labelText: 'Role',
                 ),
@@ -429,7 +429,7 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: status,
+                initialValue: status,
                 decoration: const InputDecoration(
                   labelText: 'Status',
                 ),

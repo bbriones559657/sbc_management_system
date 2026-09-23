@@ -384,7 +384,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: movementType,
+                    initialValue: movementType,
                     decoration: const InputDecoration(
                       labelText: 'Movement Type',
                     ),
@@ -698,7 +698,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) {
               final category = categories[index];
               return ChoiceChip(
@@ -1352,7 +1352,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 if (discounts.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: selectedDiscount?.id ?? '',
+                    initialValue: selectedDiscount?.id ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Promotional Discount',
                       helperText:
@@ -1438,7 +1438,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 ],
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: selectedMethod.id,
+                  initialValue: selectedMethod.id,
                   decoration: const InputDecoration(
                     labelText: 'Payment Method',
                   ),

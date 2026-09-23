@@ -136,7 +136,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     SizedBox(
                       width: 230,
                       child: DropdownButtonFormField<String>(
-                        value: _selectedCategory,
+                        initialValue: _selectedCategory,
                         items: [
                           const DropdownMenuItem(
                             value: 'All Categories',
@@ -314,7 +314,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Category *',
                 ),

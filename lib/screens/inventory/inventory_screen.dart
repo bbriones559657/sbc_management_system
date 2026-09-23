@@ -185,7 +185,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         SizedBox(
           width: 220,
           child: DropdownButtonFormField<String>(
-            value: _categoryFilter,
+            initialValue: _categoryFilter,
             items: [
               const DropdownMenuItem(
                 value: 'All Categories',
@@ -207,7 +207,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         SizedBox(
           width: 180,
           child: DropdownButtonFormField<String>(
-            value: _stockFilter,
+            initialValue: _stockFilter,
             items: const [
               DropdownMenuItem(
                 value: 'All Stock',
@@ -438,7 +438,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               )
             : ListView.separated(
                 itemCount: lots.length,
-                separatorBuilder: (_, __) =>
+                separatorBuilder: (_, _) =>
                     const Divider(height: 18),
                 itemBuilder: (_, index) {
                   final lot = lots[index];
@@ -543,7 +543,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: movementType,
+                initialValue: movementType,
                 decoration: const InputDecoration(
                   labelText: 'Reason Type',
                 ),
@@ -676,7 +676,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 _detailRow('Current Stock', item.stock),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: movementType,
+                  initialValue: movementType,
                   decoration: const InputDecoration(
                     labelText: 'Movement Type',
                   ),
@@ -913,7 +913,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: categoryId,
+                  initialValue: categoryId,
                   decoration: const InputDecoration(
                     labelText: 'Category *',
                   ),
@@ -932,7 +932,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: unitId,
+                  initialValue: unitId,
                   decoration: const InputDecoration(
                     labelText: 'Base Unit *',
                   ),

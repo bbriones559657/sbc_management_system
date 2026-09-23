@@ -82,7 +82,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     SizedBox(
                       width: 190,
                       child: DropdownButtonFormField<int>(
-                        value: _days,
+                        initialValue: _days,
                         decoration: const InputDecoration(
                           labelText: 'Report Period',
                         ),

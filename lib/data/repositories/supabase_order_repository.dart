@@ -325,7 +325,7 @@ class SupabaseOrderRepository implements OrderRepository {
       );
     }
 
-    final row = await _findOrderRow('#' + orderNumber);
+    final row = await _findOrderRow('#$orderNumber');
     if (row == null) {
       throw const FormatException(
         'The completed order could not be reloaded.',
@@ -553,7 +553,7 @@ class SupabaseOrderRepository implements OrderRepository {
     final paymentAmount = payment?['amount'] as num?;
 
     return OrderRecord(
-      id: '#' + row['order_number'].toString(),
+      id: '#${row['order_number']}',
       createdAt: DateTime.parse(row['created_at'].toString()).toLocal(),
       employee: row['employee_name_snapshot']?.toString() ?? 'Employee',
       employeeId: '',
