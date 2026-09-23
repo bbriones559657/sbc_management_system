@@ -9,6 +9,46 @@ abstract class MenuRepository {
 
   Future<List<MenuRecipeComponent>> getRecipeComponents(String variantId);
 
+  Future<List<MenuModifierGroupRecord>> getModifierGroupsForMenuItem(
+    String menuItemId,
+  );
+
+  Future<List<MenuRecipeComponent>> getModifierRecipeComponents(
+    String modifierId,
+  );
+
+  Future<String> createModifierGroup({
+    required String menuItemId,
+    required String groupName,
+    required int minSelections,
+    int? maxSelections,
+    required bool isRequired,
+  });
+
+  Future<void> updateModifierGroup({
+    required String groupId,
+    required String groupName,
+    required int minSelections,
+    int? maxSelections,
+    required bool isRequired,
+    required bool isActive,
+  });
+
+  Future<String> createModifier({
+    required String groupId,
+    required String name,
+    required double priceDelta,
+    List<MenuRecipeComponent> recipe = const [],
+  });
+
+  Future<void> updateModifier({
+    required String modifierId,
+    required String name,
+    required double priceDelta,
+    required bool isActive,
+    List<MenuRecipeComponent> recipe = const [],
+  });
+
   Future<void> createMenuItemWithVariant({
     required String itemName,
     required String categoryId,
