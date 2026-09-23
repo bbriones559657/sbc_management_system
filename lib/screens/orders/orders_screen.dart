@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -12,10 +13,12 @@ import 'new_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final bool canManageOrders;
 
   const OrdersScreen({
     super.key,
     required this.orderRepository,
+    required this.canManageOrders,
   });
 
   @override
@@ -23,8 +26,6 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  static const String _prototypeManagerKey = 'ADMIN123';
-
   late Future<List<OrderRecord>> _ordersFuture;
   String _searchQuery = '';
   String _dateFilter = 'All Dates';
@@ -349,13 +350,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
-        OutlinedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _showActions(context, order);
-          },
-          child: const Text('Actions'),
-        ),
+        if (widget.canManageOrders)
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showActions(context, order);
+            },
+            child: const Text('Actions'),
+          ),
         ElevatedButton(
           onPressed: () => _showReceipt(context, order),
           child: const Text('View Receipt'),
@@ -440,7 +442,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required _OrderAction action,
   }) async {
     final reasonController = TextEditingController();
-    final keyController = TextEditingController();
     String? errorMessage;
     StateSetter? updateDialogState;
 
@@ -454,6 +455,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           updateDialogState = setDialogState;
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +468,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$actionName affects the transaction record and requires manager/admin confirmation.',
+                  'Your signed-in Manager/Admin account will authorize this '
+                  '${actionName.toLowerCase()} action.',
                   style: AppTextStyles.body,
                 ),
               ),
@@ -474,21 +477,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
               TextField(
                 controller: reasonController,
                 maxLines: 3,
-                onChanged: (_) => setDialogState(() => errorMessage = null),
+                onChanged: (_) {
+                  updateDialogState?.call(() => errorMessage = null);
+                },
                 decoration: const InputDecoration(
                   labelText: 'Reason *',
                   hintText: 'Enter the reason for this action',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: keyController,
-                obscureText: true,
-                onChanged: (_) => setDialogState(() => errorMessage = null),
-                decoration: const InputDecoration(
-                  labelText: 'Manager Authorization Key *',
-                  hintText: 'Enter manager/admin key',
-                  helperText: 'Prototype testing key: ADMIN123',
                 ),
               ),
               if (errorMessage != null) ...[
@@ -512,7 +506,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ElevatedButton(
           onPressed: () async {
             final reason = reasonController.text.trim();
-            final managerKey = keyController.text.trim();
 
             if (reason.isEmpty) {
               updateDialogState?.call(() {
@@ -521,48 +514,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
               return;
             }
 
-            if (managerKey != _prototypeManagerKey) {
+            try {
+              if (action == _OrderAction.refund) {
+                await widget.orderRepository.refundOrder(
+                  order.id,
+                  reason: reason,
+                );
+              } else {
+                await widget.orderRepository.voidOrder(
+                  order.id,
+                  reason: reason,
+                );
+              }
+
+              if (!context.mounted) return;
+
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Order ${order.id} ${actionName.toLowerCase()} completed.',
+                  ),
+                ),
+              );
+            } on PostgrestException catch (error) {
               updateDialogState?.call(() {
-                errorMessage = 'Invalid manager authorization key.';
+                errorMessage = error.message;
               });
-              return;
+            } catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.toString();
+              });
             }
-
-            if (action == _OrderAction.refund) {
-              await widget.orderRepository.refundOrder(
-                order.id,
-                reason: reason,
-                authorizedBy: 'Manager/Admin (Prototype)',
-              );
-            } else {
-              await widget.orderRepository.voidOrder(
-                order.id,
-                reason: reason,
-                authorizedBy: 'Manager/Admin (Prototype)',
-              );
-            }
-
-            if (!context.mounted) return;
-
-Navigator.pop(context);
-
-_refreshOrders();
-
-ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(
-    content: Text(
-      'Order ${order.id} marked as ${actionName.toLowerCase()}ed.',
-    ),
-  ),
-);
-          },  
+          },
           child: Text('Confirm $actionName'),
         ),
       ],
     );
 
     reasonController.dispose();
-    keyController.dispose();
   }
 
   Future<void> _showReceipt(
