@@ -33,7 +33,7 @@ class SupabaseExpenseRepository implements ExpenseRepository {
         date: _formatDate(DateTime.parse(row['expense_date'].toString())),
         description: row['description']?.toString() ?? '',
         category: category,
-        amount: ((row['amount'] as num?) ?? 0).round(),
+        amount: ((row['amount'] as num?) ?? 0).toDouble(),
       );
     }).toList();
   }
@@ -78,7 +78,7 @@ class SupabaseExpenseRepository implements ExpenseRepository {
       date: _formatDate(DateTime.parse(row['expense_date'].toString())),
       description: row['description']?.toString() ?? '',
       category: category,
-      amount: ((row['amount'] as num?) ?? 0).round(),
+      amount: ((row['amount'] as num?) ?? 0).toDouble(),
     );
   }
 
