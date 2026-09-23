@@ -84,3 +84,38 @@ class RefundPreview {
     );
   }
 }
+
+
+class RefundRestockCandidate {
+  final String refundItemId;
+  final String itemName;
+  final String variantName;
+  final double refundedQuantity;
+  final bool restockApproved;
+  final bool eligibleForRestock;
+  final String inventoryItemName;
+
+  const RefundRestockCandidate({
+    required this.refundItemId,
+    required this.itemName,
+    required this.variantName,
+    required this.refundedQuantity,
+    required this.restockApproved,
+    required this.eligibleForRestock,
+    required this.inventoryItemName,
+  });
+
+  factory RefundRestockCandidate.fromMap(Map<String, dynamic> map) {
+    return RefundRestockCandidate(
+      refundItemId: map['refund_item_id']?.toString() ?? '',
+      itemName: map['item_name_snapshot']?.toString() ?? '',
+      variantName: map['variant_name_snapshot']?.toString() ?? '',
+      refundedQuantity:
+          (map['refunded_quantity'] as num?)?.toDouble() ?? 0,
+      restockApproved: map['restock_approved'] == true,
+      eligibleForRestock: map['eligible_for_restock'] == true,
+      inventoryItemName:
+          map['inventory_item_name']?.toString() ?? '',
+    );
+  }
+}
