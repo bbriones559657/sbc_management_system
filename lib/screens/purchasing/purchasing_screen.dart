@@ -488,11 +488,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     StateSetter? updateDialogState;
 
     List<PurchaseLineInput> lines = poLines
+        .where((line) => line.remainingQuantity > 0)
         .map(
           (line) => PurchaseLineInput(
             inventoryItemId: line.inventoryItemId,
             purchaseUomId: line.purchaseUomId,
-            quantity: line.orderedQuantity,
+            quantity: line.remainingQuantity,
             baseQuantityPerPurchaseUnit:
                 line.baseQuantityPerPurchaseUnit,
             unitCost: line.unitCost,
