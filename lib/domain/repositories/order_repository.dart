@@ -1,5 +1,6 @@
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
@@ -49,6 +50,8 @@ abstract class OrderRepository {
 
   Future<List<PosPaymentMethod>> getPaymentMethods();
 
+  Future<List<PosDiscountType>> getPosDiscountTypes();
+
   Future<List<PosModifierGroup>> getModifierGroups(String menuItemId);
 
   Future<String?> getOpenShiftId();
@@ -78,5 +81,8 @@ abstract class OrderRepository {
     String customerName = '',
     String deliveryReference = '',
     String notes = '',
+    String discountTypeId = '',
+    double? discountValue,
+    String discountNotes = '',
   });
 }
