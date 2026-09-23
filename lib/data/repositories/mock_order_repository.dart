@@ -1,6 +1,7 @@
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
@@ -102,6 +103,9 @@ class MockOrderRepository implements OrderRepository {
   Future<List<PosPaymentMethod>> getPaymentMethods() async => const [];
 
   @override
+  Future<List<PosDiscountType>> getPosDiscountTypes() async => const [];
+
+  @override
   Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async => const [];
 
   @override
@@ -148,6 +152,9 @@ class MockOrderRepository implements OrderRepository {
     String customerName = '',
     String deliveryReference = '',
     String notes = '',
+    String discountTypeId = '',
+    double? discountValue,
+    String discountNotes = '',
   }) {
     throw UnimplementedError('Mock POS placement is not used by the live app.');
   }
