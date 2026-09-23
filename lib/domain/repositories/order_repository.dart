@@ -3,7 +3,6 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
-import '../../models/refund_workflow.dart';
 import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
 
@@ -30,13 +29,6 @@ abstract class OrderRepository {
 
   Future<RefundPreview> getRefundPreview(String id);
 
-  Future<void> refundSelectedItems(
-    String id, {
-    required Map<String, double> quantities,
-    required String reason,
-    String externalReference = '',
-  });
-
   Future<List<RefundRestockCandidate>> getRefundRestockCandidates(
     String id,
   );
@@ -45,8 +37,6 @@ abstract class OrderRepository {
     String refundItemId, {
     String notes = '',
   });
-
-  Future<RefundPreview> getRefundPreview(String id);
 
   Future<void> refundOrderItems(
     String id, {
