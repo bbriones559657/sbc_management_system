@@ -7,6 +7,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/shift_cash_snapshot.dart';
 
 class SupabaseOrderRepository implements OrderRepository {
   final SupabaseClient _client;
@@ -174,6 +175,38 @@ class SupabaseOrderRepository implements OrderRepository {
         'p_shift_id': shiftId,
         'p_closing_cash_counted': closingCashCounted,
         'p_notes': _nullable(notes),
+      },
+    );
+  }
+
+  @override
+  Future<ShiftCashSnapshot> getShiftCashSnapshot(
+    String shiftId,
+  ) async {
+    final result = await _client.rpc(
+      'get_shift_cash_snapshot',
+      params: {'p_shift_id': shiftId},
+    );
+
+    return ShiftCashSnapshot.fromMap(
+      Map<String, dynamic>.from(result as Map),
+    );
+  }
+
+  @override
+  Future<void> recordShiftCashMovement({
+    required String shiftId,
+    required String movementType,
+    required double amount,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'record_shift_cash_movement',
+      params: {
+        'p_shift_id': shiftId,
+        'p_movement_type': movementType,
+        'p_amount': amount,
+        'p_reason': reason.trim(),
       },
     );
   }
