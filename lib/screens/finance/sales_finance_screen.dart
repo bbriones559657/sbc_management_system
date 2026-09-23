@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../domain/repositories/finance_repository.dart';
 import '../../domain/repositories/reporting_repository.dart';
+import '../../models/finance_management.dart';
 import '../../models/reporting.dart';
+import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/summary_card.dart';
@@ -11,10 +15,12 @@ import '../../widgets/layout/app_page.dart';
 
 class SalesFinanceScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
+  final FinanceRepository financeRepository;
 
   const SalesFinanceScreen({
     super.key,
     required this.reportingRepository,
+    required this.financeRepository,
   });
 
   @override
@@ -24,6 +30,7 @@ class SalesFinanceScreen extends StatefulWidget {
 class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   int _days = 7;
   late Future<ReportingSnapshot> _snapshotFuture;
+  late Future<List<SupplierBalanceRecord>> _balancesFuture;
 
   @override
   void initState() {
@@ -33,6 +40,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
   void _reload() {
     _snapshotFuture = widget.reportingRepository.getSnapshot(days: _days);
+    _balancesFuture = widget.financeRepository.getSupplierBalances();
   }
 
   void _changeDays(int days) {
@@ -40,6 +48,10 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
       _days = days;
       _reload();
     });
+  }
+
+  void _refresh() {
+    setState(_reload);
   }
 
   @override
@@ -228,10 +240,295 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 26),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Supplier Payables',
+                        style: AppTextStyles.h3,
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh, size: 17),
+                      label: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder<List<SupplierBalanceRecord>>(
+                  future: _balancesFuture,
+                  builder: (context, balancesSnapshot) {
+                    if (balancesSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    if (balancesSnapshot.hasError) {
+                      return SectionCard(
+                        child: Text(
+                          'Unable to load supplier payables. '
+                          '${balancesSnapshot.error}',
+                        ),
+                      );
+                    }
+
+                    final balances = balancesSnapshot.data ??
+                        const <SupplierBalanceRecord>[];
+
+                    if (balances.isEmpty) {
+                      return const SectionCard(
+                        child: Text('No outstanding supplier balances.'),
+                      );
+                    }
+
+                    return DataTableCard(
+                      headers: const [
+                        'Supplier',
+                        'Invoice',
+                        'Invoice Date',
+                        'Due Date',
+                        'Amount',
+                        'Paid',
+                        'Balance',
+                        'Action',
+                      ],
+                      flexes: const [3, 2, 2, 2, 2, 2, 2, 1],
+                      rows: balances
+                          .map(
+                            (bill) => [
+                              Text(
+                                bill.supplierName,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              Text(
+                                bill.invoiceNumber.isEmpty
+                                    ? '—'
+                                    : bill.invoiceNumber,
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _date(bill.invoiceDate),
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                bill.dueDate == null
+                                    ? '—'
+                                    : _date(bill.dueDate!),
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _money(bill.amount),
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _money(bill.amountPaid),
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _money(bill.balance),
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    _showSupplierPayment(bill),
+                                child: const Text('Pay'),
+                              ),
+                            ],
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _showSupplierPayment(
+    SupplierBalanceRecord bill,
+  ) async {
+    final methods = await widget.financeRepository.getPaymentMethods();
+
+    if (!mounted || methods.isEmpty) return;
+
+    FinancePaymentMethod selectedMethod = methods.first;
+    final amountController = TextEditingController(
+      text: bill.balance.toStringAsFixed(2),
+    );
+    final referenceController = TextEditingController();
+    final notesController = TextEditingController();
+    String? errorMessage;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Pay Supplier Bill',
+      width: 560,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          updateDialogState = setDialogState;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dialogRow('Supplier', bill.supplierName),
+              _dialogRow('Balance', _money(bill.balance)),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: selectedMethod.id,
+                decoration: const InputDecoration(
+                  labelText: 'Payment Method *',
+                ),
+                items: methods
+                    .map(
+                      (method) => DropdownMenuItem(
+                        value: method.id,
+                        child: Text(method.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() {
+                    selectedMethod = methods.firstWhere(
+                      (method) => method.id == value,
+                    );
+                    errorMessage = null;
+                  });
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Amount *',
+                  prefixText: '₱',
+                ),
+              ),
+              if (selectedMethod.requiresReference) ...[
+                const SizedBox(height: 14),
+                TextField(
+                  controller: referenceController,
+                  decoration: InputDecoration(
+                    labelText:
+                        '${selectedMethod.name} Reference *',
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final amount =
+                double.tryParse(amountController.text.trim());
+
+            if (amount == null ||
+                amount <= 0 ||
+                amount > bill.balance) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'Enter an amount between ₱0.01 and the current balance.';
+              });
+              return;
+            }
+
+            if (selectedMethod.requiresReference &&
+                referenceController.text.trim().isEmpty) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'A payment reference is required for this method.';
+              });
+              return;
+            }
+
+            try {
+              await widget.financeRepository.recordSupplierPayment(
+                supplierBillId: bill.billId,
+                paymentMethodId: selectedMethod.id,
+                amount: amount,
+                referenceNumber: referenceController.text.trim(),
+                notes: notesController.text.trim(),
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Supplier payment recorded.'),
+                ),
+              );
+            } on PostgrestException catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Record Payment'),
+        ),
+      ],
+    );
+
+    amountController.dispose();
+    referenceController.dispose();
+    notesController.dispose();
+  }
+
+  Widget _dialogRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.gray700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(value, style: AppTextStyles.bodyMedium),
+        ],
       ),
     );
   }
