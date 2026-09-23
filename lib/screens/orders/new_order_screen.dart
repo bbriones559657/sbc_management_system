@@ -216,6 +216,191 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     notesController.dispose();
   }
 
+
+  Future<void> _showCashMovementDialog() async {
+    final shiftId = _openShiftId;
+    if (shiftId == null) return;
+
+    final amountController = TextEditingController();
+    final reasonController = TextEditingController();
+    var movementType = 'PAY_IN';
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    try {
+      final snapshot =
+          await widget.orderRepository.getShiftCashSnapshot(shiftId);
+
+      if (!mounted) return;
+
+      await showPrototypeDialog(
+        context: context,
+        title: 'Cash Movement',
+        width: 560,
+        content: StatefulBuilder(
+          builder: (_, setDialogState) {
+            dialogSetState = setDialogState;
+
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        _paymentInfoRow(
+                          'Opening Cash',
+                          _money(snapshot.openingCash),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Sales',
+                          _money(snapshot.cashSales),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Refunds',
+                          _money(snapshot.cashRefunds),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-ins / Corrections',
+                          _money(snapshot.cashIn),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-outs / Cash Drops',
+                          _money(snapshot.cashOut),
+                        ),
+                        const Divider(),
+                        _paymentInfoRow(
+                          'Expected Cash',
+                          _money(snapshot.expectedCash),
+                          emphasized: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: movementType,
+                    decoration: const InputDecoration(
+                      labelText: 'Movement Type',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'PAY_IN',
+                        child: Text('Pay In'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'PAY_OUT',
+                        child: Text('Pay Out'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CASH_DROP',
+                        child: Text('Cash Drop'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CORRECTION',
+                        child: Text('Positive Correction'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        movementType = value;
+                        errorMessage = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount *',
+                      prefixText: '₱',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason *',
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount =
+                  double.tryParse(amountController.text.trim());
+              final reason = reasonController.text.trim();
+
+              if (amount == null || amount <= 0 || reason.isEmpty) {
+                dialogSetState?.call(() {
+                  errorMessage =
+                      'Enter an amount greater than zero and a reason.';
+                });
+                return;
+              }
+
+              try {
+                await widget.orderRepository.recordShiftCashMovement(
+                  shiftId: shiftId,
+                  movementType: movementType,
+                  amount: amount,
+                  reason: reason,
+                );
+
+                if (!mounted) return;
+                Navigator.pop(context);
+                _showMessage('Cash movement recorded.');
+              } on PostgrestException catch (error) {
+                dialogSetState?.call(() {
+                  errorMessage = error.message;
+                });
+              } catch (error) {
+                dialogSetState?.call(() {
+                  errorMessage = error.toString();
+                });
+              }
+            },
+            child: const Text('Record Movement'),
+          ),
+        ],
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showError(error.message);
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    }
+
+    amountController.dispose();
+    reasonController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -316,6 +501,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 color: AppColors.success,
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: _showCashMovementDialog,
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('Cash'),
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
