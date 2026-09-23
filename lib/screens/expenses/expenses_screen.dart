@@ -192,7 +192,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                       style: AppTextStyles.body,
                                     ),
                                     Text(
-                                      _money(expense.amount.toDouble()),
+                                      _money(expense.amount),
                                       style: AppTextStyles.bodyMedium,
                                     ),
                                     Row(
@@ -364,7 +364,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           onPressed: () async {
             final description = descriptionController.text.trim();
             final amount =
-                int.tryParse(amountController.text.trim());
+                double.tryParse(amountController.text.trim());
 
             if (description.isEmpty ||
                 amount == null ||
