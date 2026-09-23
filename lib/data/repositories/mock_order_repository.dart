@@ -4,6 +4,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/shift_cash_snapshot.dart';
 import '../mock_data.dart';
 
 class MockOrderRepository implements OrderRepository {
@@ -86,6 +87,28 @@ class MockOrderRepository implements OrderRepository {
     required String shiftId,
     double? closingCashCounted,
     String notes = '',
+  }) async {}
+
+  @override
+  Future<ShiftCashSnapshot> getShiftCashSnapshot(String shiftId) async {
+    return ShiftCashSnapshot(
+      shiftId: shiftId,
+      openingCash: 0,
+      cashSales: 0,
+      cashRefunds: 0,
+      cashIn: 0,
+      cashOut: 0,
+      expectedCash: 0,
+      status: 'OPEN',
+    );
+  }
+
+  @override
+  Future<void> recordShiftCashMovement({
+    required String shiftId,
+    required String movementType,
+    required double amount,
+    required String reason,
   }) async {}
 
   @override
