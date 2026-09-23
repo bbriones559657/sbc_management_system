@@ -116,3 +116,42 @@ class MenuRecipeComponent {
         'wastage_percent': wastagePercent,
       };
 }
+
+
+class MenuModifierGroupRecord {
+  final String menuItemId;
+  final String groupId;
+  final String groupName;
+  final int minSelections;
+  final int? maxSelections;
+  final bool isRequired;
+  final bool isActive;
+  final List<MenuModifierRecord> modifiers;
+
+  const MenuModifierGroupRecord({
+    required this.menuItemId,
+    required this.groupId,
+    required this.groupName,
+    required this.minSelections,
+    required this.maxSelections,
+    required this.isRequired,
+    required this.isActive,
+    required this.modifiers,
+  });
+}
+
+class MenuModifierRecord {
+  final String id;
+  final String name;
+  final double priceDelta;
+  final bool isActive;
+  final int recipeComponentCount;
+
+  const MenuModifierRecord({
+    required this.id,
+    required this.name,
+    required this.priceDelta,
+    required this.isActive,
+    required this.recipeComponentCount,
+  });
+}
