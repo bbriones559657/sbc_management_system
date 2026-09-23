@@ -39,6 +39,23 @@ class SupabaseExpenseRepository implements ExpenseRepository {
   }
 
   @override
+  Future<List<ExpenseCategoryOption>> getCategories() async {
+    final rows = await _client
+        .from('expense_categories')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+    return (rows as List)
+        .map(
+          (raw) => ExpenseCategoryOption.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<ExpenseRecord?> getExpenseById(String id) async {
     final rows = await _client
         .from('expenses')
