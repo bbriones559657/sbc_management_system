@@ -115,6 +115,8 @@ class PurchaseOrderLineRecord {
   final String purchaseUomId;
   final String purchaseUomCode;
   final double orderedQuantity;
+  final double receivedQuantity;
+  final double remainingQuantity;
   final double baseQuantityPerPurchaseUnit;
   final double unitCost;
 
@@ -125,6 +127,8 @@ class PurchaseOrderLineRecord {
     required this.purchaseUomId,
     required this.purchaseUomCode,
     required this.orderedQuantity,
+    required this.receivedQuantity,
+    required this.remainingQuantity,
     required this.baseQuantityPerPurchaseUnit,
     required this.unitCost,
   });
