@@ -601,7 +601,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 child: OutlinedButton.icon(
                   onPressed: product.isOutOfStock
                       ? null
-                      : () => _addItem(product),
+                      : () => _addProduct(product),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                 ),
@@ -650,13 +650,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       ),
                     ),
                   )
-                : ListView(
-                    children: _cart.entries.map((entry) {
-                      final product =
-                          _menuItemByVariantId(menu, entry.key);
-                      if (product == null) return const SizedBox.shrink();
-                      return _buildCartItem(product, entry.value);
-                    }).toList(),
+                : ListView.builder(
+                    itemCount: _cart.length,
+                    itemBuilder: (_, index) {
+                      return _buildCartItem(_cart[index], index);
+                    },
                   ),
           ),
           const Divider(),
@@ -737,7 +735,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildCartItem(PosMenuItem product, int quantity) {
+  Widget _buildCartItem(_PosCartLine line, int index) {
+    final product = line.product;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -756,10 +756,17 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 const SizedBox(height: 3),
                 Text(
                   '${product.variantName} • '
-                  '${_money(product.price)} each • '
-                  '${_money(product.price * quantity)}',
+                  '${_money(line.unitPriceWithModifiers)} each • '
+                  '${_money(line.lineTotal)}',
                   style: AppTextStyles.caption,
                 ),
+                if (line.modifiers.isNotEmpty)
+                  Text(
+                    line.modifiers.map((modifier) => modifier.name).join(', '),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray700,
+                    ),
+                  ),
                 if (product.tracksInventory)
                   Text(
                     '${product.availableQuantity?.toStringAsFixed(0) ?? '0'} available',
@@ -771,23 +778,23 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => _decreaseItem(product.variantId),
+            onPressed: () => _decreaseLine(index),
             icon: const Icon(Icons.remove_circle_outline, size: 20),
           ),
           SizedBox(
             width: 28,
             child: Text(
-              '$quantity',
+              '${line.quantity}',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium,
             ),
           ),
           IconButton(
-            onPressed: () => _addItem(product),
+            onPressed: () => _increaseLine(index),
             icon: const Icon(Icons.add_circle_outline, size: 20),
           ),
           IconButton(
-            onPressed: () => _removeItem(product.variantId),
+            onPressed: () => _removeLine(index),
             icon: const Icon(
               Icons.delete_outline,
               color: AppColors.primary,
