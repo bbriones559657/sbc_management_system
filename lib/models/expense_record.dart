@@ -29,3 +29,21 @@ class ExpenseRecord {
     );
   }
 }
+
+
+class ExpenseCategoryOption {
+  final String id;
+  final String name;
+
+  const ExpenseCategoryOption({
+    required this.id,
+    required this.name,
+  });
+
+  factory ExpenseCategoryOption.fromMap(Map<String, dynamic> map) {
+    return ExpenseCategoryOption(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+    );
+  }
+}
