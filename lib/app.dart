@@ -5,11 +5,13 @@ import 'core/theme/app_theme.dart';
 import 'data/repositories/supabase_dashboard_repository.dart';
 import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
+import 'data/repositories/supabase_menu_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
+import 'domain/repositories/menu_repository.dart';
 import 'domain/repositories/order_repository.dart';
 import 'domain/repositories/supplier_repository.dart';
 import 'models/app_navigation_item.dart';
@@ -19,6 +21,7 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
 import 'screens/finance/sales_finance_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
+import 'screens/menu/menu_management_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/suppliers/suppliers_screen.dart';
@@ -36,6 +39,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final DashboardRepository _dashboardRepository;
   late final OrderRepository _orderRepository;
   late final InventoryRepository _inventoryRepository;
+  late final MenuRepository _menuRepository;
   late final ExpenseRepository _expenseRepository;
   late final SupplierRepository _supplierRepository;
 
@@ -45,6 +49,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _dashboardRepository = SupabaseDashboardRepository();
     _orderRepository = SupabaseOrderRepository();
     _inventoryRepository = SupabaseInventoryRepository();
+    _menuRepository = SupabaseMenuRepository();
     _expenseRepository = SupabaseExpenseRepository();
     _supplierRepository = SupabaseSupplierRepository();
   }
@@ -79,6 +84,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       ),
       if (!isCashier) ...[
         const AppNavigationItem(
+          label: 'Menu',
+          icon: Icons.restaurant_menu_outlined,
+        ),
+        const AppNavigationItem(
           label: 'Expenses',
           icon: Icons.payments_outlined,
         ),
@@ -112,6 +121,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
         canManageInventory: !isCashier,
       ),
       if (!isCashier) ...[
+        MenuManagementScreen(menuRepository: _menuRepository),
         ExpensesScreen(expenseRepository: _expenseRepository),
         const SalesFinanceScreen(),
         const ReportsScreen(),
