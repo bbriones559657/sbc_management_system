@@ -191,7 +191,7 @@ class DashboardScreen extends StatelessWidget {
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
                             Text(
-                              '₱${order.amount}',
+                              _money(order.amount),
                               style: AppTextStyles.body,
                             ),
                             Align(
