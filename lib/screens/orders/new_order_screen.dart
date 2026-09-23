@@ -109,113 +109,209 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     String? errorMessage;
     StateSetter? dialogSetState;
 
-    await showPrototypeDialog(
-      context: context,
-      title: 'End Shift',
-      width: 520,
-      content: StatefulBuilder(
-        builder: (_, setDialogState) {
-          dialogSetState = setDialogState;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Ending the shift closes this cashier session. '
-                'You can start another shift later.',
-                style: AppTextStyles.body,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: cashController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Closing Cash Count',
-                  prefixText: '₱',
-                  helperText: 'Optional while closing cash is not required.',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: notesController,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Closing Notes'),
-              ),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
+    try {
+      final snapshot =
+          await widget.orderRepository.getShiftCashSnapshot(shiftId);
+
+      if (!mounted) return;
+
+      await showPrototypeDialog(
+        context: context,
+        title: 'End Shift',
+        width: 560,
+        content: StatefulBuilder(
+          builder: (_, setDialogState) {
+            dialogSetState = setDialogState;
+
+            final rawCash = cashController.text.trim();
+            final countedCash =
+                rawCash.isEmpty ? null : double.tryParse(rawCash);
+            final variance = countedCash == null
+                ? null
+                : countedCash - snapshot.expectedCash;
+
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.gray200),
+                    ),
+                    child: Column(
+                      children: [
+                        _paymentInfoRow(
+                          'Opening Cash',
+                          _money(snapshot.openingCash),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Sales',
+                          _money(snapshot.cashSales),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Refunds',
+                          _money(snapshot.cashRefunds),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-ins / Corrections',
+                          _money(snapshot.cashIn),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-outs / Cash Drops',
+                          _money(snapshot.cashOut),
+                        ),
+                        const Divider(),
+                        _paymentInfoRow(
+                          'Expected Closing Cash',
+                          _money(snapshot.expectedCash),
+                          emphasized: true,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: _endingShift ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: cashController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) {
+                      setDialogState(() => errorMessage = null);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Counted Closing Cash',
+                      prefixText: '₱',
+                      helperText:
+                          'Optional for now, but entering it records the cash variance.',
+                    ),
+                  ),
+                  if (variance != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: variance.abs() < 0.01
+                            ? const Color(0xFFEAF7EE)
+                            : AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _paymentInfoRow(
+                        'Cash Variance',
+                        _signedMoney(variance),
+                        emphasized: true,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Closing Notes',
+                      hintText:
+                          'Optional explanation for cash differences or handover notes...',
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
-        ElevatedButton(
-          onPressed: _endingShift
-              ? null
-              : () async {
-                  final rawCash = cashController.text.trim();
-                  final cash = rawCash.isEmpty ? null : double.tryParse(rawCash);
+        actions: [
+          TextButton(
+            onPressed: _endingShift ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _endingShift
+                ? null
+                : () async {
+                    final rawCash = cashController.text.trim();
+                    final cash =
+                        rawCash.isEmpty ? null : double.tryParse(rawCash);
 
-                  if (rawCash.isNotEmpty && cash == null) {
-                    dialogSetState?.call(() {
-                      errorMessage = 'Enter a valid closing cash amount.';
-                    });
-                    return;
-                  }
+                    if (rawCash.isNotEmpty && cash == null) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Enter a valid closing cash amount.';
+                      });
+                      return;
+                    }
 
-                  setState(() => _endingShift = true);
+                    if (cash != null && cash < 0) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Closing cash cannot be negative.';
+                      });
+                      return;
+                    }
 
-                  try {
-                    await widget.orderRepository.endShift(
-                      shiftId: shiftId,
-                      closingCashCounted: cash,
-                      notes: notesController.text.trim(),
-                    );
+                    setState(() => _endingShift = true);
 
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                    setState(() {
-                      _openShiftId = null;
-                      _cart.clear();
-                    });
-                    _showMessage('Shift ended successfully.');
-                  } on PostgrestException catch (error) {
-                    dialogSetState?.call(() {
-                      errorMessage = error.message;
-                    });
-                  } catch (error) {
-                    dialogSetState?.call(() {
-                      errorMessage = error.toString();
-                    });
-                  } finally {
-                    if (mounted) setState(() => _endingShift = false);
-                  }
-                },
-          child: _endingShift
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('End Shift'),
-        ),
-      ],
-    );
+                    try {
+                      await widget.orderRepository.endShift(
+                        shiftId: shiftId,
+                        closingCashCounted: cash,
+                        notes: notesController.text.trim(),
+                      );
 
-    cashController.dispose();
-    notesController.dispose();
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      setState(() {
+                        _openShiftId = null;
+                        _cart.clear();
+                      });
+
+                      if (cash == null) {
+                        _showMessage('Shift ended successfully.');
+                      } else {
+                        final variance = cash - snapshot.expectedCash;
+                        _showMessage(
+                          'Shift ended. Cash variance: ${_signedMoney(variance)}',
+                        );
+                      }
+                    } on PostgrestException catch (error) {
+                      dialogSetState?.call(() {
+                        errorMessage = error.message;
+                      });
+                    } catch (error) {
+                      dialogSetState?.call(() {
+                        errorMessage = error.toString();
+                      });
+                    } finally {
+                      if (mounted) setState(() => _endingShift = false);
+                    }
+                  },
+            child: _endingShift
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('End Shift'),
+          ),
+        ],
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showError(error.message);
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    } finally {
+      cashController.dispose();
+      notesController.dispose();
+    }
   }
-
 
   Future<void> _showCashMovementDialog() async {
     final shiftId = _openShiftId;
@@ -1531,6 +1627,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     if (value.contains('beverage')) return Icons.local_drink_outlined;
     if (value.contains('snack')) return Icons.cookie_outlined;
     return Icons.fastfood_outlined;
+  }
+
+  String _signedMoney(double value) {
+    final sign = value > 0 ? '+' : '';
+    return '$sign${_money(value)}';
   }
 
   String _money(double value) {
