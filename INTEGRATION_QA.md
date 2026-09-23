@@ -74,8 +74,15 @@ The database checks below were executed inside transactions and rolled back unle
 - Internal helper functions are not exposed to normal API roles.
 - Business-changing operations use permission-checked RPC functions.
 - High-traffic foreign-key indexes were added for POS, inventory, refunds, purchasing and finance.
+- Overlapping `FOR ALL` management policies were split into action-specific
+  `INSERT`, `UPDATE` and `DELETE` policies. Existing read policies and
+  permission expressions were preserved, and the duplicate permissive-policy
+  advisor warning is clear.
 - Supabase security advisor still reports public `SECURITY DEFINER` API functions. These are intentional RPC entry points and each must retain its internal authorization checks.
 - Supabase Auth leaked-password protection is still disabled and should be enabled in the Supabase Auth settings before production use.
+- The remaining foreign-key and unused-index advisor notices are informational;
+  they should be reviewed again with real usage data instead of adding or
+  removing every index preemptively.
 
 ## Intentionally pending business decisions
 
