@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
+import '../../models/refund_preview.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
@@ -389,21 +390,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _showReceipt(context, order);
             },
           ),
-          if (order.status == 'Completed')
+          if (order.status == 'Completed' ||
+              order.status == 'Partially Refunded')
             ListTile(
               leading: const Icon(Icons.undo),
-              title: const Text('Refund Order'),
-              subtitle: const Text('Requires manager authorization'),
+              title: const Text('Refund Items'),
+              subtitle: const Text('Full or partial refund'),
               onTap: () {
                 Navigator.pop(context);
-                _showManagerAuthorization(
-                  context,
-                  order: order,
-                  action: _OrderAction.refund,
-                );
+                _showRefundDialog(context, order);
               },
             ),
-          if (!isClosed)
+          if (order.status == 'Open')
             ListTile(
               leading: const Icon(
                 Icons.block,
@@ -437,6 +435,290 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
+
+
+  Future<void> _showRefundDialog(
+    BuildContext context,
+    OrderRecord order,
+  ) async {
+    RefundPreview preview;
+
+    try {
+      preview = await widget.orderRepository.getRefundPreview(order.id);
+    } on PostgrestException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+      return;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    if (preview.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This order has nothing left to refund.')),
+      );
+      return;
+    }
+
+    final reasonController = TextEditingController();
+    final referenceController = TextEditingController();
+    final quantityControllers = <String, TextEditingController>{
+      for (final item in preview.items)
+        item.orderItemId: TextEditingController(text: '0'),
+    };
+
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    double selectedTotal() {
+      double total = 0;
+
+      for (final item in preview.items) {
+        final controller = quantityControllers[item.orderItemId]!;
+        final quantity = double.tryParse(controller.text.trim()) ?? 0;
+        if (quantity > 0) {
+          total += quantity * item.unitRefundable;
+        }
+      }
+
+      return total;
+    }
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Refund Order ${order.id}',
+      width: 700,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+
+          return SizedBox(
+            height: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Refunds return through ${preview.paymentMethodName}. '
+                      'Only quantities that have not already been refunded are available.',
+                      style: AppTextStyles.body,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Select Items',
+                    style: AppTextStyles.h3,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final item in preview.items)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.gray100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.gray200),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.itemName,
+                                  style: AppTextStyles.bodyMedium,
+                                ),
+                                Text(
+                                  item.variantName.isEmpty
+                                      ? 'Remaining: ${_refundQty(item.remainingQuantity)}'
+                                      : '${item.variantName} • Remaining: ${_refundQty(item.remainingQuantity)}',
+                                  style: AppTextStyles.caption,
+                                ),
+                                Text(
+                                  '${_moneyDouble(item.unitRefundable)} refundable each',
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: TextField(
+                              controller:
+                                  quantityControllers[item.orderItemId],
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              decoration: const InputDecoration(
+                                labelText: 'Qty',
+                              ),
+                              onChanged: (_) {
+                                setDialogState(() {
+                                  errorMessage = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  _detailRow(
+                    'Selected Refund',
+                    _moneyDouble(selectedTotal()),
+                    emphasized: true,
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Refund Reason *',
+                    ),
+                    onChanged: (_) {
+                      dialogSetState?.call(() => errorMessage = null);
+                    },
+                  ),
+                  if (preview.requiresReference) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: referenceController,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${preview.paymentMethodName} Refund Reference *',
+                      ),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final reason = reasonController.text.trim();
+            final quantities = <String, double>{};
+            String? validationError;
+
+            for (final item in preview.items) {
+              final raw =
+                  quantityControllers[item.orderItemId]!.text.trim();
+              final quantity = double.tryParse(raw) ?? -1;
+
+              if (quantity < 0) {
+                validationError = 'Refund quantities must be zero or greater.';
+                break;
+              }
+
+              if (quantity > item.remainingQuantity) {
+                validationError =
+                    '${item.itemName} only has ${_refundQty(item.remainingQuantity)} refundable.';
+                break;
+              }
+
+              if (quantity > 0) {
+                quantities[item.orderItemId] = quantity;
+              }
+            }
+
+            if (validationError == null && quantities.isEmpty) {
+              validationError = 'Select at least one quantity to refund.';
+            }
+
+            if (validationError == null && reason.isEmpty) {
+              validationError = 'A refund reason is required.';
+            }
+
+            if (validationError == null &&
+                preview.requiresReference &&
+                referenceController.text.trim().isEmpty) {
+              validationError =
+                  'A refund transaction reference is required.';
+            }
+
+            if (validationError != null) {
+              dialogSetState?.call(() {
+                errorMessage = validationError;
+              });
+              return;
+            }
+
+            try {
+              await widget.orderRepository.refundOrderItems(
+                order.id,
+                quantities: quantities,
+                reason: reason,
+                externalReference:
+                    referenceController.text.trim(),
+              );
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Refund recorded for order ${order.id}.',
+                  ),
+                ),
+              );
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Process Refund'),
+        ),
+      ],
+    );
+
+    reasonController.dispose();
+    referenceController.dispose();
+    for (final controller in quantityControllers.values) {
+      controller.dispose();
+    }
+  }
+
 
   Future<void> _showManagerAuthorization(
     BuildContext context, {
@@ -666,6 +948,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ],
       ),
     );
+  }
+
+
+  String _moneyDouble(double value) {
+    return '₱${value.toStringAsFixed(2)}';
+  }
+
+  String _refundQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
   }
 
   String _orderReference(OrderRecord order) {
