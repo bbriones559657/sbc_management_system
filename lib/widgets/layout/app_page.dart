@@ -7,7 +7,7 @@ import 'header_brand_motif.dart';
 
 class AppPage extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? action;
   final Widget child;
 
@@ -15,12 +15,14 @@ class AppPage extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
-    this.subtitle = 'Sunday, August 24, 2026',
+    this.subtitle,
     this.action,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSubtitle = subtitle ?? _todayLabel();
+
     return ColoredBox(
       color: AppColors.gray100,
       child: Stack(
@@ -47,7 +49,7 @@ class AppPage extends StatelessWidget {
                             Text(title, style: AppTextStyles.h1),
                             const SizedBox(height: 2),
                             Text(
-                              subtitle,
+                              effectiveSubtitle,
                               style: AppTextStyles.caption.copyWith(
                                 color: AppColors.gray500,
                               ),
@@ -67,5 +69,19 @@ class AppPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _todayLabel() {
+    const weekdays = [
+      'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday',
+    ];
+    const months = [
+      'January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    final now = DateTime.now();
+    return '${weekdays[now.weekday - 1]}, '
+        '${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 }
