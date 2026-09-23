@@ -1697,7 +1697,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       ),
                     ),
                     Text(
-                      '₱${item.lineTotal}',
+                      _money(item.lineTotal),
                       style: AppTextStyles.bodyMedium,
                     ),
                   ],
@@ -1707,15 +1707,15 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             const Divider(height: 28),
             _paymentInfoRow(
               'Total',
-              '₱${order.amount}',
+              _money(order.amount),
               emphasized: true,
             ),
             _paymentInfoRow('Payment', order.paymentMethod),
             _paymentInfoRow(
               'Amount Received',
-              '₱${order.amountReceived}',
+              _money(order.amountReceived),
             ),
-            _paymentInfoRow('Change', '₱${order.changeAmount}'),
+            _paymentInfoRow('Change', _money(order.changeAmount)),
           ],
         ),
       ),
