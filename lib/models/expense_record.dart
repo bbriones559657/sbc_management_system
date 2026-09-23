@@ -3,7 +3,7 @@ class ExpenseRecord {
   final String date;
   final String description;
   final String category;
-  final int amount;
+  final double amount;
 
   const ExpenseRecord({
     this.id = '',
@@ -18,7 +18,7 @@ class ExpenseRecord {
     String? date,
     String? description,
     String? category,
-    int? amount,
+    double? amount,
   }) {
     return ExpenseRecord(
       id: id ?? this.id,
@@ -26,6 +26,24 @@ class ExpenseRecord {
       description: description ?? this.description,
       category: category ?? this.category,
       amount: amount ?? this.amount,
+    );
+  }
+}
+
+
+class ExpenseCategoryOption {
+  final String id;
+  final String name;
+
+  const ExpenseCategoryOption({
+    required this.id,
+    required this.name,
+  });
+
+  factory ExpenseCategoryOption.fromMap(Map<String, dynamic> map) {
+    return ExpenseCategoryOption(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
     );
   }
 }

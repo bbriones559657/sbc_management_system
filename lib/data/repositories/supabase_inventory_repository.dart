@@ -98,6 +98,65 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
+  Future<List<InventoryMovementRecord>> getAllRecentMovements({
+    int limit = 10,
+  }) async {
+    final rows = await _client
+        .from('stock_movements')
+        .select(
+          'inventory_item_id, movement_type, quantity_delta, reason, created_at',
+        )
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map(
+          (row) => InventoryMovementRecord.fromMap(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<InventoryLotRecord>> getLots(
+    String inventoryItemId,
+  ) async {
+    final rows = await _client
+        .from('v_inventory_lots')
+        .select()
+        .eq('inventory_item_id', inventoryItemId)
+        .order('expiration_date')
+        .order('received_at');
+
+    return (rows as List)
+        .map(
+          (row) => InventoryLotRecord.fromMap(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> disposeLot({
+    required String inventoryLotId,
+    required String movementType,
+    required double quantity,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'dispose_inventory_lot',
+      params: {
+        'p_inventory_lot_id': inventoryLotId,
+        'p_movement_type': movementType,
+        'p_quantity': quantity,
+        'p_reason': reason.trim(),
+      },
+    );
+  }
+
+  @override
   Future<void> createInventoryItemWithInitialStock({
     required String name,
     required String categoryId,
@@ -167,6 +226,21 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
   @override
   Future<void> deleteInventoryItem(String id) async {
+    final rows = await _client
+        .from('v_inventory_catalog')
+        .select('current_quantity')
+        .eq('inventory_item_id', id)
+        .limit(1);
+    final currentQuantity = (rows as List).isEmpty
+        ? 0.0
+        : ((rows.first as Map)['current_quantity'] as num?)?.toDouble() ?? 0;
+
+    if (currentQuantity > 0) {
+      throw StateError(
+        'Stock must be zero before an inventory item can be archived.',
+      );
+    }
+
     await _client
         .from('inventory_items')
         .update({

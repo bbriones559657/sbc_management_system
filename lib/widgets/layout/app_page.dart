@@ -7,7 +7,7 @@ import 'header_brand_motif.dart';
 
 class AppPage extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? action;
   final Widget child;
 
@@ -15,57 +15,84 @@ class AppPage extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
-    this.subtitle = 'Sunday, August 24, 2026',
+    this.subtitle,
     this.action,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSubtitle = subtitle ?? _todayLabel();
+
     return ColoredBox(
       color: AppColors.gray100,
-      child: Stack(
-        children: [
-          const Positioned(
-            top: 0,
-            right: 0,
-            left: 0,
-            child: HeaderBrandMotif(),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.page),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 600;
+          final pagePadding = compact ? 16.0 : AppSpacing.page;
+          final titleBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: AppTextStyles.h1),
+              const SizedBox(height: 2),
+              Text(
+                effectiveSubtitle,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.gray500,
+                ),
+              ),
+            ],
+          );
+
+          return Stack(
+            children: [
+              const Positioned(
+                top: 0,
+                right: 0,
+                left: 0,
+                child: HeaderBrandMotif(),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(pagePadding),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
+                      if (compact && action != null) ...[
+                        titleBlock,
+                        const SizedBox(height: 14),
+                        action!,
+                      ] else
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title, style: AppTextStyles.h1),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.gray500,
-                              ),
-                            ),
+                            Expanded(child: titleBlock),
+                            ?action,
                           ],
                         ),
-                      ),
-                      ?action,
+                      const SizedBox(height: 24),
+                      Expanded(child: child),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Expanded(child: child),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
+  }
+
+  static String _todayLabel() {
+    const weekdays = [
+      'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday',
+    ];
+    const months = [
+      'January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    final now = DateTime.now();
+    return '${weekdays[now.weekday - 1]}, '
+        '${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 }

@@ -19,6 +19,33 @@ class MockUserRepository implements UserRepository {
   }
 
   @override
+  Future<List<UserRoleOption>> getRoles() async => const [];
+
+  @override
+  Future<void> createEmployee({
+    required String email,
+    required String temporaryPassword,
+    required String displayName,
+    required String roleCode,
+  }) async {}
+
+  @override
+  Future<void> updateEmployee({
+    required String userId,
+    required String displayName,
+    required String status,
+    required String roleId,
+  }) async {
+    final index = _users.indexWhere((entry) => entry.id == userId);
+    if (index == -1) return;
+    _users[index] = _users[index].copyWith(
+      name: displayName,
+      status: status,
+      roleId: roleId,
+    );
+  }
+
+  @override
   Future<void> createUser(UserRecord user) async {
     _users.add(user);
   }

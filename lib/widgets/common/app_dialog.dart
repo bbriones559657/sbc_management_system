@@ -12,18 +12,40 @@ Future<T?> showPrototypeDialog<T>({
 }) {
   return showDialog<T>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(title, style: AppTextStyles.h2),
-      content: SizedBox(width: width, child: content),
-      actions: actions.isEmpty
-          ? [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Close'),
-              ),
-            ]
-          : actions,
-    ),
+    builder: (dialogContext) {
+      final viewport = MediaQuery.sizeOf(dialogContext);
+      final compact = viewport.width < 600;
+      final horizontalInset = compact ? 16.0 : 40.0;
+      final availableWidth = viewport.width - (horizontalInset * 2);
+      final availableHeight = viewport.height - 160;
+
+      return AlertDialog(
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: horizontalInset,
+          vertical: 24,
+        ),
+        title: Text(title, style: AppTextStyles.h2),
+        content: SizedBox(
+          width: width.clamp(0.0, availableWidth).toDouble(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: availableHeight
+                  .clamp(120.0, double.infinity)
+                  .toDouble(),
+            ),
+            child: content,
+          ),
+        ),
+        actions: actions.isEmpty
+            ? [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+              ]
+            : actions,
+      );
+    },
   );
 }
 

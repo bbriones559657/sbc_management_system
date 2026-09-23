@@ -1,41 +1,358 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
+import '../../domain/repositories/supplier_repository.dart';
 import '../../models/supplier_record.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 
-class SuppliersScreen extends StatelessWidget {
-  const SuppliersScreen({super.key});
+class SuppliersScreen extends StatefulWidget {
+  final SupplierRepository supplierRepository;
+
+  const SuppliersScreen({
+    super.key,
+    required this.supplierRepository,
+  });
+
+  @override
+  State<SuppliersScreen> createState() => _SuppliersScreenState();
+}
+
+class _SuppliersScreenState extends State<SuppliersScreen> {
+  late Future<List<SupplierRecord>> _suppliersFuture;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    _suppliersFuture = widget.supplierRepository.getSuppliers();
+  }
+
+  void _refresh() {
+    setState(_reload);
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Suppliers',
-      action: ElevatedButton.icon(onPressed: () => _showAddSupplier(context), icon: const Icon(Icons.add, size: 18), label: const Text('Add Supplier')),
-      child: Column(children: [
-        const TextField(decoration: InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search supplier...')),
-        const SizedBox(height: 18),
-        Expanded(child: SingleChildScrollView(child: DataTableCard(headers: const ['Supplier','Contact','Items Supplied','Status'], flexes: const [3,3,3,2], rows: MockData.suppliers.map((supplier) => [InkWell(onTap: () => _showSupplierDetails(context, supplier), child: Text(supplier.name, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primary))), Text(supplier.contact, style: AppTextStyles.body), Text(supplier.itemsSupplied, style: AppTextStyles.body), Align(alignment: Alignment.centerLeft, child: StatusBadge(supplier.status))]).toList()))),
-      ]),
+      action: ElevatedButton.icon(
+        onPressed: _showAddSupplier,
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('Add Supplier'),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            onChanged: (value) => setState(() => _search = value),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Search supplier...',
+            ),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: FutureBuilder<List<SupplierRecord>>(
+              future: _suppliersFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Unable to load suppliers.\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                final query = _search.trim().toLowerCase();
+                final suppliers = (snapshot.data ?? const <SupplierRecord>[])
+                    .where(
+                      (supplier) =>
+                          query.isEmpty ||
+                          supplier.name.toLowerCase().contains(query) ||
+                          supplier.contact.toLowerCase().contains(query),
+                    )
+                    .toList();
+
+                if (suppliers.isEmpty) {
+                  return const Center(child: Text('No suppliers found.'));
+                }
+
+                return SingleChildScrollView(
+                  child: DataTableCard(
+                    headers: const [
+                      'Supplier',
+                      'Contact',
+                      'Items Supplied',
+                      'Status',
+                    ],
+                    flexes: const [3, 3, 3, 2],
+                    rows: suppliers
+                        .map(
+                          (supplier) => [
+                            InkWell(
+                              onTap: () => _showSupplierDetails(supplier),
+                              child: Text(
+                                supplier.name,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            Text(supplier.contact, style: AppTextStyles.body),
+                            Text(
+                              supplier.itemsSupplied,
+                              style: AppTextStyles.body,
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: StatusBadge(supplier.status),
+                            ),
+                          ],
+                        )
+                        .toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _showSupplierDetails(BuildContext context, SupplierRecord supplier) {
-    showPrototypeDialog(context: context, title: supplier.name, content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [StatusBadge(supplier.status), const SizedBox(height: 16), _row('Contact', supplier.contact), _row('Items Supplied', supplier.itemsSupplied), _row('Last Restock', 'Aug 24, 2026'), const Divider(height: 28), const Text('Recent Restocking', style: AppTextStyles.h3), const SizedBox(height: 8), _row('Aug 24 — Milk', '10 L'), _row('Aug 22 — Cream', '6 L')]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')), ElevatedButton(onPressed: () {Navigator.pop(context); _showRestock(context, supplier);}, child: const Text('Record Restocking'))]);
+  Future<void> _showSupplierDetails(SupplierRecord supplier) async {
+    final latest =
+        await widget.supplierRepository.getSupplierById(supplier.id) ?? supplier;
+
+    if (!mounted) return;
+
+    await showPrototypeDialog(
+      context: context,
+      title: latest.name,
+      width: 560,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StatusBadge(latest.status),
+          const SizedBox(height: 16),
+          _row('Contact', latest.contact),
+          _row('Items Supplied', latest.itemsSupplied),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _showEditSupplier(latest);
+          },
+          child: const Text('Edit Supplier'),
+        ),
+      ],
+    );
   }
 
-  void _showRestock(BuildContext context, SupplierRecord supplier) {
-    showPrototypeDialog(context: context, title: 'Record Restocking', content: Column(mainAxisSize: MainAxisSize.min, children: [_row('Supplier', supplier.name), const SizedBox(height: 12), dialogField('Item', hint: 'Select or enter item'), dialogField('Quantity', hint: 'Enter quantity'), dialogField('Notes', hint: 'Optional notes...', maxLines: 3)]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Save Restocking'))]);
+  Future<void> _showAddSupplier() async {
+    final nameController = TextEditingController();
+    final contactController = TextEditingController();
+    String? errorMessage;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Add Supplier',
+      width: 520,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          updateDialogState = setDialogState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Supplier Name *',
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: contactController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone / Contact',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (nameController.text.trim().isEmpty) {
+              updateDialogState?.call(() {
+                errorMessage = 'Supplier name is required.';
+              });
+              return;
+            }
+
+            try {
+              await widget.supplierRepository.createSupplier(
+                SupplierRecord(
+                  name: nameController.text.trim(),
+                  contact: contactController.text.trim(),
+                  itemsSupplied: '',
+                  status: 'Active',
+                ),
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+            } on PostgrestException catch (error) {
+              updateDialogState?.call(() => errorMessage = error.message);
+            }
+          },
+          child: const Text('Save Supplier'),
+        ),
+      ],
+    );
+
+    nameController.dispose();
+    contactController.dispose();
   }
 
-  void _showAddSupplier(BuildContext context) {
-    showPrototypeDialog(context: context, title: 'Add Supplier', content: Column(mainAxisSize: MainAxisSize.min, children: [dialogField('Supplier Name', hint: 'Enter supplier name'), dialogField('Contact', hint: 'Enter contact number'), dialogField('Items Supplied', hint: 'e.g. Milk, coffee beans')]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Save Supplier'))]);
+  Future<void> _showEditSupplier(SupplierRecord supplier) async {
+    final nameController = TextEditingController(text: supplier.name);
+    final contactController = TextEditingController(text: supplier.contact);
+    bool active = supplier.status.toLowerCase() == 'active';
+    String? errorMessage;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Edit Supplier',
+      width: 520,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          updateDialogState = setDialogState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Supplier Name *'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: contactController,
+                decoration: const InputDecoration(labelText: 'Phone / Contact'),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Active Supplier'),
+                value: active,
+                onChanged: (value) =>
+                    setDialogState(() => active = value),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await widget.supplierRepository.updateSupplier(
+                supplier.copyWith(
+                  name: nameController.text.trim(),
+                  contact: contactController.text.trim(),
+                  status: active ? 'Active' : 'Inactive',
+                ),
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+            } on PostgrestException catch (error) {
+              updateDialogState?.call(() => errorMessage = error.message);
+            }
+          },
+          child: const Text('Save Changes'),
+        ),
+      ],
+    );
+
+    nameController.dispose();
+    contactController.dispose();
   }
 
-  Widget _row(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: AppTextStyles.body.copyWith(color: AppColors.gray700)), Flexible(child: Text(value, style: AppTextStyles.bodyMedium, textAlign: TextAlign.right))]));
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.gray700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

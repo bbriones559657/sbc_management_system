@@ -69,26 +69,30 @@ Do not claim BIR compliance from this schema alone.
 
 ## Installation order
 
-Run migrations in filename order:
-
-```text
-supabase/migrations/
-  0001_core.sql
-  0002_inventory_procurement.sql
-  0003_menu_orders.sql
-  0004_finance_invoicing.sql
-  0005_functions.sql
-  0006_views.sql
-  0007_rls.sql
-```
-
-Then run:
+Run all files in `supabase/migrations/` in filename order, then run:
 
 ```text
 supabase/seed.sql
 ```
 
 `seed.sql` contains reference/master data only. It does not create an Auth user.
+
+## Automated database tests
+
+The pgTAP regression tests in `supabase/tests/database/` cover cashier
+authorization, shift cash handling, POS checkout, FEFO inventory deduction,
+partial refunds with explicit restocking, and partial purchase-order receiving.
+Every test runs inside a transaction and rolls back its isolated fixtures.
+
+From the repository root, run:
+
+```bash
+supabase start
+supabase test db
+```
+
+The same commands run in `.github/workflows/database_ci.yml` for integration
+branch pushes and pull requests.
 
 ## Recommended branch
 

@@ -4,8 +4,12 @@ import '../../domain/repositories/order_repository.dart';
 import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
 import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/refund_preview.dart';
+import '../../models/shift_cash_snapshot.dart';
 
 class SupabaseOrderRepository implements OrderRepository {
   final SupabaseClient _client;
@@ -22,7 +26,7 @@ class SupabaseOrderRepository implements OrderRepository {
           'total_amount, status, customer_name, table_number, delivery_reference, '
           'order_items(id, item_name_snapshot, quantity, unit_price), '
           'payments(amount, amount_tendered, change_amount, transaction_type, status, '
-          'payment_methods(name, code))',
+          'payment_methods(name, code)), sales_invoices(invoice_number)',
         )
         .order('created_at', ascending: false);
 
@@ -53,6 +57,50 @@ class SupabaseOrderRepository implements OrderRepository {
     );
   }
 
+
+  @override
+  Future<RefundPreview> getRefundPreview(String id) async {
+    final orderUuid = await _resolveOrderUuid(id);
+    final result = await _client.rpc(
+      'get_refund_preview',
+      params: {'p_order_id': orderUuid},
+    );
+
+    return RefundPreview.fromMap(
+      Map<String, dynamic>.from(result as Map),
+    );
+  }
+
+  @override
+  Future<void> refundOrderItems(
+    String id, {
+    required Map<String, double> quantities,
+    required String reason,
+    String externalReference = '',
+  }) async {
+    final orderUuid = await _resolveOrderUuid(id);
+
+    final items = quantities.entries
+        .where((entry) => entry.value > 0)
+        .map(
+          (entry) => {
+            'order_item_id': entry.key,
+            'quantity': entry.value,
+          },
+        )
+        .toList();
+
+    await _client.rpc(
+      'process_refund_items',
+      params: {
+        'p_order_id': orderUuid,
+        'p_items': items,
+        'p_reason': reason.trim(),
+        'p_external_reference': _nullable(externalReference),
+      },
+    );
+  }
+
   @override
   Future<List<PosMenuItem>> getPosMenu() async {
     final rows = await _client
@@ -70,6 +118,19 @@ class SupabaseOrderRepository implements OrderRepository {
   }
 
   @override
+  Future<List<PosDiscountType>> getPosDiscountTypes() async {
+    final result = await _client.rpc('get_pos_discount_types');
+
+    return (result as List)
+        .map(
+          (raw) => PosDiscountType.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<List<PosPaymentMethod>> getPaymentMethods() async {
     final rows = await _client
         .from('payment_methods')
@@ -81,6 +142,63 @@ class SupabaseOrderRepository implements OrderRepository {
         .map((row) => PosPaymentMethod.fromMap(
               Map<String, dynamic>.from(row as Map),
             ))
+        .toList();
+  }
+
+  @override
+  Future<List<PosModifierGroup>> getModifierGroups(
+    String menuItemId,
+  ) async {
+    final rows = await _client
+        .from('v_pos_modifiers')
+        .select()
+        .eq('menu_item_id', menuItemId)
+        .order('group_sort_order')
+        .order('modifier_sort_order')
+        .order('modifier_name');
+
+    final groups = <String, _MutableModifierGroup>{};
+
+    for (final raw in rows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final groupId = row['modifier_group_id']?.toString() ?? '';
+
+      final group = groups.putIfAbsent(
+        groupId,
+        () => _MutableModifierGroup(
+          id: groupId,
+          name: row['group_name']?.toString() ?? '',
+          minSelections:
+              (row['min_selections'] as num?)?.toInt() ?? 0,
+          maxSelections:
+              (row['max_selections'] as num?)?.toInt(),
+          isRequired: row['is_required'] == true,
+        ),
+      );
+
+      group.options.add(
+        PosModifierOption(
+          id: row['modifier_id']?.toString() ?? '',
+          name: row['modifier_name']?.toString() ?? '',
+          priceDelta:
+              (row['price_delta'] as num?)?.toDouble() ?? 0,
+        ),
+      );
+    }
+
+    return groups.values
+        .map(
+          (group) => PosModifierGroup(
+            id: group.id,
+            name: group.name,
+            minSelections: group.minSelections,
+            maxSelections: group.maxSelections,
+            isRequired: group.isRequired,
+            options: List<PosModifierOption>.unmodifiable(
+              group.options,
+            ),
+          ),
+        )
         .toList();
   }
 
@@ -121,6 +239,38 @@ class SupabaseOrderRepository implements OrderRepository {
   }
 
   @override
+  Future<ShiftCashSnapshot> getShiftCashSnapshot(
+    String shiftId,
+  ) async {
+    final result = await _client.rpc(
+      'get_shift_cash_snapshot',
+      params: {'p_shift_id': shiftId},
+    );
+
+    return ShiftCashSnapshot.fromMap(
+      Map<String, dynamic>.from(result as Map),
+    );
+  }
+
+  @override
+  Future<void> recordShiftCashMovement({
+    required String shiftId,
+    required String movementType,
+    required double amount,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'record_shift_cash_movement',
+      params: {
+        'p_shift_id': shiftId,
+        'p_movement_type': movementType,
+        'p_amount': amount,
+        'p_reason': reason.trim(),
+      },
+    );
+  }
+
+  @override
   Future<OrderRecord> placeOrder({
     required String orderType,
     required List<PosCheckoutItem> items,
@@ -129,13 +279,35 @@ class SupabaseOrderRepository implements OrderRepository {
     String customerName = '',
     String deliveryReference = '',
     String notes = '',
+    String discountTypeId = '',
+    double? discountValue,
+    String discountNotes = '',
   }) async {
+    if (payments.length != 1) {
+      throw const FormatException(
+        'The current POS flow requires exactly one payment method.',
+      );
+    }
+
+    final payment = payments.first;
+
     final result = await _client.rpc(
-      'place_order',
+      'place_order_v2',
       params: {
         'p_order_type': _dbOrderType(orderType),
         'p_items': items.map((item) => item.toJson()).toList(),
-        'p_payments': payments.map((payment) => payment.toJson()).toList(),
+        'p_payment': {
+          'payment_method_id': payment.paymentMethodId,
+          'amount_tendered': payment.amountTendered,
+          'external_reference': payment.externalReference,
+        },
+        'p_discount': discountTypeId.trim().isEmpty
+            ? null
+            : {
+                'discount_type_id': discountTypeId,
+                'manual_value': discountValue,
+                'notes': _nullable(discountNotes),
+              },
         'p_table_number': _nullable(tableNumber),
         'p_customer_name': _nullable(customerName),
         'p_delivery_reference': _nullable(deliveryReference),
@@ -148,12 +320,16 @@ class SupabaseOrderRepository implements OrderRepository {
     final orderNumber = resultMap['order_number']?.toString();
 
     if (orderNumber == null) {
-      throw const FormatException('The completed order number was not returned.');
+      throw const FormatException(
+        'The completed order number was not returned.',
+      );
     }
 
-    final row = await _findOrderRow('#' + orderNumber);
+    final row = await _findOrderRow('#$orderNumber');
     if (row == null) {
-      throw const FormatException('The completed order could not be reloaded.');
+      throw const FormatException(
+        'The completed order could not be reloaded.',
+      );
     }
 
     return _orderFromMap(row);
@@ -253,13 +429,49 @@ class SupabaseOrderRepository implements OrderRepository {
     );
   }
 
+  @override
+  Future<List<RefundRestockCandidate>> getRefundRestockCandidates(
+    String id,
+  ) async {
+    final orderUuid = await _resolveOrderUuid(id);
+
+    final rows = await _client
+        .from('v_refund_restock_candidates')
+        .select()
+        .eq('order_id', orderUuid)
+        .order('refund_number')
+        .order('item_name_snapshot');
+
+    return (rows as List)
+        .map(
+          (raw) => RefundRestockCandidate.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> approveRefundItemRestock(
+    String refundItemId, {
+    String notes = '',
+  }) async {
+    await _client.rpc(
+      'approve_refund_item_restock',
+      params: {
+        'p_refund_item_id': refundItemId,
+        'p_notes': _nullable(notes),
+      },
+    );
+  }
+
   Future<Map<String, dynamic>?> _findOrderRow(String id) async {
     dynamic query = _client.from('orders').select(
           'id, order_number, created_at, employee_name_snapshot, order_type, '
           'total_amount, status, customer_name, table_number, delivery_reference, '
           'order_items(id, item_name_snapshot, quantity, unit_price), '
           'payments(amount, amount_tendered, change_amount, transaction_type, status, '
-          'payment_methods(name, code))',
+          'payment_methods(name, code)), sales_invoices(invoice_number)',
         );
 
     if (id.startsWith('#')) {
@@ -306,7 +518,7 @@ class SupabaseOrderRepository implements OrderRepository {
       return OrderItem(
         productId: item['id']?.toString() ?? '',
         productName: item['item_name_snapshot']?.toString() ?? '',
-        unitPrice: ((item['unit_price'] as num?) ?? 0).round(),
+        unitPrice: ((item['unit_price'] as num?) ?? 0).toDouble(),
         quantity: ((item['quantity'] as num?) ?? 0).round(),
       );
     }).toList();
@@ -326,24 +538,36 @@ class SupabaseOrderRepository implements OrderRepository {
         ? Map<String, dynamic>.from(methodRaw)
         : <String, dynamic>{};
 
+    final invoiceRaw = row['sales_invoices'];
+    String invoiceNumber = '';
+    if (invoiceRaw is Map) {
+      invoiceNumber = invoiceRaw['invoice_number']?.toString() ?? '';
+    } else if (invoiceRaw is List && invoiceRaw.isNotEmpty) {
+      final first = invoiceRaw.first;
+      if (first is Map) {
+        invoiceNumber = first['invoice_number']?.toString() ?? '';
+      }
+    }
+
     final amountTendered = payment?['amount_tendered'] as num?;
     final paymentAmount = payment?['amount'] as num?;
 
     return OrderRecord(
-      id: '#' + row['order_number'].toString(),
+      id: '#${row['order_number']}',
       createdAt: DateTime.parse(row['created_at'].toString()).toLocal(),
       employee: row['employee_name_snapshot']?.toString() ?? 'Employee',
       employeeId: '',
       type: _uiOrderType(row['order_type']?.toString() ?? ''),
-      amount: ((row['total_amount'] as num?) ?? 0).round(),
+      amount: ((row['total_amount'] as num?) ?? 0).toDouble(),
       status: _uiStatus(row['status']?.toString() ?? ''),
       customerName: row['customer_name']?.toString() ?? '',
       tableNumber: row['table_number']?.toString() ?? '',
       deliveryReference: row['delivery_reference']?.toString() ?? '',
       items: items,
       paymentMethod: method['name']?.toString() ?? '',
-      amountReceived: (amountTendered ?? paymentAmount ?? 0).round(),
-      changeAmount: ((payment?['change_amount'] as num?) ?? 0).round(),
+      amountReceived: (amountTendered ?? paymentAmount ?? 0).toDouble(),
+      changeAmount: ((payment?['change_amount'] as num?) ?? 0).toDouble(),
+      invoiceNumber: invoiceNumber,
     );
   }
 
@@ -390,4 +614,22 @@ class SupabaseOrderRepository implements OrderRepository {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
+}
+
+
+class _MutableModifierGroup {
+  final String id;
+  final String name;
+  final int minSelections;
+  final int? maxSelections;
+  final bool isRequired;
+  final List<PosModifierOption> options = [];
+
+  _MutableModifierGroup({
+    required this.id,
+    required this.name,
+    required this.minSelections,
+    required this.maxSelections,
+    required this.isRequired,
+  });
 }

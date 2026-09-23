@@ -58,3 +58,41 @@ class SummaryCard extends StatelessWidget {
     );
   }
 }
+
+class SummaryCardGrid extends StatelessWidget {
+  final List<Widget> children;
+
+  const SummaryCardGrid({
+    super.key,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final int columns = constraints.maxWidth < 560
+            ? 1
+            : constraints.maxWidth < 1050
+                ? 2
+                : children.isEmpty
+                    ? 1
+                    : children.length > 4
+                        ? 4
+                        : children.length;
+        const gap = 18.0;
+        final itemWidth =
+            (constraints.maxWidth - (gap * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+}

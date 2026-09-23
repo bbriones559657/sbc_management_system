@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
+import '../../models/refund_preview.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
@@ -12,10 +14,12 @@ import 'new_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final bool canManageOrders;
 
   const OrdersScreen({
     super.key,
     required this.orderRepository,
+    required this.canManageOrders,
   });
 
   @override
@@ -23,8 +27,6 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  static const String _prototypeManagerKey = 'ADMIN123';
-
   late Future<List<OrderRecord>> _ordersFuture;
   String _searchQuery = '';
   String _dateFilter = 'All Dates';
@@ -130,7 +132,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             ),
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
-                            Text('₱${order.amount}', style: AppTextStyles.body),
+                            Text(_moneyDouble(order.amount), style: AppTextStyles.body),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: StatusBadge(order.status),
@@ -149,71 +151,89 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildFilters() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextField(
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search order, customer, or table...',
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 165,
-          child: DropdownButtonFormField<String>(
-            initialValue: _dateFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Dates', child: Text('All Dates')),
-              DropdownMenuItem(value: 'Today', child: Text('Today')),
-              DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
-              DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _dateFilter = value);
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 160,
-          child: DropdownButtonFormField<String>(
-            initialValue: _typeFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Types', child: Text('All Types')),
-              DropdownMenuItem(value: 'Dine In', child: Text('Dine In')),
-              DropdownMenuItem(value: 'Take Out', child: Text('Take Out')),
-              DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _typeFilter = value);
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 155,
-          child: DropdownButtonFormField<String>(
-            initialValue: _statusFilter,
-            items: const [
-              DropdownMenuItem(value: 'All Status', child: Text('All Status')),
-              DropdownMenuItem(value: 'Open', child: Text('Open')),
-              DropdownMenuItem(value: 'Completed', child: Text('Completed')),
-              DropdownMenuItem(value: 'Refunded', child: Text('Refunded')),
-              DropdownMenuItem(value: 'Void', child: Text('Void')),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _statusFilter = value);
-            },
-          ),
-        ),
+    final search = TextField(
+      onChanged: (value) => setState(() => _searchQuery = value),
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search),
+        hintText: 'Search order, customer, or table...',
+      ),
+    );
+    final date = DropdownButtonFormField<String>(
+      initialValue: _dateFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Dates', child: Text('All Dates')),
+        DropdownMenuItem(value: 'Today', child: Text('Today')),
+        DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
+        DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
       ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _dateFilter = value);
+      },
+    );
+    final type = DropdownButtonFormField<String>(
+      initialValue: _typeFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Types', child: Text('All Types')),
+        DropdownMenuItem(value: 'Dine In', child: Text('Dine In')),
+        DropdownMenuItem(value: 'Take Out', child: Text('Take Out')),
+        DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _typeFilter = value);
+      },
+    );
+    final status = DropdownButtonFormField<String>(
+      initialValue: _statusFilter,
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+        DropdownMenuItem(value: 'Open', child: Text('Open')),
+        DropdownMenuItem(value: 'Completed', child: Text('Completed')),
+        DropdownMenuItem(value: 'Refunded', child: Text('Refunded')),
+        DropdownMenuItem(value: 'Void', child: Text('Void')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _statusFilter = value);
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: date),
+                  const SizedBox(width: 12),
+                  Expanded(child: type),
+                ],
+              ),
+              const SizedBox(height: 12),
+              status,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 12),
+            SizedBox(width: 165, child: date),
+            const SizedBox(width: 12),
+            SizedBox(width: 160, child: type),
+            const SizedBox(width: 12),
+            SizedBox(width: 155, child: status),
+          ],
+        );
+      },
     );
   }
 
@@ -289,6 +309,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             const SizedBox(height: 18),
             _detailRow('Customer / Table', _orderReference(order)),
             _detailRow('Order Type', order.type),
+            if (order.invoiceNumber.isNotEmpty)
+              _detailRow('Invoice', order.invoiceNumber),
             _detailRow('Employee', order.employee),
             if (order.deliveryReference.isNotEmpty)
               _detailRow('Delivery Reference', order.deliveryReference),
@@ -317,7 +339,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ),
                       Text(
-                        '₱${item.lineTotal}',
+                        _moneyDouble(item.lineTotal),
                         style: AppTextStyles.bodyMedium,
                       ),
                     ],
@@ -325,10 +347,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
             const Divider(height: 28),
-            _detailRow('Total', '₱${order.amount}', emphasized: true),
+            _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             if (order.paymentMethod.isNotEmpty) ...[
-              _detailRow('Amount Received', '₱${order.amountReceived}'),
-              _detailRow('Change', '₱${order.changeAmount}'),
+              _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
+              _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
             if (order.lastActionReason.isNotEmpty) ...[
               const Divider(height: 28),
@@ -349,13 +371,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
-        OutlinedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _showActions(context, order);
-          },
-          child: const Text('Actions'),
-        ),
+        if (widget.canManageOrders)
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showActions(context, order);
+            },
+            child: const Text('Actions'),
+          ),
         ElevatedButton(
           onPressed: () => _showReceipt(context, order),
           child: const Text('View Receipt'),
@@ -385,21 +408,31 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _showReceipt(context, order);
             },
           ),
-          if (order.status == 'Completed')
+          if (order.status == 'Completed' ||
+              order.status == 'Partially Refunded')
             ListTile(
               leading: const Icon(Icons.undo),
-              title: const Text('Refund Order'),
-              subtitle: const Text('Requires manager authorization'),
+              title: const Text('Refund Items'),
+              subtitle: const Text('Full or partial refund'),
               onTap: () {
                 Navigator.pop(context);
-                _showManagerAuthorization(
-                  context,
-                  order: order,
-                  action: _OrderAction.refund,
-                );
+                _showRefundDialog(context, order);
               },
             ),
-          if (!isClosed)
+          if (order.status == 'Partially Refunded' ||
+              order.status == 'Refunded')
+            ListTile(
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: const Text('Review Returned Stock'),
+              subtitle: const Text(
+                'Restock eligible returned finished goods',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showRefundRestockDialog(context, order);
+              },
+            ),
+          if (order.status == 'Open')
             ListTile(
               leading: const Icon(
                 Icons.block,
@@ -434,13 +467,530 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+
+  Future<void> _showRefundDialog(
+    BuildContext context,
+    OrderRecord order,
+  ) async {
+    RefundPreview preview;
+
+    try {
+      preview = await widget.orderRepository.getRefundPreview(order.id);
+    } on PostgrestException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+      return;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    if (preview.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This order has nothing left to refund.')),
+      );
+      return;
+    }
+
+    final reasonController = TextEditingController();
+    final referenceController = TextEditingController();
+    final quantityControllers = <String, TextEditingController>{
+      for (final item in preview.items)
+        item.orderItemId: TextEditingController(text: '0'),
+    };
+
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    double selectedTotal() {
+      double total = 0;
+
+      for (final item in preview.items) {
+        final controller = quantityControllers[item.orderItemId]!;
+        final quantity = double.tryParse(controller.text.trim()) ?? 0;
+        if (quantity > 0) {
+          total += quantity * item.unitRefundable;
+        }
+      }
+
+      return total;
+    }
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Refund Order ${order.id}',
+      width: 700,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+
+          return SizedBox(
+            height: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Refunds return through ${preview.paymentMethodName}. '
+                      'Only quantities that have not already been refunded are available.',
+                      style: AppTextStyles.body,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Select Items',
+                    style: AppTextStyles.h3,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final item in preview.items)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.gray100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.gray200),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.itemName,
+                                  style: AppTextStyles.bodyMedium,
+                                ),
+                                Text(
+                                  item.variantName.isEmpty
+                                      ? 'Remaining: ${_refundQty(item.remainingQuantity)}'
+                                      : '${item.variantName} • Remaining: ${_refundQty(item.remainingQuantity)}',
+                                  style: AppTextStyles.caption,
+                                ),
+                                Text(
+                                  '${_moneyDouble(item.unitRefundable)} refundable each',
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: TextField(
+                              controller:
+                                  quantityControllers[item.orderItemId],
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              decoration: const InputDecoration(
+                                labelText: 'Qty',
+                              ),
+                              onChanged: (_) {
+                                setDialogState(() {
+                                  errorMessage = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  _detailRow(
+                    'Selected Refund',
+                    _moneyDouble(selectedTotal()),
+                    emphasized: true,
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Refund Reason *',
+                    ),
+                    onChanged: (_) {
+                      dialogSetState?.call(() => errorMessage = null);
+                    },
+                  ),
+                  if (preview.requiresReference) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: referenceController,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${preview.paymentMethodName} Refund Reference *',
+                      ),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final reason = reasonController.text.trim();
+            final quantities = <String, double>{};
+            String? validationError;
+
+            for (final item in preview.items) {
+              final raw =
+                  quantityControllers[item.orderItemId]!.text.trim();
+              final quantity = double.tryParse(raw) ?? -1;
+
+              if (quantity < 0) {
+                validationError = 'Refund quantities must be zero or greater.';
+                break;
+              }
+
+              if (quantity > item.remainingQuantity) {
+                validationError =
+                    '${item.itemName} only has ${_refundQty(item.remainingQuantity)} refundable.';
+                break;
+              }
+
+              if (quantity > 0) {
+                quantities[item.orderItemId] = quantity;
+              }
+            }
+
+            if (validationError == null && quantities.isEmpty) {
+              validationError = 'Select at least one quantity to refund.';
+            }
+
+            if (validationError == null && reason.isEmpty) {
+              validationError = 'A refund reason is required.';
+            }
+
+            if (validationError == null &&
+                preview.requiresReference &&
+                referenceController.text.trim().isEmpty) {
+              validationError =
+                  'A refund transaction reference is required.';
+            }
+
+            if (validationError != null) {
+              dialogSetState?.call(() {
+                errorMessage = validationError;
+              });
+              return;
+            }
+
+            try {
+              await widget.orderRepository.refundOrderItems(
+                order.id,
+                quantities: quantities,
+                reason: reason,
+                externalReference:
+                    referenceController.text.trim(),
+              );
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Refund recorded for order ${order.id}.',
+                  ),
+                ),
+              );
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Process Refund'),
+        ),
+      ],
+    );
+
+    reasonController.dispose();
+    referenceController.dispose();
+    for (final controller in quantityControllers.values) {
+      controller.dispose();
+    }
+  }
+
+
+
+  Future<void> _showRefundRestockDialog(
+    BuildContext context,
+    OrderRecord order,
+  ) async {
+    List<RefundRestockCandidate> candidates;
+
+    try {
+      candidates =
+          await widget.orderRepository.getRefundRestockCandidates(order.id);
+    } on PostgrestException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+      return;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No refunded items are available for review.'),
+        ),
+      );
+      return;
+    }
+
+    final pending = candidates
+        .where((item) => item.eligibleForRestock && !item.restockApproved)
+        .toList();
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Returned Stock • ${order.id}',
+      width: 680,
+      content: SizedBox(
+        height: 430,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.gray100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.gray200),
+                ),
+                child: Text(
+                  'Only returned finished goods can be added back to stock. '
+                  'Prepared food and recipe-based drinks are not automatically '
+                  'restocked because their ingredients were already consumed.',
+                  style: AppTextStyles.body,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final item in candidates)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.gray200),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.itemName,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.variantName.isEmpty
+                                  ? '${_refundQty(item.refundedQuantity)} refunded'
+                                  : '${item.variantName} • ${_refundQty(item.refundedQuantity)} refunded',
+                              style: AppTextStyles.caption,
+                            ),
+                            if (item.inventoryItemName.isNotEmpty)
+                              Text(
+                                'Inventory: ${item.inventoryItemName}',
+                                style: AppTextStyles.caption,
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (item.restockApproved)
+                        const StatusBadge('Restocked')
+                      else if (!item.eligibleForRestock)
+                        const StatusBadge('Not Restockable')
+                      else
+                        ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _confirmRefundRestock(
+                              context,
+                              order,
+                              item,
+                            );
+                          },
+                          child: const Text('Restock'),
+                        ),
+                    ],
+                  ),
+                ),
+              if (pending.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'There are no finished goods waiting for restock approval.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmRefundRestock(
+    BuildContext context,
+    OrderRecord order,
+    RefundRestockCandidate item,
+  ) async {
+    final notesController = TextEditingController();
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Approve Restock',
+      width: 520,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow('Item', item.itemName),
+              if (item.variantName.isNotEmpty)
+                _detailRow('Variant', item.variantName),
+              _detailRow(
+                'Quantity',
+                _refundQty(item.refundedQuantity),
+              ),
+              _detailRow(
+                'Inventory Item',
+                item.inventoryItemName,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Restock Notes',
+                  hintText: 'Optional condition or return notes...',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await widget.orderRepository.approveRefundItemRestock(
+                item.refundItemId,
+                notes: notesController.text.trim(),
+              );
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${item.itemName} was returned to inventory.',
+                  ),
+                ),
+              );
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Approve Restock'),
+        ),
+      ],
+    );
+
+    notesController.dispose();
+  }
+
   Future<void> _showManagerAuthorization(
     BuildContext context, {
     required OrderRecord order,
     required _OrderAction action,
   }) async {
     final reasonController = TextEditingController();
-    final keyController = TextEditingController();
     String? errorMessage;
     StateSetter? updateDialogState;
 
@@ -454,6 +1004,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           updateDialogState = setDialogState;
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +1017,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$actionName affects the transaction record and requires manager/admin confirmation.',
+                  'Your signed-in Manager/Admin account will authorize this '
+                  '${actionName.toLowerCase()} action.',
                   style: AppTextStyles.body,
                 ),
               ),
@@ -474,21 +1026,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
               TextField(
                 controller: reasonController,
                 maxLines: 3,
-                onChanged: (_) => setDialogState(() => errorMessage = null),
+                onChanged: (_) {
+                  updateDialogState?.call(() => errorMessage = null);
+                },
                 decoration: const InputDecoration(
                   labelText: 'Reason *',
                   hintText: 'Enter the reason for this action',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: keyController,
-                obscureText: true,
-                onChanged: (_) => setDialogState(() => errorMessage = null),
-                decoration: const InputDecoration(
-                  labelText: 'Manager Authorization Key *',
-                  hintText: 'Enter manager/admin key',
-                  helperText: 'Prototype testing key: ADMIN123',
                 ),
               ),
               if (errorMessage != null) ...[
@@ -512,7 +1055,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ElevatedButton(
           onPressed: () async {
             final reason = reasonController.text.trim();
-            final managerKey = keyController.text.trim();
 
             if (reason.isEmpty) {
               updateDialogState?.call(() {
@@ -521,48 +1063,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
               return;
             }
 
-            if (managerKey != _prototypeManagerKey) {
+            try {
+              if (action == _OrderAction.refund) {
+                await widget.orderRepository.refundOrder(
+                  order.id,
+                  reason: reason,
+                );
+              } else {
+                await widget.orderRepository.voidOrder(
+                  order.id,
+                  reason: reason,
+                );
+              }
+
+              if (!context.mounted) return;
+
+              Navigator.pop(context);
+              _refreshOrders();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Order ${order.id} ${actionName.toLowerCase()} completed.',
+                  ),
+                ),
+              );
+            } on PostgrestException catch (error) {
               updateDialogState?.call(() {
-                errorMessage = 'Invalid manager authorization key.';
+                errorMessage = error.message;
               });
-              return;
+            } catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.toString();
+              });
             }
-
-            if (action == _OrderAction.refund) {
-              await widget.orderRepository.refundOrder(
-                order.id,
-                reason: reason,
-                authorizedBy: 'Manager/Admin (Prototype)',
-              );
-            } else {
-              await widget.orderRepository.voidOrder(
-                order.id,
-                reason: reason,
-                authorizedBy: 'Manager/Admin (Prototype)',
-              );
-            }
-
-            if (!context.mounted) return;
-
-Navigator.pop(context);
-
-_refreshOrders();
-
-ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(
-    content: Text(
-      'Order ${order.id} marked as ${actionName.toLowerCase()}ed.',
-    ),
-  ),
-);
-          },  
+          },
           child: Text('Confirm $actionName'),
         ),
       ],
     );
 
     reasonController.dispose();
-    keyController.dispose();
   }
 
   Future<void> _showReceipt(
@@ -585,6 +1126,15 @@ ScaffoldMessenger.of(context).showSnackBar(
             Center(
               child: Text(order.id, style: AppTextStyles.caption),
             ),
+            if (order.invoiceNumber.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Center(
+                child: Text(
+                  'Invoice ${order.invoiceNumber}',
+                  style: AppTextStyles.caption,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             _detailRow('Date & Time', _formatFullDateTime(order.createdAt)),
             _detailRow('Customer / Table', _orderReference(order)),
@@ -611,7 +1161,7 @@ ScaffoldMessenger.of(context).showSnackBar(
                         ),
                       ),
                       Text(
-                        '₱${item.lineTotal}',
+                        _moneyDouble(item.lineTotal),
                         style: AppTextStyles.bodyMedium,
                       ),
                     ],
@@ -619,14 +1169,14 @@ ScaffoldMessenger.of(context).showSnackBar(
                 ),
               ),
             const Divider(height: 28),
-            _detailRow('Total', '₱${order.amount}', emphasized: true),
+            _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             _detailRow(
               'Payment',
               order.paymentMethod.isEmpty ? 'Not paid yet' : order.paymentMethod,
             ),
             if (order.paymentMethod.isNotEmpty) ...[
-              _detailRow('Amount Received', '₱${order.amountReceived}'),
-              _detailRow('Change', '₱${order.changeAmount}'),
+              _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
+              _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
             const SizedBox(height: 12),
             Center(child: StatusBadge(order.status)),
@@ -663,6 +1213,17 @@ ScaffoldMessenger.of(context).showSnackBar(
         ],
       ),
     );
+  }
+
+
+  String _moneyDouble(double value) {
+    return '₱${value.toStringAsFixed(2)}';
+  }
+
+  String _refundQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
   }
 
   String _orderReference(OrderRecord order) {
