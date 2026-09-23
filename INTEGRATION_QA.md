@@ -20,7 +20,15 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The database checks below were executed inside transactions and rolled back unless otherwise stated.
+The automated pgTAP suite contains 57 assertions. Each scenario creates isolated
+fixtures inside a transaction and rolls them back. Run it with:
+
+```bash
+supabase start
+supabase test db
+```
+
+Database CI runs the same suite for integration-branch pushes and pull requests.
 
 ### POS and inventory
 
