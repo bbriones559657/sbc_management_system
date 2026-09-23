@@ -7,6 +7,7 @@ import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_inventory_repository.dart';
 import 'data/repositories/supabase_menu_repository.dart';
 import 'data/repositories/supabase_order_repository.dart';
+import 'data/repositories/supabase_purchasing_repository.dart';
 import 'data/repositories/supabase_reporting_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
@@ -14,6 +15,7 @@ import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/menu_repository.dart';
 import 'domain/repositories/order_repository.dart';
+import 'domain/repositories/purchasing_repository.dart';
 import 'domain/repositories/reporting_repository.dart';
 import 'domain/repositories/supplier_repository.dart';
 import 'models/app_navigation_item.dart';
@@ -25,6 +27,7 @@ import 'screens/finance/sales_finance_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
 import 'screens/menu/menu_management_screen.dart';
 import 'screens/orders/orders_screen.dart';
+import 'screens/purchasing/purchasing_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/suppliers/suppliers_screen.dart';
 import 'screens/users/users_screen.dart';
@@ -41,6 +44,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final DashboardRepository _dashboardRepository;
   late final OrderRepository _orderRepository;
   late final ReportingRepository _reportingRepository;
+  late final PurchasingRepository _purchasingRepository;
   late final InventoryRepository _inventoryRepository;
   late final MenuRepository _menuRepository;
   late final ExpenseRepository _expenseRepository;
@@ -52,6 +56,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _dashboardRepository = SupabaseDashboardRepository();
     _orderRepository = SupabaseOrderRepository();
     _reportingRepository = SupabaseReportingRepository();
+    _purchasingRepository = SupabasePurchasingRepository();
     _inventoryRepository = SupabaseInventoryRepository();
     _menuRepository = SupabaseMenuRepository();
     _expenseRepository = SupabaseExpenseRepository();
@@ -104,6 +109,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
           icon: Icons.bar_chart_outlined,
         ),
         const AppNavigationItem(
+          label: 'Purchasing',
+          icon: Icons.shopping_cart_checkout_outlined,
+        ),
+        const AppNavigationItem(
           label: 'Suppliers',
           icon: Icons.local_shipping_outlined,
         ),
@@ -129,6 +138,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
         ExpensesScreen(expenseRepository: _expenseRepository),
         SalesFinanceScreen(reportingRepository: _reportingRepository),
         ReportsScreen(reportingRepository: _reportingRepository),
+        PurchasingScreen(purchasingRepository: _purchasingRepository),
         SuppliersScreen(supplierRepository: _supplierRepository),
         const UsersScreen(),
       ],
