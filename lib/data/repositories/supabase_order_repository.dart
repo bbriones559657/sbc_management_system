@@ -24,7 +24,7 @@ class SupabaseOrderRepository implements OrderRepository {
           'total_amount, status, customer_name, table_number, delivery_reference, '
           'order_items(id, item_name_snapshot, quantity, unit_price), '
           'payments(amount, amount_tendered, change_amount, transaction_type, status, '
-          'payment_methods(name, code))',
+          'payment_methods(name, code)), sales_invoices(invoice_number)',
         )
         .order('created_at', ascending: false);
 
@@ -350,7 +350,7 @@ class SupabaseOrderRepository implements OrderRepository {
           'total_amount, status, customer_name, table_number, delivery_reference, '
           'order_items(id, item_name_snapshot, quantity, unit_price), '
           'payments(amount, amount_tendered, change_amount, transaction_type, status, '
-          'payment_methods(name, code))',
+          'payment_methods(name, code)), sales_invoices(invoice_number)',
         );
 
     if (id.startsWith('#')) {
@@ -417,6 +417,17 @@ class SupabaseOrderRepository implements OrderRepository {
         ? Map<String, dynamic>.from(methodRaw)
         : <String, dynamic>{};
 
+    final invoiceRaw = row['sales_invoices'];
+    String invoiceNumber = '';
+    if (invoiceRaw is Map) {
+      invoiceNumber = invoiceRaw['invoice_number']?.toString() ?? '';
+    } else if (invoiceRaw is List && invoiceRaw.isNotEmpty) {
+      final first = invoiceRaw.first;
+      if (first is Map) {
+        invoiceNumber = first['invoice_number']?.toString() ?? '';
+      }
+    }
+
     final amountTendered = payment?['amount_tendered'] as num?;
     final paymentAmount = payment?['amount'] as num?;
 
@@ -435,6 +446,7 @@ class SupabaseOrderRepository implements OrderRepository {
       paymentMethod: method['name']?.toString() ?? '',
       amountReceived: (amountTendered ?? paymentAmount ?? 0).round(),
       changeAmount: ((payment?['change_amount'] as num?) ?? 0).round(),
+      invoiceNumber: invoiceNumber,
     );
   }
 
