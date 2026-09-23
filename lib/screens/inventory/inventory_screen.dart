@@ -387,6 +387,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           child: const Text('Close'),
         ),
         if (widget.canManageInventory)
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showLots(latest);
+            },
+            child: const Text('Manage Lots'),
+          ),
+        if (widget.canManageInventory)
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -396,6 +404,250 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
       ],
     );
+  }
+
+  Future<void> _showLots(InventoryItem item) async {
+    List<InventoryLotRecord> lots;
+
+    try {
+      lots = await widget.inventoryRepository.getLots(item.id);
+    } on PostgrestException catch (error) {
+      if (mounted) _showMessage(error.message);
+      return;
+    } catch (error) {
+      if (mounted) _showMessage(error.toString());
+      return;
+    }
+
+    if (!mounted) return;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Inventory Lots — ${item.name}',
+      width: 720,
+      content: SizedBox(
+        height: 390,
+        child: lots.isEmpty
+            ? Center(
+                child: Text(
+                  'No available lots for this item.',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                ),
+              )
+            : ListView.separated(
+                itemCount: lots.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 18),
+                itemBuilder: (_, index) {
+                  final lot = lots[index];
+                  return Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lot.lotCode.isEmpty
+                                  ? 'Unlabeled Lot'
+                                  : lot.lotCode,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                            Text(
+                              'Received ${_formatDate(lot.receivedAt)}',
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _quantityWithUnit(
+                            lot.remainingQuantity,
+                            lot.unitCode,
+                          ),
+                          style: AppTextStyles.bodyMedium,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          lot.expirationDate == null
+                              ? 'No expiry'
+                              : _formatDate(lot.expirationDate!),
+                          style: AppTextStyles.body,
+                        ),
+                      ),
+                      if (widget.canManageInventory)
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showLotDisposal(item, lot);
+                          },
+                          child: const Text('Dispose'),
+                        ),
+                    ],
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showLotDisposal(
+    InventoryItem item,
+    InventoryLotRecord lot,
+  ) async {
+    final quantityController = TextEditingController();
+    final reasonController = TextEditingController();
+    String movementType = lot.expirationDate != null &&
+            lot.expirationDate!.isBefore(DateTime.now())
+        ? 'EXPIRED'
+        : 'WASTE';
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Dispose Lot — ${item.name}',
+      width: 540,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow(
+                'Lot',
+                lot.lotCode.isEmpty ? 'Unlabeled Lot' : lot.lotCode,
+              ),
+              _detailRow(
+                'Available',
+                _quantityWithUnit(
+                  lot.remainingQuantity,
+                  lot.unitCode,
+                ),
+              ),
+              _detailRow(
+                'Expiration',
+                lot.expirationDate == null
+                    ? '—'
+                    : _formatDate(lot.expirationDate!),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: movementType,
+                decoration: const InputDecoration(
+                  labelText: 'Reason Type',
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'WASTE',
+                    child: Text('Waste / Spoilage'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'DAMAGED',
+                    child: Text('Damaged'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'EXPIRED',
+                    child: Text('Expired'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() => movementType = value);
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: quantityController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Quantity (${lot.unitCode})',
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  hintText: 'Optional details about the disposal',
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage!,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final quantity =
+                double.tryParse(quantityController.text.trim());
+
+            if (quantity == null ||
+                quantity <= 0 ||
+                quantity > lot.remainingQuantity) {
+              dialogSetState?.call(() {
+                errorMessage =
+                    'Enter a quantity between 0 and ${_quantityWithUnit(lot.remainingQuantity, lot.unitCode)}.';
+              });
+              return;
+            }
+
+            try {
+              await widget.inventoryRepository.disposeLot(
+                inventoryLotId: lot.id,
+                movementType: movementType,
+                quantity: quantity,
+                reason: reasonController.text.trim().isEmpty
+                    ? _movementLabel(movementType)
+                    : reasonController.text.trim(),
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+              _showMessage('Lot disposal recorded.');
+            } on PostgrestException catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              dialogSetState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: const Text('Record Disposal'),
+        ),
+      ],
+    );
+
+    quantityController.dispose();
+    reasonController.dispose();
   }
 
   Future<void> _showStockMovementDialog(InventoryItem item) async {
