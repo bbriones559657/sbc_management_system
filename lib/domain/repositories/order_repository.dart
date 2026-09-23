@@ -3,6 +3,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/shift_cash_snapshot.dart';
 
 abstract class OrderRepository {
   Future<List<OrderRecord>> getOrders();
@@ -39,6 +40,15 @@ abstract class OrderRepository {
     required String shiftId,
     double? closingCashCounted,
     String notes = '',
+  });
+
+  Future<ShiftCashSnapshot> getShiftCashSnapshot(String shiftId);
+
+  Future<void> recordShiftCashMovement({
+    required String shiftId,
+    required String movementType,
+    required double amount,
+    required String reason,
   });
 
   Future<OrderRecord> placeOrder({
