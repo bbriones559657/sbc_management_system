@@ -85,32 +85,28 @@ class SupabasePurchasingRepository implements PurchasingRepository {
     String purchaseOrderId,
   ) async {
     final rows = await _client
-        .from('purchase_order_items')
-        .select(
-          'id, inventory_item_id, purchase_uom_id, ordered_quantity, '
-          'base_quantity_per_purchase_unit, unit_cost, '
-          'inventory_items(name), units_of_measure(code)',
-        )
+        .from('v_purchase_order_lines_remaining')
+        .select()
         .eq('purchase_order_id', purchaseOrderId)
         .order('id');
 
     return (rows as List).map((raw) {
       final row = Map<String, dynamic>.from(raw as Map);
-      final itemRel = row['inventory_items'];
-      final unitRel = row['units_of_measure'];
 
       return PurchaseOrderLineRecord(
         id: row['id']?.toString() ?? '',
         inventoryItemId: row['inventory_item_id']?.toString() ?? '',
-        inventoryItemName: itemRel is Map
-            ? itemRel['name']?.toString() ?? ''
-            : '',
+        inventoryItemName:
+            row['inventory_item_name']?.toString() ?? '',
         purchaseUomId: row['purchase_uom_id']?.toString() ?? '',
-        purchaseUomCode: unitRel is Map
-            ? unitRel['code']?.toString() ?? ''
-            : '',
+        purchaseUomCode:
+            row['purchase_uom_code']?.toString() ?? '',
         orderedQuantity:
             (row['ordered_quantity'] as num?)?.toDouble() ?? 0,
+        receivedQuantity:
+            (row['received_purchase_quantity'] as num?)?.toDouble() ?? 0,
+        remainingQuantity:
+            (row['remaining_purchase_quantity'] as num?)?.toDouble() ?? 0,
         baseQuantityPerPurchaseUnit:
             (row['base_quantity_per_purchase_unit'] as num?)?.toDouble() ?? 1,
         unitCost: (row['unit_cost'] as num?)?.toDouble() ?? 0,
