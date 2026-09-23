@@ -2,6 +2,7 @@ import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
 import '../mock_data.dart';
 
@@ -70,6 +71,9 @@ class MockOrderRepository implements OrderRepository {
 
   @override
   Future<List<PosPaymentMethod>> getPaymentMethods() async => const [];
+
+  @override
+  Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async => const [];
 
   @override
   Future<String?> getOpenShiftId() async => 'mock-shift';
