@@ -4,6 +4,7 @@ import '../../models/pos_checkout.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
+import '../../models/refund_workflow.dart';
 import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
 import '../mock_data.dart';
