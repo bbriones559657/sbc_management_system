@@ -4,6 +4,7 @@ import '../../domain/repositories/order_repository.dart';
 import '../../models/order_item.dart';
 import '../../models/order_record.dart';
 import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
 import '../../models/pos_menu_item.dart';
 import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
@@ -113,6 +114,19 @@ class SupabaseOrderRepository implements OrderRepository {
         .map((row) => PosMenuItem.fromMap(
               Map<String, dynamic>.from(row as Map),
             ))
+        .toList();
+  }
+
+  @override
+  Future<List<PosDiscountType>> getPosDiscountTypes() async {
+    final result = await _client.rpc('get_pos_discount_types');
+
+    return (result as List)
+        .map(
+          (raw) => PosDiscountType.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
         .toList();
   }
 
@@ -265,13 +279,35 @@ class SupabaseOrderRepository implements OrderRepository {
     String customerName = '',
     String deliveryReference = '',
     String notes = '',
+    String discountTypeId = '',
+    double? discountValue,
+    String discountNotes = '',
   }) async {
+    if (payments.length != 1) {
+      throw const FormatException(
+        'The current POS flow requires exactly one payment method.',
+      );
+    }
+
+    final payment = payments.first;
+
     final result = await _client.rpc(
-      'place_order',
+      'place_order_v2',
       params: {
         'p_order_type': _dbOrderType(orderType),
         'p_items': items.map((item) => item.toJson()).toList(),
-        'p_payments': payments.map((payment) => payment.toJson()).toList(),
+        'p_payment': {
+          'payment_method_id': payment.paymentMethodId,
+          'amount_tendered': payment.amountTendered,
+          'external_reference': payment.externalReference,
+        },
+        'p_discount': discountTypeId.trim().isEmpty
+            ? null
+            : {
+                'discount_type_id': discountTypeId,
+                'manual_value': discountValue,
+                'notes': _nullable(discountNotes),
+              },
         'p_table_number': _nullable(tableNumber),
         'p_customer_name': _nullable(customerName),
         'p_delivery_reference': _nullable(deliveryReference),
@@ -284,12 +320,16 @@ class SupabaseOrderRepository implements OrderRepository {
     final orderNumber = resultMap['order_number']?.toString();
 
     if (orderNumber == null) {
-      throw const FormatException('The completed order number was not returned.');
+      throw const FormatException(
+        'The completed order number was not returned.',
+      );
     }
 
     final row = await _findOrderRow('#' + orderNumber);
     if (row == null) {
-      throw const FormatException('The completed order could not be reloaded.');
+      throw const FormatException(
+        'The completed order could not be reloaded.',
+      );
     }
 
     return _orderFromMap(row);
