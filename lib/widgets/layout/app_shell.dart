@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../models/app_navigation_item.dart';
 import '../../models/app_user_profile.dart';
 import 'app_sidebar.dart';
 
 class AppShell extends StatefulWidget {
   final AppUserProfile profile;
-  final List<AppNavigationItem> items;
+  final List<AppNavigationGroup> groups;
   final List<Widget> pages;
   final Future<void> Function() onSignOut;
 
   const AppShell({
     super.key,
     required this.profile,
-    required this.items,
+    required this.groups,
     required this.pages,
     required this.onSignOut,
   });
@@ -24,6 +25,9 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  static const double _phoneBreakpoint = 700;
+  static const double _expandedSidebarBreakpoint = 1120;
+
   int _selectedIndex = 0;
 
   @override
@@ -37,34 +41,100 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray100,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final compactNavigation = constraints.maxWidth < 900;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _phoneBreakpoint) {
+          return _buildPhoneShell(constraints.maxWidth);
+        }
 
-          return Row(
+        final compactNavigation =
+            constraints.maxWidth < _expandedSidebarBreakpoint;
+
+        return Scaffold(
+          backgroundColor: AppColors.gray100,
+          body: Row(
             children: [
               AppSidebar(
                 profile: widget.profile,
-                items: widget.items,
+                groups: widget.groups,
                 selectedIndex: _selectedIndex,
                 compact: compactNavigation,
-                onItemSelected: (index) {
-                  setState(() => _selectedIndex = index);
-                },
+                onItemSelected: _selectDestination,
                 onSignOut: widget.onSignOut,
               ),
-              Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: widget.pages,
-                ),
-              ),
+              Expanded(child: _buildPages()),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
+  }
+
+  Widget _buildPhoneShell(double availableWidth) {
+    final drawerWidth = availableWidth < 360 ? availableWidth * .88 : 320.0;
+
+    return Scaffold(
+      backgroundColor: AppColors.gray100,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.black,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 4,
+        title: Text(
+          _selectedDestinationLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.h3,
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1),
+        ),
+      ),
+      drawer: Drawer(
+        width: drawerWidth,
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(),
+        child: SafeArea(
+          child: Builder(
+            builder: (drawerContext) => AppSidebar(
+              profile: widget.profile,
+              groups: widget.groups,
+              selectedIndex: _selectedIndex,
+              onItemSelected: (index) {
+                _selectDestination(index);
+                Navigator.of(drawerContext).pop();
+              },
+              onSignOut: widget.onSignOut,
+              onClose: () => Navigator.of(drawerContext).pop(),
+            ),
+          ),
+        ),
+      ),
+      body: _buildPages(),
+    );
+  }
+
+  Widget _buildPages() {
+    return IndexedStack(index: _selectedIndex, children: widget.pages);
+  }
+
+  void _selectDestination(int index) {
+    if (index < 0 || index >= widget.pages.length || index == _selectedIndex) {
+      return;
+    }
+    setState(() => _selectedIndex = index);
+  }
+
+  String get _selectedDestinationLabel {
+    for (final group in widget.groups) {
+      for (final item in group.items) {
+        if (item.destinationIndex == _selectedIndex) return item.label;
+      }
+    }
+    return 'Street Bowl Café';
   }
 }

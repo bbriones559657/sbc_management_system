@@ -7,6 +7,8 @@ This document tracks integration work and rollback-based database regression che
 ## Integrated modules
 
 - Supabase Auth and role-aware navigation
+- Grouped role-aware navigation with collapsible desktop sections, a compact
+  tablet rail and a phone drawer
 - Dashboard with live daily sales/order/refund/expense metrics
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
 - Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
@@ -86,6 +88,9 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 ### Authorization
 
 - Cashiers receive only their own operational dashboard scope.
+- Cashier navigation exposes only Dashboard, Orders / POS and Stock Overview.
+- Management navigation groups operational, inventory, purchasing, finance,
+  reporting and administration destinations without changing authorization.
 - Cashiers cannot create suppliers.
 - Cashiers cannot create menu products/variants.
 - Profile RLS prevents a cashier from reading or editing another employee profile.

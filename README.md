@@ -84,6 +84,11 @@ May mainly access operational functions such as:
 Role-based navigation and server-side permission checks are implemented for the
 integrated prototype.
 
+Navigation is grouped by business workflow: Main, Sales & Finance, Menu &
+Products, Inventory, Purchasing, Expenses, Reports, and Administration. The
+full sidebar collapses into an icon rail on medium screens and a drawer on
+phones.
+
 ---
 
 ## Current Modules

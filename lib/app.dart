@@ -83,82 +83,150 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
 
   Widget _buildAuthenticatedApp(AppUserProfile profile) {
     final isCashier = profile.isCashier;
+    final pages = <Widget>[];
 
-    final items = <AppNavigationItem>[
-      const AppNavigationItem(
-        label: 'Dashboard',
-        icon: Icons.dashboard_outlined,
+    AppNavigationItem destination({
+      required String label,
+      required IconData icon,
+      required Widget page,
+    }) {
+      final destinationIndex = pages.length;
+      pages.add(page);
+      return AppNavigationItem(
+        label: label,
+        icon: icon,
+        destinationIndex: destinationIndex,
+      );
+    }
+
+    final groups = <AppNavigationGroup>[
+      AppNavigationGroup(
+        label: 'MAIN',
+        icon: Icons.home_outlined,
+        collapsible: false,
+        items: [
+          destination(
+            label: 'Dashboard',
+            icon: Icons.dashboard_outlined,
+            page: DashboardScreen(
+              orderRepository: _orderRepository,
+              dashboardRepository: _dashboardRepository,
+            ),
+          ),
+        ],
       ),
-      const AppNavigationItem(
-        label: 'Orders',
-        icon: Icons.receipt_long_outlined,
+      AppNavigationGroup(
+        label: 'SALES & FINANCE',
+        icon: Icons.point_of_sale_outlined,
+        initiallyExpanded: true,
+        items: [
+          destination(
+            label: 'Orders / POS',
+            icon: Icons.receipt_long_outlined,
+            page: OrdersScreen(
+              orderRepository: _orderRepository,
+              canManageOrders: !isCashier,
+            ),
+          ),
+          if (!isCashier)
+            destination(
+              label: 'Finance Overview',
+              icon: Icons.account_balance_wallet_outlined,
+              page: SalesFinanceScreen(
+                reportingRepository: _reportingRepository,
+                financeRepository: _financeRepository,
+              ),
+            ),
+        ],
       ),
-      const AppNavigationItem(
-        label: 'Inventory',
-        icon: Icons.inventory_2_outlined,
-      ),
-      if (!isCashier) ...[
-        const AppNavigationItem(
-          label: 'Menu',
+      if (!isCashier)
+        AppNavigationGroup(
+          label: 'MENU & PRODUCTS',
           icon: Icons.restaurant_menu_outlined,
+          items: [
+            destination(
+              label: 'Menu Management',
+              icon: Icons.fastfood_outlined,
+              page: MenuManagementScreen(menuRepository: _menuRepository),
+            ),
+          ],
         ),
-        const AppNavigationItem(
-          label: 'Expenses',
-          icon: Icons.payments_outlined,
-        ),
-        const AppNavigationItem(
-          label: 'Sales & Finance',
-          icon: Icons.account_balance_wallet_outlined,
-        ),
-        const AppNavigationItem(
-          label: 'Reports',
-          icon: Icons.bar_chart_outlined,
-        ),
-        const AppNavigationItem(
-          label: 'Purchasing',
-          icon: Icons.shopping_cart_checkout_outlined,
-        ),
-        const AppNavigationItem(
-          label: 'Suppliers',
-          icon: Icons.local_shipping_outlined,
-        ),
-        const AppNavigationItem(label: 'Users', icon: Icons.people_outline),
-      ],
-    ];
-
-    final pages = <Widget>[
-      DashboardScreen(
-        orderRepository: _orderRepository,
-        dashboardRepository: _dashboardRepository,
-      ),
-      OrdersScreen(
-        orderRepository: _orderRepository,
-        canManageOrders: !isCashier,
-      ),
-      InventoryScreen(
-        inventoryRepository: _inventoryRepository,
-        canManageInventory: !isCashier,
+      AppNavigationGroup(
+        label: 'INVENTORY',
+        icon: Icons.inventory_2_outlined,
+        initiallyExpanded: true,
+        items: [
+          destination(
+            label: 'Stock Overview',
+            icon: Icons.view_list_outlined,
+            page: InventoryScreen(
+              inventoryRepository: _inventoryRepository,
+              canManageInventory: !isCashier,
+            ),
+          ),
+        ],
       ),
       if (!isCashier) ...[
-        MenuManagementScreen(menuRepository: _menuRepository),
-        ExpensesScreen(expenseRepository: _expenseRepository),
-        SalesFinanceScreen(
-          reportingRepository: _reportingRepository,
-          financeRepository: _financeRepository,
+        AppNavigationGroup(
+          label: 'PURCHASING',
+          icon: Icons.shopping_cart_checkout_outlined,
+          items: [
+            destination(
+              label: 'Purchase Orders',
+              icon: Icons.assignment_outlined,
+              page: PurchasingScreen(
+                purchasingRepository: _purchasingRepository,
+              ),
+            ),
+            destination(
+              label: 'Suppliers',
+              icon: Icons.local_shipping_outlined,
+              page: SuppliersScreen(supplierRepository: _supplierRepository),
+            ),
+          ],
         ),
-        ReportsScreen(reportingRepository: _reportingRepository),
-        PurchasingScreen(purchasingRepository: _purchasingRepository),
-        SuppliersScreen(supplierRepository: _supplierRepository),
-        UsersScreen(
-          userRepository: _userRepository,
-          canManageRoles: profile.roleCode.toUpperCase() == 'ADMIN',
+        AppNavigationGroup(
+          label: 'EXPENSES',
+          icon: Icons.payments_outlined,
+          items: [
+            destination(
+              label: 'Expense Records',
+              icon: Icons.receipt_outlined,
+              page: ExpensesScreen(expenseRepository: _expenseRepository),
+            ),
+          ],
+        ),
+        AppNavigationGroup(
+          label: 'REPORTS',
+          icon: Icons.bar_chart_outlined,
+          items: [
+            destination(
+              label: 'Reports Overview',
+              icon: Icons.analytics_outlined,
+              page: ReportsScreen(reportingRepository: _reportingRepository),
+            ),
+          ],
+        ),
+        AppNavigationGroup(
+          label: 'ADMINISTRATION',
+          icon: Icons.admin_panel_settings_outlined,
+          items: [
+            destination(
+              label: 'User Management',
+              icon: Icons.people_outline,
+              page: UsersScreen(
+                userRepository: _userRepository,
+                canManageRoles: profile.roleCode.toUpperCase() == 'ADMIN',
+              ),
+            ),
+          ],
         ),
       ],
     ];
 
     return AppShell(
       profile: profile,
-      items: items,
+      groups: groups,
       pages: pages,
       onSignOut: () => Supabase.instance.client.auth.signOut(),
     );
