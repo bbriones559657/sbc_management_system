@@ -30,9 +30,7 @@ abstract class OrderRepository {
 
   Future<RefundPreview> getRefundPreview(String id);
 
-  Future<List<RefundRestockCandidate>> getRefundRestockCandidates(
-    String id,
-  );
+  Future<List<RefundRestockCandidate>> getRefundRestockCandidates(String id);
 
   Future<void> approveRefundItemRestock(
     String refundItemId, {

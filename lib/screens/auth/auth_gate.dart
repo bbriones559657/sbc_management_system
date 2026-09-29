@@ -11,10 +11,7 @@ import 'login_screen.dart';
 class AuthGate extends StatefulWidget {
   final Widget Function(AppUserProfile profile) authenticatedBuilder;
 
-  const AuthGate({
-    super.key,
-    required this.authenticatedBuilder,
-  });
+  const AuthGate({super.key, required this.authenticatedBuilder});
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -141,8 +138,7 @@ class _AuthGateState extends State<AuthGate> {
     if (!profile.isActive || profile.roleCode.isEmpty) {
       return _AccountStateScreen(
         title: 'Account awaiting activation',
-        message:
-            'Your account exists, but management has not activated a system role for it yet.',
+        message: 'Your account exists, but management has not activated a system role for it yet.',
         onSignOut: _signOut,
         onRetry: _loadCurrentUser,
       );
@@ -192,9 +188,7 @@ class _AccountStateScreen extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.gray700,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.gray700),
               ),
               const SizedBox(height: 22),
               Row(
@@ -205,10 +199,7 @@ class _AccountStateScreen extends StatelessWidget {
                     child: const Text('Sign out'),
                   ),
                   const SizedBox(width: 10),
-                  FilledButton(
-                    onPressed: onRetry,
-                    child: const Text('Retry'),
-                  ),
+                  FilledButton(onPressed: onRetry, child: const Text('Retry')),
                 ],
               ),
             ],

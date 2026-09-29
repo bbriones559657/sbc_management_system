@@ -38,14 +38,13 @@ class InventoryItem {
     this.supplierId = '',
     required this.expiration,
   }) : currentQuantity = currentQuantity,
-        usableQuantity = usableQuantity ?? currentQuantity;
+       usableQuantity = usableQuantity ?? currentQuantity;
 
   factory InventoryItem.fromMap(Map<String, dynamic> map) {
     final quantity = (map['current_quantity'] as num?)?.toDouble() ?? 0;
     final usableQuantity =
         (map['usable_quantity'] as num?)?.toDouble() ?? quantity;
-    final expiredQuantity =
-        (map['expired_quantity'] as num?)?.toDouble() ?? 0;
+    final expiredQuantity = (map['expired_quantity'] as num?)?.toDouble() ?? 0;
     final reorder = (map['reorder_level'] as num?)?.toDouble() ?? 0;
     final uom = map['base_uom_code']?.toString() ?? '';
     final expiryRaw = map['next_expiration_date']?.toString();
@@ -149,15 +148,28 @@ class InventoryItem {
   static String _formatStock(double quantity, String unit) {
     final value = quantity == quantity.roundToDouble()
         ? quantity.toInt().toString()
-        : quantity.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+        : quantity
+              .toStringAsFixed(2)
+              .replaceFirst(RegExp(r'0+$'), '')
+              .replaceFirst(RegExp(r'\.$'), '');
 
     return unit.isEmpty ? value : '$value $unit';
   }
 
   static String _formatDate(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     return '${months[date.month - 1]} ${date.day}, ${date.year}';

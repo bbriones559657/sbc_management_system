@@ -55,9 +55,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         onPressed: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => NewOrderScreen(
-                orderRepository: widget.orderRepository,
-              ),
+              builder: (_) =>
+                  NewOrderScreen(orderRepository: widget.orderRepository),
             ),
           );
           _refreshOrders();
@@ -132,7 +131,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             ),
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
-                            Text(_moneyDouble(order.amount), style: AppTextStyles.body),
+                            Text(
+                              _moneyDouble(order.amount),
+                              style: AppTextStyles.body,
+                            ),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: StatusBadge(order.status),
@@ -241,7 +243,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final query = _searchQuery.trim().toLowerCase();
 
     final filtered = orders.where((order) {
-      final searchMatches = query.isEmpty ||
+      final searchMatches =
+          query.isEmpty ||
           order.id.toLowerCase().contains(query) ||
           order.customerName.toLowerCase().contains(query) ||
           order.tableNumber.toLowerCase().contains(query) ||
@@ -316,7 +319,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _detailRow('Delivery Reference', order.deliveryReference),
             _detailRow(
               'Payment',
-              order.paymentMethod.isEmpty ? 'Not paid yet' : order.paymentMethod,
+              order.paymentMethod.isEmpty
+                  ? 'Not paid yet'
+                  : order.paymentMethod,
             ),
             const Divider(height: 28),
             const Text('Items', style: AppTextStyles.h3),
@@ -354,10 +359,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ],
             if (order.lastActionReason.isNotEmpty) ...[
               const Divider(height: 28),
-              Text(
-                '${order.status} Information',
-                style: AppTextStyles.h3,
-              ),
+              Text('${order.status} Information', style: AppTextStyles.h3),
               const SizedBox(height: 8),
               _detailRow('Reason', order.lastActionReason),
               if (order.authorizedBy.isNotEmpty)
@@ -387,10 +389,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  Future<void> _showActions(
-    BuildContext context,
-    OrderRecord order,
-  ) async {
+  Future<void> _showActions(BuildContext context, OrderRecord order) async {
     final isClosed = order.status == 'Void' || order.status == 'Refunded';
 
     await showPrototypeDialog(
@@ -424,9 +423,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ListTile(
               leading: const Icon(Icons.inventory_2_outlined),
               title: const Text('Review Returned Stock'),
-              subtitle: const Text(
-                'Restock eligible returned finished goods',
-              ),
+              subtitle: const Text('Restock eligible returned finished goods'),
               onTap: () {
                 Navigator.pop(context);
                 _showRefundRestockDialog(context, order);
@@ -434,10 +431,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           if (order.status == 'Open')
             ListTile(
-              leading: const Icon(
-                Icons.block,
-                color: AppColors.primary,
-              ),
+              leading: const Icon(Icons.block, color: AppColors.primary),
               title: const Text(
                 'Void Order',
                 style: TextStyle(color: AppColors.primary),
@@ -457,16 +451,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
               child: Text(
                 'This order is already ${order.status.toLowerCase()}. No additional refund or void action is available.',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.gray500,
-                ),
+                style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
               ),
             ),
         ],
       ),
     );
   }
-
 
   Future<void> _showRefundDialog(
     BuildContext context,
@@ -478,16 +469,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
       preview = await widget.orderRepository.getRefundPreview(order.id);
     } on PostgrestException catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
       return;
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
       }
       return;
     }
@@ -553,10 +542,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Select Items',
-                    style: AppTextStyles.h3,
-                  ),
+                  const Text('Select Items', style: AppTextStyles.h3),
                   const SizedBox(height: 8),
                   for (final item in preview.items)
                     Container(
@@ -593,12 +579,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           SizedBox(
                             width: 110,
                             child: TextField(
-                              controller:
-                                  quantityControllers[item.orderItemId],
+                              controller: quantityControllers[item.orderItemId],
                               keyboardType:
                                   const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
+                                    decimal: true,
+                                  ),
                               decoration: const InputDecoration(
                                 labelText: 'Qty',
                               ),
@@ -666,8 +651,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             String? validationError;
 
             for (final item in preview.items) {
-              final raw =
-                  quantityControllers[item.orderItemId]!.text.trim();
+              final raw = quantityControllers[item.orderItemId]!.text.trim();
               final quantity = double.tryParse(raw) ?? -1;
 
               if (quantity < 0) {
@@ -697,8 +681,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             if (validationError == null &&
                 preview.requiresReference &&
                 referenceController.text.trim().isEmpty) {
-              validationError =
-                  'A refund transaction reference is required.';
+              validationError = 'A refund transaction reference is required.';
             }
 
             if (validationError != null) {
@@ -713,8 +696,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 order.id,
                 quantities: quantities,
                 reason: reason,
-                externalReference:
-                    referenceController.text.trim(),
+                externalReference: referenceController.text.trim(),
               );
 
               if (!context.mounted) return;
@@ -723,9 +705,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Refund recorded for order ${order.id}.',
-                  ),
+                  content: Text('Refund recorded for order ${order.id}.'),
                 ),
               );
             } on PostgrestException catch (error) {
@@ -750,8 +730,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-
-
   Future<void> _showRefundRestockDialog(
     BuildContext context,
     OrderRecord order,
@@ -759,20 +737,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
     List<RefundRestockCandidate> candidates;
 
     try {
-      candidates =
-          await widget.orderRepository.getRefundRestockCandidates(order.id);
+      candidates = await widget.orderRepository.getRefundRestockCandidates(
+        order.id,
+      );
     } on PostgrestException catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
       return;
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
       }
       return;
     }
@@ -861,11 +838,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ElevatedButton(
                           onPressed: () async {
                             Navigator.pop(context);
-                            await _confirmRefundRestock(
-                              context,
-                              order,
-                              item,
-                            );
+                            await _confirmRefundRestock(context, order, item);
                           },
                           child: const Text('Restock'),
                         ),
@@ -913,14 +886,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _detailRow('Item', item.itemName),
               if (item.variantName.isNotEmpty)
                 _detailRow('Variant', item.variantName),
-              _detailRow(
-                'Quantity',
-                _refundQty(item.refundedQuantity),
-              ),
-              _detailRow(
-                'Inventory Item',
-                item.inventoryItemName,
-              ),
+              _detailRow('Quantity', _refundQty(item.refundedQuantity)),
+              _detailRow('Inventory Item', item.inventoryItemName),
               const SizedBox(height: 12),
               TextField(
                 controller: notesController,
@@ -934,9 +901,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 const SizedBox(height: 8),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -962,9 +927,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    '${item.itemName} was returned to inventory.',
-                  ),
+                  content: Text('${item.itemName} was returned to inventory.'),
                 ),
               );
             } on PostgrestException catch (error) {
@@ -994,8 +957,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     String? errorMessage;
     StateSetter? updateDialogState;
 
-    final actionName =
-        action == _OrderAction.refund ? 'Refund' : 'Void';
+    final actionName = action == _OrderAction.refund ? 'Refund' : 'Void';
 
     await showPrototypeDialog(
       context: context,
@@ -1038,9 +1000,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 const SizedBox(height: 8),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -1106,10 +1066,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     reasonController.dispose();
   }
 
-  Future<void> _showReceipt(
-    BuildContext context,
-    OrderRecord order,
-  ) async {
+  Future<void> _showReceipt(BuildContext context, OrderRecord order) async {
     await showPrototypeDialog(
       context: context,
       title: 'Receipt',
@@ -1123,9 +1080,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               child: Text('Street Bowl Café', style: AppTextStyles.h2),
             ),
             const SizedBox(height: 4),
-            Center(
-              child: Text(order.id, style: AppTextStyles.caption),
-            ),
+            Center(child: Text(order.id, style: AppTextStyles.caption)),
             if (order.invoiceNumber.isNotEmpty) ...[
               const SizedBox(height: 3),
               Center(
@@ -1172,7 +1127,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
             _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             _detailRow(
               'Payment',
-              order.paymentMethod.isEmpty ? 'Not paid yet' : order.paymentMethod,
+              order.paymentMethod.isEmpty
+                  ? 'Not paid yet'
+                  : order.paymentMethod,
             ),
             if (order.paymentMethod.isNotEmpty) ...[
               _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
@@ -1186,11 +1143,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  Widget _detailRow(
-    String label,
-    String value, {
-    bool emphasized = false,
-  }) {
+  Widget _detailRow(String label, String value, {bool emphasized = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1214,7 +1167,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
-
 
   String _moneyDouble(double value) {
     return '₱${value.toStringAsFixed(2)}';
@@ -1286,7 +1238,4 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
-enum _OrderAction {
-  refund,
-  voidOrder,
-}
+enum _OrderAction { refund, voidOrder }

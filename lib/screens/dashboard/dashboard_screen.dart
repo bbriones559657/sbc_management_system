@@ -131,35 +131,33 @@ class DashboardScreen extends StatelessWidget {
                 SummaryCardGrid(
                   children: [
                     SummaryCard(
-                        label: 'Orders',
-                        value: '${summary.completedOrders}',
-                        subtitle: '${summary.openOrders} currently open',
-                        accentColor: AppColors.primary,
+                      label: 'Orders',
+                      value: '${summary.completedOrders}',
+                      subtitle: '${summary.openOrders} currently open',
+                      accentColor: AppColors.primary,
                     ),
                     SummaryCard(
-                        label: 'Refunds',
-                        value: _money(summary.refunds),
-                        subtitle: 'Completed refunds today',
-                        accentColor: AppColors.orange,
+                      label: 'Refunds',
+                      value: _money(summary.refunds),
+                      subtitle: 'Completed refunds today',
+                      accentColor: AppColors.orange,
                     ),
                     SummaryCard(
-                        label: summary.businessScope
-                            ? 'Expenses'
-                            : 'Your Sales',
-                        value: summary.businessScope
-                            ? _money(summary.expenses ?? 0)
-                            : _money(summary.netSales),
-                        subtitle: summary.businessScope
-                            ? 'Posted expenses today'
-                            : 'Your completed sales today',
-                        accentColor: AppColors.black,
+                      label: summary.businessScope ? 'Expenses' : 'Your Sales',
+                      value: summary.businessScope
+                          ? _money(summary.expenses ?? 0)
+                          : _money(summary.netSales),
+                      subtitle: summary.businessScope
+                          ? 'Posted expenses today'
+                          : 'Your completed sales today',
+                      accentColor: AppColors.black,
                     ),
                     if (summary.businessScope)
                       SummaryCard(
-                          label: 'Net After Expenses',
-                          value: _money(summary.netAfterExpenses ?? 0),
-                          subtitle: 'Sales less refunds and expenses',
-                          accentColor: AppColors.success,
+                        label: 'Net After Expenses',
+                        value: _money(summary.netAfterExpenses ?? 0),
+                        subtitle: 'Sales less refunds and expenses',
+                        accentColor: AppColors.success,
                       ),
                   ],
                 ),
@@ -235,8 +233,5 @@ class _DashboardData {
   final DashboardSummary summary;
   final List<OrderRecord> orders;
 
-  const _DashboardData({
-    required this.summary,
-    required this.orders,
-  });
+  const _DashboardData({required this.summary, required this.orders});
 }

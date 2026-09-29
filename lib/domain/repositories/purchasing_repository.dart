@@ -9,7 +9,9 @@ abstract class PurchasingRepository {
 
   Future<List<PurchaseOrderSummary>> getPurchaseOrders();
 
-  Future<List<PurchaseOrderLineRecord>> getPurchaseOrderLines(String purchaseOrderId);
+  Future<List<PurchaseOrderLineRecord>> getPurchaseOrderLines(
+    String purchaseOrderId,
+  );
 
   Future<List<GoodsReceiptSummary>> getGoodsReceipts();
 

@@ -18,10 +18,7 @@ import '../../widgets/layout/header_brand_motif.dart';
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
 
-  const NewOrderScreen({
-    super.key,
-    required this.orderRepository,
-  });
+  const NewOrderScreen({super.key, required this.orderRepository});
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -113,8 +110,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     StateSetter? dialogSetState;
 
     try {
-      final snapshot =
-          await widget.orderRepository.getShiftCashSnapshot(shiftId);
+      final snapshot = await widget.orderRepository.getShiftCashSnapshot(
+        shiftId,
+      );
 
       if (!mounted) return;
 
@@ -127,8 +125,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             dialogSetState = setDialogState;
 
             final rawCash = cashController.text.trim();
-            final countedCash =
-                rawCash.isEmpty ? null : double.tryParse(rawCash);
+            final countedCash = rawCash.isEmpty
+                ? null
+                : double.tryParse(rawCash);
             final variance = countedCash == null
                 ? null
                 : countedCash - snapshot.expectedCash;
@@ -179,16 +178,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: cashController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     onChanged: (_) {
                       setDialogState(() => errorMessage = null);
                     },
                     decoration: const InputDecoration(
                       labelText: 'Counted Closing Cash',
                       prefixText: '₱',
-                      helperText:
-                          'Optional for now, but entering it records the cash variance.',
+                      helperText: 'Optional for now, but entering it records the cash variance.',
                     ),
                   ),
                   if (variance != null) ...[
@@ -215,8 +214,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: 'Closing Notes',
-                      hintText:
-                          'Optional explanation for cash differences or handover notes...',
+                      hintText: 'Optional explanation for cash differences or handover notes...',
                     ),
                   ),
                   if (errorMessage != null) ...[
@@ -243,8 +241,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 ? null
                 : () async {
                     final rawCash = cashController.text.trim();
-                    final cash =
-                        rawCash.isEmpty ? null : double.tryParse(rawCash);
+                    final cash = rawCash.isEmpty
+                        ? null
+                        : double.tryParse(rawCash);
 
                     if (rawCash.isNotEmpty && cash == null) {
                       dialogSetState?.call(() {
@@ -327,8 +326,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     StateSetter? dialogSetState;
 
     try {
-      final snapshot =
-          await widget.orderRepository.getShiftCashSnapshot(shiftId);
+      final snapshot = await widget.orderRepository.getShiftCashSnapshot(
+        shiftId,
+      );
 
       if (!mounted) return;
 
@@ -389,10 +389,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       labelText: 'Movement Type',
                     ),
                     items: const [
-                      DropdownMenuItem(
-                        value: 'PAY_IN',
-                        child: Text('Pay In'),
-                      ),
+                      DropdownMenuItem(value: 'PAY_IN', child: Text('Pay In')),
                       DropdownMenuItem(
                         value: 'PAY_OUT',
                         child: Text('Pay Out'),
@@ -417,8 +414,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   const SizedBox(height: 14),
                   TextField(
                     controller: amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Amount *',
                       prefixText: '₱',
@@ -428,9 +426,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   TextField(
                     controller: reasonController,
                     maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Reason *',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Reason *'),
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: 10),
@@ -453,8 +449,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount =
-                  double.tryParse(amountController.text.trim());
+              final amount = double.tryParse(amountController.text.trim());
               final reason = reasonController.text.trim();
 
               if (amount == null || amount <= 0 || reason.isEmpty) {
@@ -515,9 +510,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           SafeArea(
             child: Padding(
               padding: EdgeInsets.all(
-                MediaQuery.sizeOf(context).width < 600
-                    ? 16
-                    : AppSpacing.page,
+                MediaQuery.sizeOf(context).width < 600 ? 16 : AppSpacing.page,
               ),
               child: FutureBuilder<List<PosMenuItem>>(
                 future: _menuFuture,
@@ -536,10 +529,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                                 icon: const Icon(Icons.arrow_back),
                               ),
                               const SizedBox(width: 8),
-                              const Text(
-                                'New Order',
-                                style: AppTextStyles.h1,
-                              ),
+                              const Text('New Order', style: AppTextStyles.h1),
                             ],
                           );
 
@@ -726,7 +716,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     final products = menu.where((item) {
       final categoryMatches =
           _selectedCategory == 'All' || item.category == _selectedCategory;
-      final searchMatches = query.isEmpty ||
+      final searchMatches =
+          query.isEmpty ||
           item.name.toLowerCase().contains(query) ||
           item.variantName.toLowerCase().contains(query) ||
           item.sku.toLowerCase().contains(query);
@@ -774,12 +765,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     final columns = constraints.maxWidth < 420
                         ? 1
                         : constraints.maxWidth < 720
-                            ? 2
-                            : 3;
+                        ? 2
+                        : 3;
 
                     return GridView.builder(
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns,
                         crossAxisSpacing: 14,
                         mainAxisSpacing: 14,
@@ -850,14 +840,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             children: [
               Text(
                 _money(product.price),
-                style: AppTextStyles.h3.copyWith(
-                  color: AppColors.primary,
-                ),
+                style: AppTextStyles.h3.copyWith(color: AppColors.primary),
               ),
               const Spacer(),
               OutlinedButton.icon(
-                onPressed:
-                    product.isOutOfStock ? null : () => _addProduct(product),
+                onPressed: product.isOutOfStock
+                    ? null
+                    : () => _addProduct(product),
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Add'),
               ),
@@ -869,10 +858,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Widget _buildCurrentOrderPanel() {
-    final total = _cart.fold<double>(
-      0,
-      (sum, line) => sum + line.lineTotal,
-    );
+    final total = _cart.fold<double>(0, (sum, line) => sum + line.lineTotal);
 
     return SectionCard(
       child: Column(
@@ -942,9 +928,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         children: [
           TextField(
             controller: _tableNumberController,
-            decoration: const InputDecoration(
-              labelText: 'Table Number *',
-            ),
+            decoration: const InputDecoration(labelText: 'Table Number *'),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -980,9 +964,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     return TextField(
       controller: _customerNameController,
-      decoration: const InputDecoration(
-        labelText: 'Customer Name *',
-      ),
+      decoration: const InputDecoration(labelText: 'Customer Name *'),
     );
   }
 
@@ -1125,9 +1107,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                             ),
                           ),
                           Text(
-                            group.isRequired
-                                ? 'Required'
-                                : 'Optional',
+                            group.isRequired ? 'Required' : 'Optional',
                             style: AppTextStyles.caption.copyWith(
                               color: group.isRequired
                                   ? AppColors.primary
@@ -1136,10 +1116,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                           ),
                         ],
                       ),
-                      Text(
-                        _groupRule(group),
-                        style: AppTextStyles.caption,
-                      ),
+                      Text(_groupRule(group), style: AppTextStyles.caption),
                       const SizedBox(height: 6),
                       for (final option in group.options)
                         CheckboxListTile(
@@ -1159,13 +1136,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               if (checked == true) {
                                 final selectedInGroup = group.options
                                     .where(
-                                      (item) =>
-                                          selectedIds.contains(item.id),
+                                      (item) => selectedIds.contains(item.id),
                                     )
                                     .length;
                                 final max = group.maxSelections;
-                                if (max != null &&
-                                    selectedInGroup >= max) {
+                                if (max != null && selectedInGroup >= max) {
                                   errorMessage =
                                       '${group.name} allows up to $max selection(s).';
                                   return;
@@ -1245,8 +1220,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       product: product,
                       quantity: 1,
                       modifiers: selected,
-                      specialInstructions:
-                          instructionsController.text.trim(),
+                      specialInstructions: instructionsController.text.trim(),
                     ),
                   );
                 },
@@ -1347,16 +1321,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       return;
     }
 
-    final subtotal = _cart.fold<double>(
-      0,
-      (sum, line) => sum + line.lineTotal,
-    );
+    final subtotal = _cart.fold<double>(0, (sum, line) => sum + line.lineTotal);
 
     var selectedMethod = methods.first;
     PosDiscountType? selectedDiscount;
 
-    final amountController =
-        TextEditingController(text: subtotal.toStringAsFixed(2));
+    final amountController = TextEditingController(
+      text: subtotal.toStringAsFixed(2),
+    );
     final referenceController = TextEditingController();
     final discountValueController = TextEditingController();
     final discountNotesController = TextEditingController();
@@ -1375,9 +1347,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
 
     double finalTotal() {
-      return (subtotal - discountAmount())
-          .clamp(0, double.infinity)
-          .toDouble();
+      return (subtotal - discountAmount()).clamp(0, double.infinity).toDouble();
     }
 
     await showPrototypeDialog(
@@ -1389,12 +1359,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           dialogSetState = setDialogState;
 
           final discountedTotal = finalTotal();
-          final received =
-              double.tryParse(amountController.text.trim()) ?? 0;
+          final received = double.tryParse(amountController.text.trim()) ?? 0;
           final change = selectedMethod.isCash
               ? (received - discountedTotal)
-                  .clamp(0, double.infinity)
-                  .toDouble()
+                    .clamp(0, double.infinity)
+                    .toDouble()
               : 0.0;
 
           return SingleChildScrollView(
@@ -1404,10 +1373,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 _paymentInfoRow('Order Type', _orderType),
                 _paymentInfoRow('Subtotal', _money(subtotal)),
                 if (selectedDiscount != null)
-                  _paymentInfoRow(
-                    'Discount',
-                    '-${_money(discountAmount())}',
-                  ),
+                  _paymentInfoRow('Discount', '-${_money(discountAmount())}'),
                 _paymentInfoRow(
                   'Total',
                   _money(discountedTotal),
@@ -1419,8 +1385,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     initialValue: selectedDiscount?.id ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Promotional Discount',
-                      helperText:
-                          'Senior/PWD rules are not enabled until the café tax setup is confirmed.',
+                      helperText: 'Senior/PWD rules are not enabled until the café tax setup is confirmed.',
                     ),
                     items: [
                       const DropdownMenuItem(
@@ -1435,27 +1400,20 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     ],
                     onChanged: (value) {
                       setDialogState(() {
-                        selectedDiscount =
-                            value == null || value.isEmpty
+                        selectedDiscount = value == null || value.isEmpty
                             ? null
-                            : discounts.firstWhere(
-                                (item) => item.id == value,
-                              );
+                            : discounts.firstWhere((item) => item.id == value);
 
-                        final defaultValue =
-                            selectedDiscount?.defaultValue;
-                        discountValueController.text =
-                            defaultValue == null
+                        final defaultValue = selectedDiscount?.defaultValue;
+                        discountValueController.text = defaultValue == null
                             ? ''
                             : defaultValue.toStringAsFixed(
-                                defaultValue ==
-                                        defaultValue.roundToDouble()
+                                defaultValue == defaultValue.roundToDouble()
                                     ? 0
                                     : 2,
                               );
 
-                        amountController.text =
-                            finalTotal().toStringAsFixed(2);
+                        amountController.text = finalTotal().toStringAsFixed(2);
                         errorMessage = null;
                       });
                     },
@@ -1464,24 +1422,22 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: discountValueController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText:
-                            selectedDiscount!.calculationMethod ==
-                                    'PERCENTAGE'
-                                ? 'Discount Percentage *'
-                                : 'Discount Amount *',
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? 'Discount Percentage *'
+                            : 'Discount Amount *',
                         suffixText:
-                            selectedDiscount!.calculationMethod ==
-                                    'PERCENTAGE'
-                                ? '%'
-                                : null,
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? '%'
+                            : null,
                         prefixText:
-                            selectedDiscount!.calculationMethod ==
-                                    'PERCENTAGE'
-                                ? null
-                                : '₱',
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? null
+                            : '₱',
                       ),
                       onChanged: (_) {
                         setDialogState(() {
@@ -1522,8 +1478,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       );
                       errorMessage = null;
                       if (!selectedMethod.isCash) {
-                        amountController.text =
-                            finalTotal().toStringAsFixed(2);
+                        amountController.text = finalTotal().toStringAsFixed(2);
                       }
                     });
                   },
@@ -1532,8 +1487,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 TextField(
                   controller: amountController,
                   enabled: selectedMethod.isCash,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Amount Received',
                     prefixText: '₱',
@@ -1571,8 +1527,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       ),
       actions: [
         TextButton(
-          onPressed:
-              _submittingOrder ? null : () => Navigator.pop(context),
+          onPressed: _submittingOrder ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         ElevatedButton(
@@ -1604,8 +1559,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       return;
                     }
 
-                    if (discountAmount() <= 0 ||
-                        discountAmount() > subtotal) {
+                    if (discountAmount() <= 0 || discountAmount() > subtotal) {
                       dialogSetState?.call(() {
                         errorMessage = 'Invalid discount amount.';
                       });
@@ -1621,11 +1575,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     return;
                   }
 
-                  if (selectedMethod.isCash &&
-                      received < discountedTotal) {
+                  if (selectedMethod.isCash && received < discountedTotal) {
                     dialogSetState?.call(() {
-                      errorMessage =
-                          'Amount received cannot be less than the discounted total.';
+                      errorMessage = 'Amount received cannot be less than the discounted total.';
                     });
                     return;
                   }
@@ -1633,8 +1585,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   if (selectedMethod.requiresReference &&
                       referenceController.text.trim().isEmpty) {
                     dialogSetState?.call(() {
-                      errorMessage =
-                          'A transaction reference is required.';
+                      errorMessage = 'A transaction reference is required.';
                     });
                     return;
                   }
@@ -1642,8 +1593,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   setState(() => _submittingOrder = true);
 
                   try {
-                    final order =
-                        await widget.orderRepository.placeOrder(
+                    final order = await widget.orderRepository.placeOrder(
                       orderType: _orderType,
                       items: _cart
                           .map(
@@ -1653,8 +1603,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               modifierIds: line.modifiers
                                   .map((modifier) => modifier.id)
                                   .toList(),
-                              specialInstructions:
-                                  line.specialInstructions,
+                              specialInstructions: line.specialInstructions,
                             ),
                           )
                           .toList(),
@@ -1662,29 +1611,26 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                         PosPaymentInput(
                           paymentMethodId: selectedMethod.id,
                           amount: discountedTotal,
-                          amountTendered:
-                              selectedMethod.isCash ? received : null,
-                          changeAmount:
-                              selectedMethod.isCash
-                                  ? received - discountedTotal
-                                  : 0,
-                          externalReference:
-                              selectedMethod.requiresReference
-                                  ? referenceController.text.trim()
-                                  : null,
+                          amountTendered: selectedMethod.isCash
+                              ? received
+                              : null,
+                          changeAmount: selectedMethod.isCash
+                              ? received - discountedTotal
+                              : 0,
+                          externalReference: selectedMethod.requiresReference
+                              ? referenceController.text.trim()
+                              : null,
                         ),
                       ],
                       tableNumber: _tableNumberController.text.trim(),
-                      customerName:
-                          _customerNameController.text.trim(),
-                      deliveryReference:
-                          _deliveryReferenceController.text.trim(),
+                      customerName: _customerNameController.text.trim(),
+                      deliveryReference: _deliveryReferenceController.text
+                          .trim(),
                       discountTypeId: discount?.id ?? '',
                       discountValue: discount == null
                           ? null
                           : enteredDiscountValue,
-                      discountNotes:
-                          discountNotesController.text.trim(),
+                      discountNotes: discountNotesController.text.trim(),
                     );
 
                     if (!mounted) return;
@@ -1720,6 +1666,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     discountValueController.dispose();
     discountNotesController.dispose();
   }
+
   Future<void> _showReceiptDialog(OrderRecord order) async {
     await showPrototypeDialog(
       context: context,
@@ -1769,16 +1716,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               ),
             ),
             const Divider(height: 28),
-            _paymentInfoRow(
-              'Total',
-              _money(order.amount),
-              emphasized: true,
-            ),
+            _paymentInfoRow('Total', _money(order.amount), emphasized: true),
             _paymentInfoRow('Payment', order.paymentMethod),
-            _paymentInfoRow(
-              'Amount Received',
-              _money(order.amountReceived),
-            ),
+            _paymentInfoRow('Amount Received', _money(order.amountReceived)),
             _paymentInfoRow('Change', _money(order.changeAmount)),
           ],
         ),
@@ -1801,8 +1741,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       return 'Start a shift before creating an order.';
     }
 
-    if (_orderType == 'Dine In' &&
-        _tableNumberController.text.trim().isEmpty) {
+    if (_orderType == 'Dine In' && _tableNumberController.text.trim().isEmpty) {
       return 'Enter the table number for this dine-in order.';
     }
 
@@ -1824,11 +1763,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return 'Select ${group.minSelections}–${group.maxSelections}';
   }
 
-  Widget _summaryRow(
-    String label,
-    String value, {
-    bool emphasized = false,
-  }) {
+  Widget _summaryRow(String label, String value, {bool emphasized = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1856,8 +1791,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           Expanded(
             child: Text(
               label,
-              style:
-                  emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
+              style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
             ),
           ),
           const SizedBox(width: 16),
@@ -1889,9 +1823,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   String _money(double value) {
     final whole = value == value.roundToDouble();
-    return whole
-        ? '₱${value.toInt()}'
-        : '₱${value.toStringAsFixed(2)}';
+    return whole ? '₱${value.toInt()}' : '₱${value.toStringAsFixed(2)}';
   }
 
   String _quantity(double value) {
@@ -1901,9 +1833,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showError(String message) => _showMessage(message);
@@ -1922,10 +1853,8 @@ class _PosCartLine {
     required this.specialInstructions,
   });
 
-  double get modifierTotal => modifiers.fold<double>(
-        0,
-        (sum, modifier) => sum + modifier.priceDelta,
-      );
+  double get modifierTotal =>
+      modifiers.fold<double>(0, (sum, modifier) => sum + modifier.priceDelta);
 
   double get unitPriceWithModifiers => product.price + modifierTotal;
 
@@ -1936,9 +1865,7 @@ class _PosCartLine {
     return ids.join('|');
   }
 
-  _PosCartLine copyWith({
-    int? quantity,
-  }) {
+  _PosCartLine copyWith({int? quantity}) {
     return _PosCartLine(
       product: product,
       quantity: quantity ?? this.quantity,

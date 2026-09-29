@@ -7,7 +7,7 @@ class SupabaseExpenseRepository implements ExpenseRepository {
   final SupabaseClient _client;
 
   SupabaseExpenseRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<ExpenseRecord>> getExpenses() async {
@@ -26,7 +26,8 @@ class SupabaseExpenseRepository implements ExpenseRepository {
       final row = Map<String, dynamic>.from(raw as Map);
       final categoryRaw = row['expense_categories'];
       final category = categoryRaw is Map
-          ? Map<String, dynamic>.from(categoryRaw)['name']?.toString() ?? 'Other'
+          ? Map<String, dynamic>.from(categoryRaw)['name']?.toString() ??
+                'Other'
           : 'Other';
       final supplierRaw = row['suppliers'];
       final supplierName = supplierRaw is Map
@@ -198,8 +199,18 @@ class SupabaseExpenseRepository implements ExpenseRepository {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

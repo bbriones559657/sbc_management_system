@@ -47,8 +47,7 @@ class MenuVariantRecord {
           map['inventory_tracking_mode']?.toString() ?? 'UNTRACKED',
       finishedInventoryItemId:
           map['finished_inventory_item_id']?.toString() ?? '',
-      finishedInventoryName:
-          map['finished_inventory_name']?.toString() ?? '',
+      finishedInventoryName: map['finished_inventory_name']?.toString() ?? '',
       recipeComponentCount:
           (map['recipe_component_count'] as num?)?.toInt() ?? 0,
     );
@@ -59,10 +58,7 @@ class MenuCategoryOption {
   final String id;
   final String name;
 
-  const MenuCategoryOption({
-    required this.id,
-    required this.name,
-  });
+  const MenuCategoryOption({required this.id, required this.name});
 
   factory MenuCategoryOption.fromMap(Map<String, dynamic> map) {
     return MenuCategoryOption(
@@ -111,12 +107,11 @@ class MenuRecipeComponent {
   });
 
   Map<String, dynamic> toJson() => {
-        'inventory_item_id': inventoryItemId,
-        'quantity_base_uom': quantityBaseUom,
-        'wastage_percent': wastagePercent,
-      };
+    'inventory_item_id': inventoryItemId,
+    'quantity_base_uom': quantityBaseUom,
+    'wastage_percent': wastagePercent,
+  };
 }
-
 
 class MenuModifierGroupRecord {
   final String menuItemId;

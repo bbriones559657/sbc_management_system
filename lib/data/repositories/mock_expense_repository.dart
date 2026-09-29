@@ -3,7 +3,9 @@ import '../../models/expense_record.dart';
 import '../mock_data.dart';
 
 class MockExpenseRepository implements ExpenseRepository {
-  final List<ExpenseRecord> _expenses = List<ExpenseRecord>.from(MockData.expenses);
+  final List<ExpenseRecord> _expenses = List<ExpenseRecord>.from(
+    MockData.expenses,
+  );
 
   @override
   Future<List<ExpenseRecord>> getExpenses() async {

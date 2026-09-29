@@ -7,7 +7,7 @@ class SupabaseMenuRepository implements MenuRepository {
   final SupabaseClient _client;
 
   SupabaseMenuRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<MenuVariantRecord>> getVariants() async {
@@ -19,9 +19,8 @@ class SupabaseMenuRepository implements MenuRepository {
 
     return (rows as List)
         .map(
-          (raw) => MenuVariantRecord.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              MenuVariantRecord.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
   }
@@ -37,9 +36,8 @@ class SupabaseMenuRepository implements MenuRepository {
 
     return (rows as List)
         .map(
-          (raw) => MenuCategoryOption.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              MenuCategoryOption.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
   }
@@ -48,9 +46,7 @@ class SupabaseMenuRepository implements MenuRepository {
   Future<List<MenuInventoryOption>> getInventoryOptions() async {
     final rows = await _client
         .from('v_inventory_catalog')
-        .select(
-          'inventory_item_id, name, base_uom_code, current_quantity',
-        )
+        .select('inventory_item_id, name, base_uom_code, current_quantity')
         .order('name');
 
     return (rows as List)
@@ -73,9 +69,7 @@ class SupabaseMenuRepository implements MenuRepository {
         .order('inventory_item_id');
 
     final inventory = await getInventoryOptions();
-    final byId = {
-      for (final item in inventory) item.id: item,
-    };
+    final byId = {for (final item in inventory) item.id: item};
 
     return (componentRows as List).map((raw) {
       final row = Map<String, dynamic>.from(raw as Map);
@@ -86,10 +80,8 @@ class SupabaseMenuRepository implements MenuRepository {
         inventoryItemId: inventoryId,
         inventoryItemName: item?.name ?? 'Inventory Item',
         unitCode: item?.unitCode ?? '',
-        quantityBaseUom:
-            (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
-        wastagePercent:
-            (row['wastage_percent'] as num?)?.toDouble() ?? 0,
+        quantityBaseUom: (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
+        wastagePercent: (row['wastage_percent'] as num?)?.toDouble() ?? 0,
       );
     }).toList();
   }
@@ -114,8 +106,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_sku': _nullable(sku),
         'p_price': price,
         'p_inventory_mode': inventoryMode,
-        'p_finished_inventory_item_id':
-            _nullable(finishedInventoryItemId),
+        'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
         'p_recipe': recipe.map((component) => component.toJson()).toList(),
       },
     );
@@ -139,8 +130,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_sku': _nullable(sku),
         'p_price': price,
         'p_inventory_mode': inventoryMode,
-        'p_finished_inventory_item_id':
-            _nullable(finishedInventoryItemId),
+        'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
         'p_recipe': recipe.map((component) => component.toJson()).toList(),
       },
     );
@@ -170,13 +160,11 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_price': price,
         'p_is_active': isActive,
         'p_inventory_mode': inventoryMode,
-        'p_finished_inventory_item_id':
-            _nullable(finishedInventoryItemId),
+        'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
         'p_recipe': recipe.map((component) => component.toJson()).toList(),
       },
     );
   }
-
 
   @override
   Future<List<MenuModifierGroupRecord>> getModifierGroupsForMenuItem(
@@ -201,10 +189,8 @@ class SupabaseMenuRepository implements MenuRepository {
           menuItemId: row['menu_item_id']?.toString() ?? '',
           groupId: groupId,
           groupName: row['group_name']?.toString() ?? '',
-          minSelections:
-              (row['min_selections'] as num?)?.toInt() ?? 0,
-          maxSelections:
-              (row['max_selections'] as num?)?.toInt(),
+          minSelections: (row['min_selections'] as num?)?.toInt() ?? 0,
+          maxSelections: (row['max_selections'] as num?)?.toInt(),
           isRequired: row['is_required'] == true,
           isActive: row['group_active'] == true,
         ),
@@ -216,8 +202,7 @@ class SupabaseMenuRepository implements MenuRepository {
           MenuModifierRecord(
             id: modifierId,
             name: row['modifier_name']?.toString() ?? '',
-            priceDelta:
-                (row['price_delta'] as num?)?.toDouble() ?? 0,
+            priceDelta: (row['price_delta'] as num?)?.toDouble() ?? 0,
             isActive: row['modifier_active'] == true,
             recipeComponentCount:
                 (row['recipe_component_count'] as num?)?.toInt() ?? 0,
@@ -226,9 +211,7 @@ class SupabaseMenuRepository implements MenuRepository {
       }
     }
 
-    return groups.values
-        .map((group) => group.toRecord())
-        .toList();
+    return groups.values.map((group) => group.toRecord()).toList();
   }
 
   @override
@@ -242,9 +225,7 @@ class SupabaseMenuRepository implements MenuRepository {
         .order('inventory_item_id');
 
     final inventory = await getInventoryOptions();
-    final byId = {
-      for (final item in inventory) item.id: item,
-    };
+    final byId = {for (final item in inventory) item.id: item};
 
     return (componentRows as List).map((raw) {
       final row = Map<String, dynamic>.from(raw as Map);
@@ -255,10 +236,8 @@ class SupabaseMenuRepository implements MenuRepository {
         inventoryItemId: inventoryId,
         inventoryItemName: item?.name ?? 'Inventory Item',
         unitCode: item?.unitCode ?? '',
-        quantityBaseUom:
-            (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
-        wastagePercent:
-            (row['wastage_percent'] as num?)?.toDouble() ?? 0,
+        quantityBaseUom: (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
+        wastagePercent: (row['wastage_percent'] as num?)?.toDouble() ?? 0,
       );
     }).toList();
   }
@@ -352,7 +331,6 @@ class SupabaseMenuRepository implements MenuRepository {
     return trimmed.isEmpty ? null : trimmed;
   }
 }
-
 
 class _MutableMenuModifierGroup {
   final String menuItemId;

@@ -4,7 +4,9 @@ import '../../models/inventory_reference.dart';
 import '../mock_data.dart';
 
 class MockInventoryRepository implements InventoryRepository {
-  final List<InventoryItem> _items = List<InventoryItem>.from(MockData.inventory);
+  final List<InventoryItem> _items = List<InventoryItem>.from(
+    MockData.inventory,
+  );
 
   @override
   Future<List<InventoryItem>> getInventoryItems() async {
@@ -29,14 +31,12 @@ class MockInventoryRepository implements InventoryRepository {
   Future<List<InventoryMovementRecord>> getRecentMovements(
     String inventoryItemId, {
     int limit = 8,
-  }) async =>
-      const [];
+  }) async => const [];
 
   @override
   Future<List<InventoryMovementRecord>> getAllRecentMovements({
     int limit = 10,
-  }) async =>
-      const [];
+  }) async => const [];
 
   @override
   Future<List<InventoryLotRecord>> getLots(String inventoryItemId) async =>

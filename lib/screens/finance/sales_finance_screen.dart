@@ -62,9 +62,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
         width: 180,
         child: DropdownButtonFormField<int>(
           initialValue: _days,
-          decoration: const InputDecoration(
-            labelText: 'Report Period',
-          ),
+          decoration: const InputDecoration(labelText: 'Report Period'),
           items: const [
             DropdownMenuItem(value: 7, child: Text('Last 7 Days')),
             DropdownMenuItem(value: 30, child: Text('Last 30 Days')),
@@ -100,137 +98,113 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                 SummaryCardGrid(
                   children: [
                     SummaryCard(
-                        label: 'Net Sales',
-                        value: _money(finance.netSales),
-                        subtitle:
-                            '${_money(finance.refunds)} refunded in period',
-                        accentColor: AppColors.primary,
+                      label: 'Net Sales',
+                      value: _money(finance.netSales),
+                      subtitle: '${_money(finance.refunds)} refunded in period',
+                      accentColor: AppColors.primary,
                     ),
                     SummaryCard(
-                        label: 'Expenses',
-                        value: _money(finance.expenses),
-                        subtitle: 'Posted operating expenses',
-                        accentColor: AppColors.orange,
+                      label: 'Expenses',
+                      value: _money(finance.expenses),
+                      subtitle: 'Posted operating expenses',
+                      accentColor: AppColors.orange,
                     ),
                     SummaryCard(
-                        label: 'Net After Expenses',
-                        value: _money(finance.netAfterExpenses),
-                        subtitle: 'Net sales less posted expenses',
-                        accentColor: AppColors.black,
+                      label: 'Net After Expenses',
+                      value: _money(finance.netAfterExpenses),
+                      subtitle: 'Net sales less posted expenses',
+                      accentColor: AppColors.black,
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
                 ResponsiveSplit(
                   primary: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Sales Summary',
-                            style: AppTextStyles.h3,
-                          ),
-                          const SizedBox(height: 12),
-                          if (dailyRows.isEmpty)
-                            const SectionCard(
-                              child: Text(
-                                'No completed sales in this period.',
-                              ),
-                            )
-                          else
-                            DataTableCard(
-                              headers: const [
-                                'Date',
-                                'Orders',
-                                'Gross Sales',
-                                'Refunds',
-                                'Net Sales',
-                              ],
-                              flexes: const [2, 1, 2, 2, 2],
-                              rows: dailyRows
-                                  .map(
-                                    (row) => [
-                                      Text(
-                                        _date(row.date),
-                                        style: AppTextStyles.bodyMedium,
-                                      ),
-                                      Text(
-                                        '${row.orders}',
-                                        style: AppTextStyles.body,
-                                      ),
-                                      Text(
-                                        _money(row.grossSales),
-                                        style: AppTextStyles.body,
-                                      ),
-                                      Text(
-                                        _money(row.refunds),
-                                        style: AppTextStyles.body,
-                                      ),
-                                      Text(
-                                        _money(row.netSales),
-                                        style: AppTextStyles.bodyMedium,
-                                      ),
-                                    ],
-                                  )
-                                  .toList(),
-                            ),
-                        ],
-                    ),
-                  secondary: SectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Financial Summary',
-                              style: AppTextStyles.h3,
-                            ),
-                            const SizedBox(height: 24),
-                            _FinanceRow(
-                              'Gross Sales',
-                              _money(finance.grossSales),
-                            ),
-                            const SizedBox(height: 14),
-                            _FinanceRow(
-                              'Refunds',
-                              _money(finance.refunds),
-                            ),
-                            const SizedBox(height: 14),
-                            _FinanceRow(
-                              'Net Sales',
-                              _money(finance.netSales),
-                            ),
-                            const SizedBox(height: 14),
-                            _FinanceRow(
-                              'Expenses',
-                              _money(finance.expenses),
-                            ),
-                            const Divider(height: 32),
-                            _FinanceRow(
-                              'Net After Expenses',
-                              _money(finance.netAfterExpenses),
-                              emphasis: true,
-                            ),
-                            const SizedBox(height: 22),
-                            _FinanceRow(
-                              'Completed Orders',
-                              '${finance.orders}',
-                            ),
-                            const SizedBox(height: 14),
-                            _FinanceRow(
-                              'Average Order',
-                              _money(finance.averageOrder),
-                            ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Sales Summary', style: AppTextStyles.h3),
+                      const SizedBox(height: 12),
+                      if (dailyRows.isEmpty)
+                        const SectionCard(
+                          child: Text('No completed sales in this period.'),
+                        )
+                      else
+                        DataTableCard(
+                          headers: const [
+                            'Date',
+                            'Orders',
+                            'Gross Sales',
+                            'Refunds',
+                            'Net Sales',
                           ],
+                          flexes: const [2, 1, 2, 2, 2],
+                          rows: dailyRows
+                              .map(
+                                (row) => [
+                                  Text(
+                                    _date(row.date),
+                                    style: AppTextStyles.bodyMedium,
+                                  ),
+                                  Text(
+                                    '${row.orders}',
+                                    style: AppTextStyles.body,
+                                  ),
+                                  Text(
+                                    _money(row.grossSales),
+                                    style: AppTextStyles.body,
+                                  ),
+                                  Text(
+                                    _money(row.refunds),
+                                    style: AppTextStyles.body,
+                                  ),
+                                  Text(
+                                    _money(row.netSales),
+                                    style: AppTextStyles.bodyMedium,
+                                  ),
+                                ],
+                              )
+                              .toList(),
                         ),
+                    ],
+                  ),
+                  secondary: SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Financial Summary',
+                          style: AppTextStyles.h3,
+                        ),
+                        const SizedBox(height: 24),
+                        _FinanceRow('Gross Sales', _money(finance.grossSales)),
+                        const SizedBox(height: 14),
+                        _FinanceRow('Refunds', _money(finance.refunds)),
+                        const SizedBox(height: 14),
+                        _FinanceRow('Net Sales', _money(finance.netSales)),
+                        const SizedBox(height: 14),
+                        _FinanceRow('Expenses', _money(finance.expenses)),
+                        const Divider(height: 32),
+                        _FinanceRow(
+                          'Net After Expenses',
+                          _money(finance.netAfterExpenses),
+                          emphasis: true,
+                        ),
+                        const SizedBox(height: 22),
+                        _FinanceRow('Completed Orders', '${finance.orders}'),
+                        const SizedBox(height: 14),
+                        _FinanceRow(
+                          'Average Order',
+                          _money(finance.averageOrder),
+                        ),
+                      ],
                     ),
+                  ),
                 ),
                 const SizedBox(height: 26),
                 Row(
                   children: [
                     const Expanded(
-                      child: Text(
-                        'Supplier Payables',
-                        style: AppTextStyles.h3,
-                      ),
+                      child: Text('Supplier Payables', style: AppTextStyles.h3),
                     ),
                     OutlinedButton.icon(
                       onPressed: _refresh,
@@ -260,7 +234,8 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                       );
                     }
 
-                    final balances = balancesSnapshot.data ??
+                    final balances =
+                        balancesSnapshot.data ??
                         const <SupplierBalanceRecord>[];
 
                     if (balances.isEmpty) {
@@ -317,8 +292,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                                 style: AppTextStyles.bodyMedium,
                               ),
                               TextButton(
-                                onPressed: () =>
-                                    _showSupplierPayment(bill),
+                                onPressed: () => _showSupplierPayment(bill),
                                 child: const Text('Pay'),
                               ),
                             ],
@@ -335,9 +309,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
     );
   }
 
-  Future<void> _showSupplierPayment(
-    SupplierBalanceRecord bill,
-  ) async {
+  Future<void> _showSupplierPayment(SupplierBalanceRecord bill) async {
     final methods = await widget.financeRepository.getPaymentMethods();
 
     if (!mounted || methods.isEmpty) return;
@@ -391,8 +363,9 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               const SizedBox(height: 14),
               TextField(
                 controller: amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Amount *',
                   prefixText: '₱',
@@ -403,8 +376,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                 TextField(
                   controller: referenceController,
                   decoration: InputDecoration(
-                    labelText:
-                        '${selectedMethod.name} Reference *',
+                    labelText: '${selectedMethod.name} Reference *',
                   ),
                 ),
               ],
@@ -412,17 +384,13 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               TextField(
                 controller: notesController,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Notes',
-                ),
+                decoration: const InputDecoration(labelText: 'Notes'),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 10),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -436,12 +404,9 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final amount =
-                double.tryParse(amountController.text.trim());
+            final amount = double.tryParse(amountController.text.trim());
 
-            if (amount == null ||
-                amount <= 0 ||
-                amount > bill.balance) {
+            if (amount == null || amount <= 0 || amount > bill.balance) {
               updateDialogState?.call(() {
                 errorMessage =
                     'Enter an amount between ₱0.01 and the current balance.';
@@ -472,9 +437,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               _refresh();
 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Supplier payment recorded.'),
-                ),
+                const SnackBar(content: Text('Supplier payment recorded.')),
               );
             } on PostgrestException catch (error) {
               updateDialogState?.call(() {
@@ -504,9 +467,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
           Expanded(
             child: Text(
               label,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.gray700,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
           const SizedBox(width: 14),
@@ -520,8 +481,18 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
   String _date(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }
@@ -532,11 +503,7 @@ class _FinanceRow extends StatelessWidget {
   final String value;
   final bool emphasis;
 
-  const _FinanceRow(
-    this.label,
-    this.value, {
-    this.emphasis = false,
-  });
+  const _FinanceRow(this.label, this.value, {this.emphasis = false});
 
   @override
   Widget build(BuildContext context) {
@@ -545,9 +512,7 @@ class _FinanceRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: AppTextStyles.body.copyWith(
-            color: AppColors.gray700,
-          ),
+          style: AppTextStyles.body.copyWith(color: AppColors.gray700),
         ),
         const SizedBox(width: 14),
         Flexible(
@@ -555,9 +520,7 @@ class _FinanceRow extends StatelessWidget {
             value,
             textAlign: TextAlign.right,
             style: emphasis
-                ? AppTextStyles.h2.copyWith(
-                    color: AppColors.primary,
-                  )
+                ? AppTextStyles.h2.copyWith(color: AppColors.primary)
                 : AppTextStyles.bodyMedium,
           ),
         ),

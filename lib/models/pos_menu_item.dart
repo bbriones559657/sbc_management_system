@@ -27,8 +27,7 @@ class PosMenuItem {
       inventoryTrackingMode == 'FINISHED_GOOD' ||
       inventoryTrackingMode == 'RECIPE';
 
-  bool get isOutOfStock =>
-      tracksInventory && (availableQuantity ?? 0) <= 0;
+  bool get isOutOfStock => tracksInventory && (availableQuantity ?? 0) <= 0;
 
   factory PosMenuItem.fromMap(Map<String, dynamic> map) {
     return PosMenuItem(
@@ -42,8 +41,7 @@ class PosMenuItem {
       isDefault: map['is_default'] == true,
       inventoryTrackingMode:
           map['inventory_tracking_mode']?.toString() ?? 'UNTRACKED',
-      availableQuantity:
-          (map['available_quantity'] as num?)?.toDouble(),
+      availableQuantity: (map['available_quantity'] as num?)?.toDouble(),
     );
   }
 }

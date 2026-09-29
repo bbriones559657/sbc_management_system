@@ -77,9 +77,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       debugShowCheckedModeBanner: false,
       title: 'Street Bowl Café Management System',
       theme: AppTheme.light,
-      home: AuthGate(
-        authenticatedBuilder: _buildAuthenticatedApp,
-      ),
+      home: AuthGate(authenticatedBuilder: _buildAuthenticatedApp),
     );
   }
 
@@ -124,10 +122,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
           label: 'Suppliers',
           icon: Icons.local_shipping_outlined,
         ),
-        const AppNavigationItem(
-          label: 'Users',
-          icon: Icons.people_outline,
-        ),
+        const AppNavigationItem(label: 'Users', icon: Icons.people_outline),
       ],
     ];
 

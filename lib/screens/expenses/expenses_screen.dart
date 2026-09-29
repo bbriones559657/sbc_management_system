@@ -13,10 +13,7 @@ import '../../widgets/layout/app_page.dart';
 class ExpensesScreen extends StatefulWidget {
   final ExpenseRepository expenseRepository;
 
-  const ExpensesScreen({
-    super.key,
-    required this.expenseRepository,
-  });
+  const ExpensesScreen({super.key, required this.expenseRepository});
 
   @override
   State<ExpensesScreen> createState() => _ExpensesScreenState();
@@ -78,7 +75,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final query = _searchQuery.trim().toLowerCase();
 
     return _expenses.where((expense) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           expense.description.toLowerCase().contains(query) ||
           expense.category.toLowerCase().contains(query) ||
           expense.supplierName.toLowerCase().contains(query) ||
@@ -86,7 +84,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
       final matchesCategory =
           _selectedCategory == 'All Categories' ||
-              expense.category == _selectedCategory;
+          expense.category == _selectedCategory;
 
       return matchesSearch && matchesCategory;
     }).toList();
@@ -298,9 +296,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     await _showExpenseEditor(existing: expense);
   }
 
-  Future<void> _showExpenseEditor({
-    ExpenseRecord? existing,
-  }) async {
+  Future<void> _showExpenseEditor({ExpenseRecord? existing}) async {
     if (_categories.isEmpty) return;
 
     final descriptionController = TextEditingController(
@@ -312,17 +308,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final referenceController = TextEditingController(
       text: existing?.referenceNumber ?? '',
     );
-    final notesController = TextEditingController(
-      text: existing?.notes ?? '',
-    );
+    final notesController = TextEditingController(text: existing?.notes ?? '');
 
     String selectedCategory = existing?.category ?? _categories.first.name;
     String selectedSupplierId = existing?.supplierId ?? '';
     DateTime selectedDate = existing?.expenseDate ?? DateTime.now();
 
-    if (!_categories.any(
-      (category) => category.name == selectedCategory,
-    )) {
+    if (!_categories.any((category) => category.name == selectedCategory)) {
       selectedCategory = _categories.first.name;
     }
     if (!_suppliers.any((supplier) => supplier.id == selectedSupplierId)) {
@@ -344,118 +336,113 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date == null) return;
-                    setDialogState(() => selectedDate = date);
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date == null) return;
+                      setDialogState(() => selectedDate = date);
+                    },
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text('Date: ${_formatDate(selectedDate)}'),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description *'),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount *',
+                    prefixText: '₱',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Category *'),
+                  items: _categories
+                      .map(
+                        (category) => DropdownMenuItem(
+                          value: category.name,
+                          child: Text(category.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => selectedCategory = value);
                   },
-                  icon: const Icon(Icons.calendar_month_outlined),
-                  label: Text('Date: ${_formatDate(selectedDate)}'),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description *',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Amount *',
-                  prefixText: '₱',
-                ),
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category *',
-                ),
-                items: _categories
-                    .map(
-                      (category) => DropdownMenuItem(
-                        value: category.name,
-                        child: Text(category.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setDialogState(() => selectedCategory = value);
-                },
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: selectedSupplierId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Supplier / Grocery',
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: '',
-                    child: Text('No linked supplier'),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedSupplierId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Supplier / Grocery',
                   ),
-                  for (final supplier in _suppliers)
-                    DropdownMenuItem(
-                      value: supplier.id,
-                      child: Text(supplier.name),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('No linked supplier'),
                     ),
+                    for (final supplier in _suppliers)
+                      DropdownMenuItem(
+                        value: supplier.id,
+                        child: Text(supplier.name),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => selectedSupplierId = value);
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: referenceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Receipt / Reference Number',
+                    hintText: 'Official receipt, invoice, or grocery reference',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Notes'),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Inventory purchases should be recorded through Purchasing, '
+                    'not duplicated as operating expenses.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
                 ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setDialogState(() => selectedSupplierId = value);
-                },
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: referenceController,
-                decoration: const InputDecoration(
-                  labelText: 'Receipt / Reference Number',
-                  hintText: 'Official receipt, invoice, or grocery reference',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Notes',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Inventory purchases should be recorded through Purchasing, '
-                  'not duplicated as operating expenses.',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.gray500,
-                  ),
-                ),
-              ),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
-                ),
-              ],
               ],
             ),
           );
@@ -469,12 +456,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         ElevatedButton(
           onPressed: () async {
             final description = descriptionController.text.trim();
-            final amount =
-                double.tryParse(amountController.text.trim());
+            final amount = double.tryParse(amountController.text.trim());
 
-            if (description.isEmpty ||
-                amount == null ||
-                amount <= 0) {
+            if (description.isEmpty || amount == null || amount <= 0) {
               updateDialogState?.call(() {
                 errorMessage =
                     'Enter a description and an amount greater than zero.';
@@ -518,9 +502,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    existing == null
-                        ? 'Expense added.'
-                        : 'Expense updated.',
+                    existing == null ? 'Expense added.' : 'Expense updated.',
                   ),
                 ),
               );
@@ -545,9 +527,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     notesController.dispose();
   }
 
-  Future<void> _confirmVoidExpense(
-    ExpenseRecord expense,
-  ) async {
+  Future<void> _confirmVoidExpense(ExpenseRecord expense) async {
     await showPrototypeDialog(
       context: context,
       title: 'Void Expense',
@@ -562,14 +542,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             style: AppTextStyles.body,
           ),
           const SizedBox(height: 14),
-          Text(
-            expense.description,
-            style: AppTextStyles.bodyMedium,
-          ),
-          Text(
-            _money(expense.amount.toDouble()),
-            style: AppTextStyles.h3,
-          ),
+          Text(expense.description, style: AppTextStyles.bodyMedium),
+          Text(_money(expense.amount.toDouble()), style: AppTextStyles.h3),
         ],
       ),
       actions: [
@@ -586,9 +560,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               await _loadExpenses();
             } on PostgrestException catch (error) {
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(error.message)),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(error.message)));
             }
           },
           child: const Text('Void Expense'),
@@ -603,8 +576,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

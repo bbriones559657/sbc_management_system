@@ -27,10 +27,7 @@ class DataTableCard extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final minimumTableWidth = headers.length * 132.0;
-          final tableWidth = math.max(
-            constraints.maxWidth,
-            minimumTableWidth,
-          );
+          final tableWidth = math.max(constraints.maxWidth, minimumTableWidth);
 
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -59,9 +56,11 @@ class DataTableCard extends StatelessWidget {
                     ),
                   ),
                   const Divider(height: 1, color: AppColors.gray200),
-                  for (int rowIndex = 0;
-                      rowIndex < rows.length;
-                      rowIndex++) ...[
+                  for (
+                    int rowIndex = 0;
+                    rowIndex < rows.length;
+                    rowIndex++
+                  ) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
@@ -69,9 +68,7 @@ class DataTableCard extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          for (int i = 0;
-                              i < rows[rowIndex].length;
-                              i++)
+                          for (int i = 0; i < rows[rowIndex].length; i++)
                             Expanded(
                               flex: columnFlexes[i],
                               child: rows[rowIndex][i],

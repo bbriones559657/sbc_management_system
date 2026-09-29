@@ -13,10 +13,7 @@ import '../../widgets/layout/app_page.dart';
 class MenuManagementScreen extends StatefulWidget {
   final MenuRepository menuRepository;
 
-  const MenuManagementScreen({
-    super.key,
-    required this.menuRepository,
-  });
+  const MenuManagementScreen({super.key, required this.menuRepository});
 
   @override
   State<MenuManagementScreen> createState() => _MenuManagementScreenState();
@@ -67,11 +64,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           }
 
           final all = snapshot.data ?? const <MenuVariantRecord>[];
-          final categories = all
-              .map((variant) => variant.categoryName)
-              .toSet()
-              .toList()
-            ..sort();
+          final categories =
+              all.map((variant) => variant.categoryName).toSet().toList()
+                ..sort();
 
           if (_categoryFilter != 'All Categories' &&
               !categories.contains(_categoryFilter)) {
@@ -80,13 +75,14 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
           final query = _search.trim().toLowerCase();
           final variants = all.where((variant) {
-            final matchesSearch = query.isEmpty ||
+            final matchesSearch =
+                query.isEmpty ||
                 variant.itemName.toLowerCase().contains(query) ||
                 variant.variantName.toLowerCase().contains(query) ||
                 variant.sku.toLowerCase().contains(query);
             final matchesCategory =
                 _categoryFilter == 'All Categories' ||
-                    variant.categoryName == _categoryFilter;
+                variant.categoryName == _categoryFilter;
             return matchesSearch && matchesCategory;
           }).toList();
 
@@ -123,11 +119,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
                   if (constraints.maxWidth < 620) {
                     return Column(
-                      children: [
-                        search,
-                        const SizedBox(height: 12),
-                        category,
-                      ],
+                      children: [search, const SizedBox(height: 12), category],
                     );
                   }
 
@@ -192,9 +184,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: StatusBadge(
-                                      variant.isActive
-                                          ? 'Active'
-                                          : 'Inactive',
+                                      variant.isActive ? 'Active' : 'Inactive',
                                     ),
                                   ),
                                   Row(
@@ -315,8 +305,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     String inventoryMode = existing?.inventoryTrackingMode == 'FINISHED_GOOD'
         ? 'FINISHED_GOOD'
         : 'UNTRACKED';
-    String finishedInventoryId =
-        existing?.finishedInventoryItemId ?? '';
+    String finishedInventoryId = existing?.finishedInventoryItemId ?? '';
     bool isActive = existing?.isActive ?? true;
 
     String? errorMessage;
@@ -344,9 +333,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: categoryId,
-                  decoration: const InputDecoration(
-                    labelText: 'Category *',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Category *'),
                   items: categories
                       .map(
                         (category) => DropdownMenuItem(
@@ -378,9 +365,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     Expanded(
                       child: TextField(
                         controller: skuController,
-                        decoration: const InputDecoration(
-                          labelText: 'SKU',
-                        ),
+                        decoration: const InputDecoration(labelText: 'SKU'),
                       ),
                     ),
                   ],
@@ -388,8 +373,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 const SizedBox(height: 14),
                 TextField(
                   controller: priceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Selling Price *',
                     prefixText: '₱',
@@ -478,16 +464,14 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final price =
-                double.tryParse(priceController.text.trim());
+            final price = double.tryParse(priceController.text.trim());
 
             if (itemNameController.text.trim().isEmpty ||
                 variantNameController.text.trim().isEmpty ||
                 price == null ||
                 price < 0) {
               updateDialogState?.call(() {
-                errorMessage =
-                    'Product name, variant name, and a valid price are required.';
+                errorMessage = 'Product name, variant name, and a valid price are required.';
               });
               return;
             }
@@ -542,9 +526,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               _refresh();
 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Menu configuration saved.'),
-                ),
+                const SnackBar(content: Text('Menu configuration saved.')),
               );
             } on PostgrestException catch (error) {
               updateDialogState?.call(() {
@@ -584,15 +566,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             ? Center(
                 child: Text(
                   'No modifier groups configured yet.',
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.gray500,
-                  ),
+                  style: AppTextStyles.body.copyWith(color: AppColors.gray500),
                 ),
               )
             : ListView.separated(
                 itemCount: groups.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 24),
+                separatorBuilder: (_, _) => const Divider(height: 24),
                 itemBuilder: (_, index) {
                   final group = groups[index];
 
@@ -603,13 +582,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                         children: [
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  group.groupName,
-                                  style: AppTextStyles.h3,
-                                ),
+                                Text(group.groupName, style: AppTextStyles.h3),
                                 Text(
                                   _modifierGroupRule(group),
                                   style: AppTextStyles.caption,
@@ -617,9 +592,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                               ],
                             ),
                           ),
-                          StatusBadge(
-                            group.isActive ? 'Active' : 'Inactive',
-                          ),
+                          StatusBadge(group.isActive ? 'Active' : 'Inactive'),
                           const SizedBox(width: 6),
                           IconButton(
                             tooltip: 'Edit Group',
@@ -630,10 +603,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                 existing: group,
                               );
                             },
-                            icon: const Icon(
-                              Icons.edit_outlined,
-                              size: 19,
-                            ),
+                            icon: const Icon(Icons.edit_outlined, size: 19),
                           ),
                           IconButton(
                             tooltip: 'Add Modifier',
@@ -728,9 +698,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: existing == null
-          ? 'Add Modifier Group'
-          : 'Edit Modifier Group',
+      title: existing == null ? 'Add Modifier Group' : 'Edit Modifier Group',
       width: 540,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -790,16 +758,13 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Active'),
                   value: active,
-                  onChanged: (value) =>
-                      setDialogState(() => active = value),
+                  onChanged: (value) => setDialogState(() => active = value),
                 ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 8),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -879,13 +844,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     MenuModifierGroupRecord group, {
     MenuModifierRecord? existing,
   }) async {
-    final nameController = TextEditingController(
-      text: existing?.name ?? '',
-    );
+    final nameController = TextEditingController(text: existing?.name ?? '');
     final priceController = TextEditingController(
-      text: existing == null
-          ? '0'
-          : existing.priceDelta.toStringAsFixed(2),
+      text: existing == null ? '0' : existing.priceDelta.toStringAsFixed(2),
     );
 
     var active = existing?.isActive ?? true;
@@ -919,8 +880,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 const SizedBox(height: 14),
                 TextField(
                   controller: priceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Additional Price',
                     prefixText: '₱',
@@ -931,8 +893,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Active'),
                     value: active,
-                    onChanged: (value) =>
-                        setDialogState(() => active = value),
+                    onChanged: (value) => setDialogState(() => active = value),
                   ),
                 const SizedBox(height: 8),
                 Align(
@@ -967,13 +928,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
         ElevatedButton(
           onPressed: () async {
             final name = nameController.text.trim();
-            final price =
-                double.tryParse(priceController.text.trim());
+            final price = double.tryParse(priceController.text.trim());
 
             if (name.isEmpty || price == null) {
               dialogSetState?.call(() {
-                errorMessage =
-                    'Enter a modifier name and a valid price.';
+                errorMessage = 'Enter a modifier name and a valid price.';
               });
               return;
             }

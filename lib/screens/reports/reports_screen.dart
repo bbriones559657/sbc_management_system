@@ -12,10 +12,7 @@ import '../../widgets/layout/app_page.dart';
 class ReportsScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
 
-  const ReportsScreen({
-    super.key,
-    required this.reportingRepository,
-  });
+  const ReportsScreen({super.key, required this.reportingRepository});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -70,8 +67,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final daily = data.dailySales;
           final maxSales = daily.fold<double>(
             0,
-            (current, row) =>
-                row.netSales > current ? row.netSales : current,
+            (current, row) => row.netSales > current ? row.netSales : current,
           );
 
           return SingleChildScrollView(
@@ -111,109 +107,103 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 SummaryCardGrid(
                   children: [
                     SummaryCard(
-                        label: 'Net Sales',
-                        value: _money(finance.netSales),
-                        subtitle: 'Current report period',
-                        accentColor: AppColors.primary,
+                      label: 'Net Sales',
+                      value: _money(finance.netSales),
+                      subtitle: 'Current report period',
+                      accentColor: AppColors.primary,
                     ),
                     SummaryCard(
-                        label: 'Orders',
-                        value: '${finance.orders}',
-                        subtitle: 'Completed transactions',
-                        accentColor: AppColors.orange,
+                      label: 'Orders',
+                      value: '${finance.orders}',
+                      subtitle: 'Completed transactions',
+                      accentColor: AppColors.orange,
                     ),
                     SummaryCard(
-                        label: 'Average Order',
-                        value: _money(finance.averageOrder),
-                        subtitle: 'Net sales per completed order',
-                        accentColor: AppColors.black,
+                      label: 'Average Order',
+                      value: _money(finance.averageOrder),
+                      subtitle: 'Net sales per completed order',
+                      accentColor: AppColors.black,
                     ),
                     SummaryCard(
-                        label: 'Expenses',
-                        value: _money(finance.expenses),
-                        subtitle: 'Posted operating expenses',
-                        accentColor: AppColors.warning,
+                      label: 'Expenses',
+                      value: _money(finance.expenses),
+                      subtitle: 'Posted operating expenses',
+                      accentColor: AppColors.warning,
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
                 ResponsiveSplit(
                   primary: SectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Sales by Day',
-                              style: AppTextStyles.h3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Sales by Day', style: AppTextStyles.h3),
+                        const SizedBox(height: 20),
+                        if (daily.isEmpty)
+                          Text(
+                            'No completed sales in this period.',
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.gray500,
                             ),
-                            const SizedBox(height: 20),
-                            if (daily.isEmpty)
-                              Text(
-                                'No completed sales in this period.',
-                                style: AppTextStyles.body.copyWith(
-                                  color: AppColors.gray500,
-                                ),
-                              )
-                            else
-                              for (final row in daily)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: _BarRow(
-                                    label: _date(row.date),
-                                    widthFactor: maxSales <= 0
-                                        ? 0
-                                        : row.netSales / maxSales,
-                                    value: _money(row.netSales),
-                                  ),
-                                ),
-                          ],
-                        ),
+                          )
+                        else
+                          for (final row in daily)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _BarRow(
+                                label: _date(row.date),
+                                widthFactor: maxSales <= 0
+                                    ? 0
+                                    : row.netSales / maxSales,
+                                value: _money(row.netSales),
+                              ),
+                            ),
+                      ],
                     ),
+                  ),
                   secondary: SectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Inventory Summary',
-                              style: AppTextStyles.h3,
-                            ),
-                            const SizedBox(height: 24),
-                            _ReportStat(
-                              'Tracked Items',
-                              '${inventory.itemCount}',
-                              AppColors.success,
-                            ),
-                            const SizedBox(height: 16),
-                            _ReportStat(
-                              'Low Stock',
-                              '${inventory.lowStockCount}',
-                              AppColors.primary,
-                            ),
-                            const SizedBox(height: 16),
-                            _ReportStat(
-                              'Expiring Soon',
-                              '${inventory.expiringSoonCount}',
-                              AppColors.warning,
-                            ),
-                            const Divider(height: 32),
-                            _ReportStat(
-                              'Net After Expenses',
-                              _money(finance.netAfterExpenses),
-                              finance.netAfterExpenses >= 0
-                                  ? AppColors.success
-                                  : AppColors.primary,
-                            ),
-                          ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Inventory Summary',
+                          style: AppTextStyles.h3,
                         ),
+                        const SizedBox(height: 24),
+                        _ReportStat(
+                          'Tracked Items',
+                          '${inventory.itemCount}',
+                          AppColors.success,
+                        ),
+                        const SizedBox(height: 16),
+                        _ReportStat(
+                          'Low Stock',
+                          '${inventory.lowStockCount}',
+                          AppColors.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        _ReportStat(
+                          'Expiring Soon',
+                          '${inventory.expiringSoonCount}',
+                          AppColors.warning,
+                        ),
+                        const Divider(height: 32),
+                        _ReportStat(
+                          'Net After Expenses',
+                          _money(finance.netAfterExpenses),
+                          finance.netAfterExpenses >= 0
+                              ? AppColors.success
+                              : AppColors.primary,
+                        ),
+                      ],
                     ),
+                  ),
                 ),
                 const SizedBox(height: 22),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Top Products',
-                    style: AppTextStyles.h3,
-                  ),
+                  child: Text('Top Products', style: AppTextStyles.h3),
                 ),
                 const SizedBox(height: 12),
                 if (data.topProducts.isEmpty)
@@ -232,14 +222,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     rows: data.topProducts
                         .map(
                           (row) => [
-                            Text(
-                              row.itemName,
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                            Text(
-                              row.variantName,
-                              style: AppTextStyles.body,
-                            ),
+                            Text(row.itemName, style: AppTextStyles.bodyMedium),
+                            Text(row.variantName, style: AppTextStyles.body),
                             Text(
                               _qty(row.quantitySold),
                               style: AppTextStyles.body,
@@ -270,8 +254,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   String _date(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }
@@ -294,10 +288,7 @@ class _BarRow extends StatelessWidget {
 
     return Row(
       children: [
-        SizedBox(
-          width: 70,
-          child: Text(label, style: AppTextStyles.caption),
-        ),
+        SizedBox(width: 70, child: Text(label, style: AppTextStyles.caption)),
         Expanded(
           child: LayoutBuilder(
             builder: (_, constraints) {
@@ -346,13 +337,8 @@ class _ReportStat extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(label, style: AppTextStyles.body),
-          ),
-          Text(
-            value,
-            style: AppTextStyles.h3.copyWith(color: color),
-          ),
+          Expanded(child: Text(label, style: AppTextStyles.body)),
+          Text(value, style: AppTextStyles.h3.copyWith(color: color)),
         ],
       ),
     );

@@ -215,10 +215,10 @@ class _SidebarItem extends StatelessWidget {
                     child: Text(
                       label,
                       style: AppTextStyles.body.copyWith(
-                        color:
-                            selected ? AppColors.primary : AppColors.gray700,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected ? AppColors.primary : AppColors.gray700,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ),

@@ -8,7 +8,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
   final SupabaseClient _client;
 
   SupabaseInventoryRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<InventoryItem>> getInventoryItems() async {
@@ -19,9 +19,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
     return (rows as List)
         .map(
-          (row) => InventoryItem.fromMap(
-            Map<String, dynamic>.from(row as Map),
-          ),
+          (row) => InventoryItem.fromMap(Map<String, dynamic>.from(row as Map)),
         )
         .toList();
   }
@@ -36,9 +34,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
     if ((rows as List).isEmpty) return null;
 
-    return InventoryItem.fromMap(
-      Map<String, dynamic>.from(rows.first as Map),
-    );
+    return InventoryItem.fromMap(Map<String, dynamic>.from(rows.first as Map));
   }
 
   @override
@@ -117,9 +113,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
-  Future<List<InventoryLotRecord>> getLots(
-    String inventoryItemId,
-  ) async {
+  Future<List<InventoryLotRecord>> getLots(String inventoryItemId) async {
     final rows = await _client
         .from('v_inventory_lots')
         .select()
@@ -129,9 +123,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
     return (rows as List)
         .map(
-          (row) => InventoryLotRecord.fromMap(
-            Map<String, dynamic>.from(row as Map),
-          ),
+          (row) =>
+              InventoryLotRecord.fromMap(Map<String, dynamic>.from(row as Map)),
         )
         .toList();
   }
@@ -146,9 +139,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
 
     return (rows as List)
         .map(
-          (row) => StockOutSummary.fromMap(
-            Map<String, dynamic>.from(row as Map),
-          ),
+          (row) =>
+              StockOutSummary.fromMap(Map<String, dynamic>.from(row as Map)),
         )
         .toList();
   }
@@ -168,8 +160,9 @@ class SupabaseInventoryRepository implements InventoryRepository {
         'p_items': items.map((item) => item.toJson()).toList(),
         'p_reference_number': _nullableText(referenceNumber),
         'p_notes': _nullableText(notes),
-        'p_occurred_at':
-            (occurredAt ?? DateTime.now()).toUtc().toIso8601String(),
+        'p_occurred_at': (occurredAt ?? DateTime.now())
+            .toUtc()
+            .toIso8601String(),
       },
     );
   }

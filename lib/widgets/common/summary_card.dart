@@ -30,7 +30,9 @@ class SummaryCard extends StatelessWidget {
               width: 5,
               decoration: BoxDecoration(
                 color: accentColor,
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(12),
+                ),
               ),
             ),
             Expanded(
@@ -45,7 +47,9 @@ class SummaryCard extends StatelessWidget {
                     const Spacer(),
                     Text(
                       subtitle,
-                      style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.gray500,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -62,10 +66,7 @@ class SummaryCard extends StatelessWidget {
 class SummaryCardGrid extends StatelessWidget {
   final List<Widget> children;
 
-  const SummaryCardGrid({
-    super.key,
-    required this.children,
-  });
+  const SummaryCardGrid({super.key, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -74,12 +75,12 @@ class SummaryCardGrid extends StatelessWidget {
         final int columns = constraints.maxWidth < 560
             ? 1
             : constraints.maxWidth < 1050
-                ? 2
-                : children.isEmpty
-                    ? 1
-                    : children.length > 4
-                        ? 4
-                        : children.length;
+            ? 2
+            : children.isEmpty
+            ? 1
+            : children.length > 4
+            ? 4
+            : children.length;
         const gap = 18.0;
         final itemWidth =
             (constraints.maxWidth - (gap * (columns - 1))) / columns;

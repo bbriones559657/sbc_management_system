@@ -7,7 +7,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   final SupabaseClient _client;
 
   SupabasePurchasingRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<PurchasingSupplierOption>> getSuppliers() async {
@@ -48,18 +48,15 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   Future<List<PurchaseUnitOption>> getUnits() async {
     final rows = await _client
         .from('units_of_measure')
-        .select(
-          'id, code, name, dimension, factor_to_dimension_base',
-        )
+        .select('id, code, name, dimension, factor_to_dimension_base')
         .eq('is_active', true)
         .order('dimension')
         .order('factor_to_dimension_base');
 
     return (rows as List)
         .map(
-          (raw) => PurchaseUnitOption.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              PurchaseUnitOption.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
   }
@@ -96,13 +93,10 @@ class SupabasePurchasingRepository implements PurchasingRepository {
       return PurchaseOrderLineRecord(
         id: row['id']?.toString() ?? '',
         inventoryItemId: row['inventory_item_id']?.toString() ?? '',
-        inventoryItemName:
-            row['inventory_item_name']?.toString() ?? '',
+        inventoryItemName: row['inventory_item_name']?.toString() ?? '',
         purchaseUomId: row['purchase_uom_id']?.toString() ?? '',
-        purchaseUomCode:
-            row['purchase_uom_code']?.toString() ?? '',
-        orderedQuantity:
-            (row['ordered_quantity'] as num?)?.toDouble() ?? 0,
+        purchaseUomCode: row['purchase_uom_code']?.toString() ?? '',
+        orderedQuantity: (row['ordered_quantity'] as num?)?.toDouble() ?? 0,
         receivedQuantity:
             (row['received_purchase_quantity'] as num?)?.toDouble() ?? 0,
         remainingQuantity:
@@ -142,8 +136,9 @@ class SupabasePurchasingRepository implements PurchasingRepository {
       params: {
         'p_supplier_id': supplierId,
         'p_items': items.map((item) => item.toPurchaseOrderJson()).toList(),
-        'p_expected_date':
-            expectedDate == null ? null : _dateOnly(expectedDate),
+        'p_expected_date': expectedDate == null
+            ? null
+            : _dateOnly(expectedDate),
         'p_notes': _nullable(notes),
       },
     );
@@ -153,9 +148,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   Future<void> approvePurchaseOrder(String purchaseOrderId) async {
     await _client.rpc(
       'approve_purchase_order',
-      params: {
-        'p_purchase_order_id': purchaseOrderId,
-      },
+      params: {'p_purchase_order_id': purchaseOrderId},
     );
   }
 

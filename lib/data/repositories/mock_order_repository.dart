@@ -87,8 +87,7 @@ class MockOrderRepository implements OrderRepository {
   @override
   Future<List<RefundRestockCandidate>> getRefundRestockCandidates(
     String id,
-  ) async =>
-      const [];
+  ) async => const [];
 
   @override
   Future<void> approveRefundItemRestock(
@@ -106,7 +105,8 @@ class MockOrderRepository implements OrderRepository {
   Future<List<PosDiscountType>> getPosDiscountTypes() async => const [];
 
   @override
-  Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async => const [];
+  Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async =>
+      const [];
 
   @override
   Future<String?> getOpenShiftId() async => 'mock-shift';

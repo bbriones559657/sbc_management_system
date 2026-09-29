@@ -7,7 +7,7 @@ class SupabaseUserRepository implements UserRepository {
   final SupabaseClient _client;
 
   SupabaseUserRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<UserRecord>> getUsers() async {
@@ -17,11 +17,7 @@ class SupabaseUserRepository implements UserRepository {
         .order('display_name');
 
     return (rows as List)
-        .map(
-          (raw) => UserRecord.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
-        )
+        .map((raw) => UserRecord.fromMap(Map<String, dynamic>.from(raw as Map)))
         .toList();
   }
 
@@ -35,9 +31,7 @@ class SupabaseUserRepository implements UserRepository {
 
     if ((rows as List).isEmpty) return null;
 
-    return UserRecord.fromMap(
-      Map<String, dynamic>.from(rows.first as Map),
-    );
+    return UserRecord.fromMap(Map<String, dynamic>.from(rows.first as Map));
   }
 
   @override
@@ -49,9 +43,8 @@ class SupabaseUserRepository implements UserRepository {
 
     return (rows as List)
         .map(
-          (raw) => UserRoleOption.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              UserRoleOption.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
   }

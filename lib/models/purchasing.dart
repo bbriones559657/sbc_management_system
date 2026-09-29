@@ -2,10 +2,7 @@ class PurchasingSupplierOption {
   final String id;
   final String name;
 
-  const PurchasingSupplierOption({
-    required this.id,
-    required this.name,
-  });
+  const PurchasingSupplierOption({required this.id, required this.name});
 
   factory PurchasingSupplierOption.fromMap(Map<String, dynamic> map) {
     return PurchasingSupplierOption(
@@ -36,8 +33,7 @@ class PurchaseUnitOption {
       code: map['code']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
       dimension: map['dimension']?.toString() ?? 'OTHER',
-      factorToBase:
-          (map['factor_to_dimension_base'] as num?)?.toDouble() ?? 1,
+      factorToBase: (map['factor_to_dimension_base'] as num?)?.toDouble() ?? 1,
     );
   }
 }
@@ -100,8 +96,9 @@ class PurchaseOrderSummary {
       supplierName: map['supplier_name']?.toString() ?? '',
       status: map['status']?.toString() ?? 'DRAFT',
       createdAt: DateTime.parse(map['created_at'].toString()).toLocal(),
-      expectedDate:
-          expected == null || expected.isEmpty ? null : DateTime.tryParse(expected),
+      expectedDate: expected == null || expected.isEmpty
+          ? null
+          : DateTime.tryParse(expected),
       totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
       lineCount: (map['line_count'] as num?)?.toInt() ?? 0,
     );
@@ -162,10 +159,8 @@ class GoodsReceiptSummary {
       id: map['id']?.toString() ?? '',
       number: (map['receipt_number'] as num?)?.toInt() ?? 0,
       supplierName: map['supplier_name']?.toString() ?? '',
-      purchaseOrderNumber:
-          (map['purchase_order_number'] as num?)?.toInt(),
-      supplierInvoiceNumber:
-          map['supplier_invoice_number']?.toString() ?? '',
+      purchaseOrderNumber: (map['purchase_order_number'] as num?)?.toInt(),
+      supplierInvoiceNumber: map['supplier_invoice_number']?.toString() ?? '',
       receivedAt: DateTime.parse(map['received_at'].toString()).toLocal(),
       status: map['status']?.toString() ?? '',
       lineCount: (map['line_count'] as num?)?.toInt() ?? 0,
@@ -196,26 +191,27 @@ class PurchaseLineInput {
   });
 
   Map<String, dynamic> toPurchaseOrderJson() => {
-        'inventory_item_id': inventoryItemId,
-        'purchase_uom_id': purchaseUomId,
-        'ordered_quantity': quantity,
-        'base_quantity_per_purchase_unit': baseQuantityPerPurchaseUnit,
-        'unit_cost': unitCost,
-      };
+    'inventory_item_id': inventoryItemId,
+    'purchase_uom_id': purchaseUomId,
+    'ordered_quantity': quantity,
+    'base_quantity_per_purchase_unit': baseQuantityPerPurchaseUnit,
+    'unit_cost': unitCost,
+  };
 
   Map<String, dynamic> toReceiptJson() => {
-        'inventory_item_id': inventoryItemId,
-        'purchase_uom_id': purchaseUomId,
-        'purchase_order_item_id':
-            purchaseOrderItemId.isEmpty ? null : purchaseOrderItemId,
-        'purchase_quantity': quantity,
-        'base_quantity_per_purchase_unit': baseQuantityPerPurchaseUnit,
-        'unit_cost_purchase_uom': unitCost,
-        'expiration_date': expirationDate == null
-            ? null
-            : '${expirationDate!.year}-'
-                '${expirationDate!.month.toString().padLeft(2, '0')}-'
-                '${expirationDate!.day.toString().padLeft(2, '0')}',
-        'lot_code': lotCode.trim().isEmpty ? null : lotCode.trim(),
-      };
+    'inventory_item_id': inventoryItemId,
+    'purchase_uom_id': purchaseUomId,
+    'purchase_order_item_id': purchaseOrderItemId.isEmpty
+        ? null
+        : purchaseOrderItemId,
+    'purchase_quantity': quantity,
+    'base_quantity_per_purchase_unit': baseQuantityPerPurchaseUnit,
+    'unit_cost_purchase_uom': unitCost,
+    'expiration_date': expirationDate == null
+        ? null
+        : '${expirationDate!.year}-'
+              '${expirationDate!.month.toString().padLeft(2, '0')}-'
+              '${expirationDate!.day.toString().padLeft(2, '0')}',
+    'lot_code': lotCode.trim().isEmpty ? null : lotCode.trim(),
+  };
 }

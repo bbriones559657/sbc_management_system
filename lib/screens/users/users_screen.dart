@@ -71,21 +71,22 @@ class _UsersScreenState extends State<UsersScreen> {
           }
 
           final all = snapshot.data ?? const <UserRecord>[];
-          final roles = all
-              .map((user) => user.role)
-              .where((role) => role.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
+          final roles =
+              all
+                  .map((user) => user.role)
+                  .where((role) => role.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
 
-          if (_roleFilter != 'All Roles' &&
-              !roles.contains(_roleFilter)) {
+          if (_roleFilter != 'All Roles' && !roles.contains(_roleFilter)) {
             _roleFilter = 'All Roles';
           }
 
           final query = _search.trim().toLowerCase();
           final users = all.where((user) {
-            final matchesSearch = query.isEmpty ||
+            final matchesSearch =
+                query.isEmpty ||
                 user.name.toLowerCase().contains(query) ||
                 user.email.toLowerCase().contains(query);
             final matchesRole =
@@ -113,10 +114,7 @@ class _UsersScreenState extends State<UsersScreen> {
                         child: Text('All Roles'),
                       ),
                       for (final role in roles)
-                        DropdownMenuItem(
-                          value: role,
-                          child: Text(role),
-                        ),
+                        DropdownMenuItem(value: role, child: Text(role)),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -126,11 +124,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
                   if (constraints.maxWidth < 620) {
                     return Column(
-                      children: [
-                        search,
-                        const SizedBox(height: 12),
-                        role,
-                      ],
+                      children: [search, const SizedBox(height: 12), role],
                     );
                   }
 
@@ -175,10 +169,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                         : user.email,
                                     style: AppTextStyles.body,
                                   ),
-                                  Text(
-                                    user.role,
-                                    style: AppTextStyles.body,
-                                  ),
+                                  Text(user.role, style: AppTextStyles.body),
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: StatusBadge(user.status),
@@ -205,8 +196,7 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   Future<void> _showUserDetails(UserRecord user) async {
-    final latest =
-        await widget.userRepository.getUserById(user.id) ?? user;
+    final latest = await widget.userRepository.getUserById(user.id) ?? user;
     if (!mounted) return;
 
     await showPrototypeDialog(
@@ -248,10 +238,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     String roleCode = roles
-        .firstWhere(
-          (role) => role.code == 'CASHIER',
-          orElse: () => roles.first,
-        )
+        .firstWhere((role) => role.code == 'CASHIER', orElse: () => roles.first)
         .code;
     String? errorMessage;
     StateSetter? updateDialogState;
@@ -269,17 +256,13 @@ class _UsersScreenState extends State<UsersScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Display Name *',
-                ),
+                decoration: const InputDecoration(labelText: 'Display Name *'),
               ),
               const SizedBox(height: 14),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email *',
-                ),
+                decoration: const InputDecoration(labelText: 'Email *'),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -293,9 +276,7 @@ class _UsersScreenState extends State<UsersScreen> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: roleCode,
-                decoration: const InputDecoration(
-                  labelText: 'Role *',
-                ),
+                decoration: const InputDecoration(labelText: 'Role *'),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -313,9 +294,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 const SizedBox(height: 10),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -338,8 +317,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 !email.contains('@') ||
                 password.length < 8) {
               updateDialogState?.call(() {
-                errorMessage =
-                    'Enter a name, valid email, and password of at least 8 characters.';
+                errorMessage = 'Enter a name, valid email, and password of at least 8 characters.';
               });
               return;
             }
@@ -357,9 +335,7 @@ class _UsersScreenState extends State<UsersScreen> {
               _refresh();
 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Employee account created.'),
-                ),
+                const SnackBar(content: Text('Employee account created.')),
               );
             } catch (error) {
               updateDialogState?.call(() {
@@ -404,9 +380,7 @@ class _UsersScreenState extends State<UsersScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Display Name *',
-                ),
+                decoration: const InputDecoration(labelText: 'Display Name *'),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -421,9 +395,7 @@ class _UsersScreenState extends State<UsersScreen> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: roleId.isEmpty ? null : roleId,
-                decoration: const InputDecoration(
-                  labelText: 'Role',
-                ),
+                decoration: const InputDecoration(labelText: 'Role'),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -442,26 +414,15 @@ class _UsersScreenState extends State<UsersScreen> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: status,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                ),
+                decoration: const InputDecoration(labelText: 'Status'),
                 items: const [
-                  DropdownMenuItem(
-                    value: 'ACTIVE',
-                    child: Text('Active'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'INACTIVE',
-                    child: Text('Inactive'),
-                  ),
+                  DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
+                  DropdownMenuItem(value: 'INACTIVE', child: Text('Inactive')),
                   DropdownMenuItem(
                     value: 'SUSPENDED',
                     child: Text('Suspended'),
                   ),
-                  DropdownMenuItem(
-                    value: 'PENDING',
-                    child: Text('Pending'),
-                  ),
+                  DropdownMenuItem(value: 'PENDING', child: Text('Pending')),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
@@ -484,9 +445,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 const SizedBox(height: 10),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -519,11 +478,8 @@ class _UsersScreenState extends State<UsersScreen> {
               Navigator.pop(context);
               _refresh();
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('User updated.'),
-                ),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('User updated.')));
             } on PostgrestException catch (error) {
               updateDialogState?.call(() {
                 errorMessage = error.message;
@@ -550,9 +506,7 @@ class _UsersScreenState extends State<UsersScreen> {
           Expanded(
             child: Text(
               label,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.gray700,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
           const SizedBox(width: 16),

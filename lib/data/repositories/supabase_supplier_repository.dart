@@ -7,7 +7,7 @@ class SupabaseSupplierRepository implements SupplierRepository {
   final SupabaseClient _client;
 
   SupabaseSupplierRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<SupplierRecord>> getSuppliers() async {
@@ -74,7 +74,9 @@ class SupabaseSupplierRepository implements SupplierRepository {
       id: row['id']?.toString() ?? '',
       name: row['name']?.toString() ?? '',
       contact: contactParts.isEmpty ? '—' : contactParts.join(' • '),
-      itemsSupplied: itemNames.isEmpty ? 'None linked yet' : itemNames.join(', '),
+      itemsSupplied: itemNames.isEmpty
+          ? 'None linked yet'
+          : itemNames.join(', '),
       status: row['is_active'] == true ? 'Active' : 'Inactive',
     );
   }
@@ -120,8 +122,6 @@ class SupabaseSupplierRepository implements SupplierRepository {
     final supplier = await getSupplierById(id);
     if (supplier == null) return;
 
-    await updateSupplier(
-      supplier.copyWith(status: 'Inactive'),
-    );
+    await updateSupplier(supplier.copyWith(status: 'Inactive'));
   }
 }

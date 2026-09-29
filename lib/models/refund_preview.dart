@@ -25,12 +25,9 @@ class RefundableOrderItem {
       itemName: map['item_name']?.toString() ?? '',
       variantName: map['variant_name']?.toString() ?? '',
       soldQuantity: (map['sold_quantity'] as num?)?.toDouble() ?? 0,
-      refundedQuantity:
-          (map['refunded_quantity'] as num?)?.toDouble() ?? 0,
-      remainingQuantity:
-          (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
-      unitRefundable:
-          (map['unit_refundable'] as num?)?.toDouble() ?? 0,
+      refundedQuantity: (map['refunded_quantity'] as num?)?.toDouble() ?? 0,
+      remainingQuantity: (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
+      unitRefundable: (map['unit_refundable'] as num?)?.toDouble() ?? 0,
       remainingRefundableAmount:
           (map['remaining_refundable_amount'] as num?)?.toDouble() ?? 0,
     );
@@ -69,10 +66,8 @@ class RefundPreview {
       status: map['status']?.toString() ?? '',
       totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
       paymentMethodId: map['payment_method_id']?.toString() ?? '',
-      paymentMethodName:
-          map['payment_method_name']?.toString() ?? '',
-      paymentMethodCode:
-          map['payment_method_code']?.toString() ?? '',
+      paymentMethodName: map['payment_method_name']?.toString() ?? '',
+      paymentMethodCode: map['payment_method_code']?.toString() ?? '',
       requiresReference: map['requires_reference'] == true,
       items: rawItems
           .map(
@@ -84,7 +79,6 @@ class RefundPreview {
     );
   }
 }
-
 
 class RefundRestockCandidate {
   final String refundItemId;
@@ -110,12 +104,10 @@ class RefundRestockCandidate {
       refundItemId: map['refund_item_id']?.toString() ?? '',
       itemName: map['item_name_snapshot']?.toString() ?? '',
       variantName: map['variant_name_snapshot']?.toString() ?? '',
-      refundedQuantity:
-          (map['refunded_quantity'] as num?)?.toDouble() ?? 0,
+      refundedQuantity: (map['refunded_quantity'] as num?)?.toDouble() ?? 0,
       restockApproved: map['restock_approved'] == true,
       eligibleForRestock: map['eligible_for_restock'] == true,
-      inventoryItemName:
-          map['inventory_item_name']?.toString() ?? '',
+      inventoryItemName: map['inventory_item_name']?.toString() ?? '',
     );
   }
 }

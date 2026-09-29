@@ -12,12 +12,13 @@ class PosCheckoutItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'menu_variant_id': menuVariantId,
-        'quantity': quantity,
-        'modifier_ids': modifierIds,
-        'special_instructions':
-            specialInstructions.trim().isEmpty ? null : specialInstructions.trim(),
-      };
+    'menu_variant_id': menuVariantId,
+    'quantity': quantity,
+    'modifier_ids': modifierIds,
+    'special_instructions': specialInstructions.trim().isEmpty
+        ? null
+        : specialInstructions.trim(),
+  };
 }
 
 class PosPaymentInput {
@@ -36,10 +37,10 @@ class PosPaymentInput {
   });
 
   Map<String, dynamic> toJson() => {
-        'payment_method_id': paymentMethodId,
-        'amount': amount,
-        'amount_tendered': amountTendered,
-        'change_amount': changeAmount,
-        'external_reference': externalReference,
-      };
+    'payment_method_id': paymentMethodId,
+    'amount': amount,
+    'amount_tendered': amountTendered,
+    'change_amount': changeAmount,
+    'external_reference': externalReference,
+  };
 }

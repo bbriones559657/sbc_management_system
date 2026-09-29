@@ -7,13 +7,16 @@ class SupabaseReportingRepository implements ReportingRepository {
   final SupabaseClient _client;
 
   SupabaseReportingRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<ReportingSnapshot> getSnapshot({required int days}) async {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: days - 1));
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: days - 1));
     final startDate = _dateOnly(start);
 
     final results = await Future.wait([
@@ -43,9 +46,7 @@ class SupabaseReportingRepository implements ReportingRepository {
 
     final dailySales = (results[0] as List)
         .map(
-          (raw) => DailySalesRow.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) => DailySalesRow.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
 
@@ -75,10 +76,8 @@ class SupabaseReportingRepository implements ReportingRepository {
       final row = raw as Map;
       itemCount += 1;
 
-      final quantity =
-          (row['usable_quantity'] as num?)?.toDouble() ?? 0;
-      final reorder =
-          (row['reorder_level'] as num?)?.toDouble() ?? 0;
+      final quantity = (row['usable_quantity'] as num?)?.toDouble() ?? 0;
+      final reorder = (row['reorder_level'] as num?)?.toDouble() ?? 0;
 
       if (quantity <= reorder) {
         lowStock += 1;
@@ -98,9 +97,8 @@ class SupabaseReportingRepository implements ReportingRepository {
 
     final topProducts = (results[3] as List)
         .map(
-          (raw) => ProductSalesRow.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              ProductSalesRow.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
 

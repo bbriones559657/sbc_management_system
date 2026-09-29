@@ -58,9 +58,7 @@ class UserRecord {
 
   static String _statusLabel(String value) {
     final lower = value.toLowerCase();
-    return lower.isEmpty
-        ? value
-        : lower[0].toUpperCase() + lower.substring(1);
+    return lower.isEmpty ? value : lower[0].toUpperCase() + lower.substring(1);
   }
 }
 

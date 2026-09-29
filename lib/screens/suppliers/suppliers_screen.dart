@@ -13,10 +13,7 @@ import '../../widgets/layout/app_page.dart';
 class SuppliersScreen extends StatefulWidget {
   final SupplierRepository supplierRepository;
 
-  const SuppliersScreen({
-    super.key,
-    required this.supplierRepository,
-  });
+  const SuppliersScreen({super.key, required this.supplierRepository});
 
   @override
   State<SuppliersScreen> createState() => _SuppliersScreenState();
@@ -135,7 +132,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   Future<void> _showSupplierDetails(SupplierRecord supplier) async {
     final latest =
-        await widget.supplierRepository.getSupplierById(supplier.id) ?? supplier;
+        await widget.supplierRepository.getSupplierById(supplier.id) ??
+        supplier;
 
     if (!mounted) return;
 
@@ -187,24 +185,18 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Supplier Name *',
-                ),
+                decoration: const InputDecoration(labelText: 'Supplier Name *'),
               ),
               const SizedBox(height: 14),
               TextField(
                 controller: contactController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone / Contact',
-                ),
+                decoration: const InputDecoration(labelText: 'Phone / Contact'),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 10),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -282,16 +274,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Active Supplier'),
                 value: active,
-                onChanged: (value) =>
-                    setDialogState(() => active = value),
+                onChanged: (value) => setDialogState(() => active = value),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 10),
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.error,
-                  ),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
                 ),
               ],
             ],
@@ -338,9 +327,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           Expanded(
             child: Text(
               label,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.gray700,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
           const SizedBox(width: 16),

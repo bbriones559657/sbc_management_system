@@ -13,10 +13,7 @@ import '../../widgets/layout/app_page.dart';
 class PurchasingScreen extends StatefulWidget {
   final PurchasingRepository purchasingRepository;
 
-  const PurchasingScreen({
-    super.key,
-    required this.purchasingRepository,
-  });
+  const PurchasingScreen({super.key, required this.purchasingRepository});
 
   @override
   State<PurchasingScreen> createState() => _PurchasingScreenState();
@@ -34,10 +31,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   }
 
   void _reload() {
-    _purchaseOrdersFuture =
-        widget.purchasingRepository.getPurchaseOrders();
-    _receiptsFuture =
-        widget.purchasingRepository.getGoodsReceipts();
+    _purchaseOrdersFuture = widget.purchasingRepository.getPurchaseOrders();
+    _receiptsFuture = widget.purchasingRepository.getGoodsReceipts();
   }
 
   void _refresh() {
@@ -53,9 +48,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             ? _showCreatePurchaseOrder
             : () => _showReceiveStock(),
         icon: const Icon(Icons.add, size: 18),
-        label: Text(
-          _tab == 0 ? 'New Purchase Order' : 'Receive Stock',
-        ),
+        label: Text(_tab == 0 ? 'New Purchase Order' : 'Receive Stock'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,9 +70,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: _tab == 0
-                ? _buildPurchaseOrders()
-                : _buildGoodsReceipts(),
+            child: _tab == 0 ? _buildPurchaseOrders() : _buildGoodsReceipts(),
           ),
         ],
       ),
@@ -101,9 +92,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
         final orders = snapshot.data ?? const <PurchaseOrderSummary>[];
 
         if (orders.isEmpty) {
-          return const Center(
-            child: Text('No purchase orders recorded yet.'),
-          );
+          return const Center(child: Text('No purchase orders recorded yet.'));
         }
 
         return SingleChildScrollView(
@@ -121,18 +110,9 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             rows: orders
                 .map(
                   (order) => [
-                    Text(
-                      '#${order.number}',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                    Text(
-                      order.supplierName,
-                      style: AppTextStyles.body,
-                    ),
-                    Text(
-                      '${order.lineCount}',
-                      style: AppTextStyles.body,
-                    ),
+                    Text('#${order.number}', style: AppTextStyles.bodyMedium),
+                    Text(order.supplierName, style: AppTextStyles.body),
+                    Text('${order.lineCount}', style: AppTextStyles.body),
                     Text(
                       order.expectedDate == null
                           ? '—'
@@ -145,9 +125,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: StatusBadge(
-                        _statusLabel(order.status),
-                      ),
+                      child: StatusBadge(_statusLabel(order.status)),
                     ),
                     Wrap(
                       spacing: 6,
@@ -161,8 +139,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                             order.status == 'SENT' ||
                             order.status == 'PARTIALLY_RECEIVED')
                           TextButton(
-                            onPressed: () =>
-                                _showReceiveStock(order: order),
+                            onPressed: () => _showReceiveStock(order: order),
                             child: const Text('Receive'),
                           ),
                       ],
@@ -188,13 +165,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
           return _error(snapshot.error);
         }
 
-        final receipts =
-            snapshot.data ?? const <GoodsReceiptSummary>[];
+        final receipts = snapshot.data ?? const <GoodsReceiptSummary>[];
 
         if (receipts.isEmpty) {
-          return const Center(
-            child: Text('No goods receipts recorded yet.'),
-          );
+          return const Center(child: Text('No goods receipts recorded yet.'));
         }
 
         return SingleChildScrollView(
@@ -212,14 +186,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             rows: receipts
                 .map(
                   (receipt) => [
-                    Text(
-                      '#${receipt.number}',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                    Text(
-                      receipt.supplierName,
-                      style: AppTextStyles.body,
-                    ),
+                    Text('#${receipt.number}', style: AppTextStyles.bodyMedium),
+                    Text(receipt.supplierName, style: AppTextStyles.body),
                     Text(
                       receipt.purchaseOrderNumber == null
                           ? 'Direct'
@@ -232,19 +200,14 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           : receipt.supplierInvoiceNumber,
                       style: AppTextStyles.body,
                     ),
-                    Text(
-                      '${receipt.lineCount}',
-                      style: AppTextStyles.body,
-                    ),
+                    Text('${receipt.lineCount}', style: AppTextStyles.body),
                     Text(
                       _money(receipt.total),
                       style: AppTextStyles.bodyMedium,
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: StatusBadge(
-                        _statusLabel(receipt.status),
-                      ),
+                      child: StatusBadge(_statusLabel(receipt.status)),
                     ),
                   ],
                 )
@@ -299,9 +262,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: supplierId,
-                  decoration: const InputDecoration(
-                    labelText: 'Supplier *',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Supplier *'),
                   items: suppliers
                       .map(
                         (supplier) => DropdownMenuItem(
@@ -322,11 +283,13 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     onPressed: () async {
                       final date = await showDatePicker(
                         context: dialogContext,
-                        initialDate: DateTime.now()
-                            .add(const Duration(days: 1)),
+                        initialDate: DateTime.now().add(
+                          const Duration(days: 1),
+                        ),
                         firstDate: DateTime.now(),
-                        lastDate: DateTime.now()
-                            .add(const Duration(days: 3650)),
+                        lastDate: DateTime.now().add(
+                          const Duration(days: 3650),
+                        ),
                       );
                       if (date == null) return;
                       setDialogState(() => expectedDate = date);
@@ -343,10 +306,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 Row(
                   children: [
                     const Expanded(
-                      child: Text(
-                        'Items',
-                        style: AppTextStyles.h3,
-                      ),
+                      child: Text('Items', style: AppTextStyles.h3),
                     ),
                     OutlinedButton.icon(
                       onPressed: () async {
@@ -377,9 +337,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 TextField(
                   controller: notesController,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Notes',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Notes'),
                 ),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 10),
@@ -439,9 +397,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     notesController.dispose();
   }
 
-  Future<void> _approvePurchaseOrder(
-    PurchaseOrderSummary order,
-  ) async {
+  Future<void> _approvePurchaseOrder(PurchaseOrderSummary order) async {
     try {
       await widget.purchasingRepository.approvePurchaseOrder(order.id);
       if (!mounted) return;
@@ -453,9 +409,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     }
   }
 
-  Future<void> _showReceiveStock({
-    PurchaseOrderSummary? order,
-  }) async {
+  Future<void> _showReceiveStock({PurchaseOrderSummary? order}) async {
     final refs = await Future.wait([
       widget.purchasingRepository.getSuppliers(),
       widget.purchasingRepository.getInventoryItems(),
@@ -494,8 +448,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             inventoryItemId: line.inventoryItemId,
             purchaseUomId: line.purchaseUomId,
             quantity: line.remainingQuantity,
-            baseQuantityPerPurchaseUnit:
-                line.baseQuantityPerPurchaseUnit,
+            baseQuantityPerPurchaseUnit: line.baseQuantityPerPurchaseUnit,
             unitCost: line.unitCost,
             purchaseOrderItemId: line.id,
           ),
@@ -504,9 +457,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: order == null
-          ? 'Receive Stock'
-          : 'Receive PO #${order.number}',
+      title: order == null ? 'Receive Stock' : 'Receive PO #${order.number}',
       width: 780,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -518,9 +469,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: supplierId,
-                  decoration: const InputDecoration(
-                    labelText: 'Supplier *',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Supplier *'),
                   items: suppliers
                       .map(
                         (supplier) => DropdownMenuItem(
@@ -552,10 +501,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           final date = await showDatePicker(
                             context: dialogContext,
                             initialDate: invoiceDate ?? DateTime.now(),
-                            firstDate: DateTime.now()
-                                .subtract(const Duration(days: 3650)),
-                            lastDate: DateTime.now()
-                                .add(const Duration(days: 3650)),
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 3650),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 3650),
+                            ),
                           );
                           if (date == null) return;
                           setDialogState(() => invoiceDate = date);
@@ -575,11 +526,13 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                             ? () async {
                                 final date = await showDatePicker(
                                   context: dialogContext,
-                                  initialDate: DateTime.now()
-                                      .add(const Duration(days: 30)),
+                                  initialDate: DateTime.now().add(
+                                    const Duration(days: 30),
+                                  ),
                                   firstDate: DateTime.now(),
-                                  lastDate: DateTime.now()
-                                      .add(const Duration(days: 3650)),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 3650),
+                                  ),
                                 );
                                 if (date == null) return;
                                 setDialogState(() => dueDate = date);
@@ -599,10 +552,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 Row(
                   children: [
                     const Expanded(
-                      child: Text(
-                        'Received Items',
-                        style: AppTextStyles.h3,
-                      ),
+                      child: Text('Received Items', style: AppTextStyles.h3),
                     ),
                     if (order == null)
                       OutlinedButton.icon(
@@ -642,9 +592,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                         setDialogState(() => lines[index] = edited);
                       },
                       onRemove: order == null
-                          ? () => setDialogState(
-                                () => lines.removeAt(index),
-                              )
+                          ? () => setDialogState(() => lines.removeAt(index))
                           : null,
                     ),
                 const SizedBox(height: 8),
@@ -715,8 +663,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 supplierId: supplierId,
                 items: lines,
                 purchaseOrderId: order?.id ?? '',
-                supplierInvoiceNumber:
-                    invoiceController.text.trim(),
+                supplierInvoiceNumber: invoiceController.text.trim(),
                 supplierInvoiceDate: invoiceDate,
                 notes: notesController.text.trim(),
                 createSupplierBill: createBill,
@@ -755,10 +702,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   }) async {
     if (inventory.isEmpty || units.isEmpty) return null;
 
-    String inventoryId =
-        initial?.inventoryItemId ?? inventory.first.id;
-    String purchaseUomId =
-        initial?.purchaseUomId ?? inventory.first.baseUomId;
+    String inventoryId = initial?.inventoryItemId ?? inventory.first.id;
+    String purchaseUomId = initial?.purchaseUomId ?? inventory.first.baseUomId;
 
     final quantityController = TextEditingController(
       text: initial == null ? '' : _qty(initial.quantity),
@@ -766,9 +711,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     final costController = TextEditingController(
       text: initial == null ? '' : initial.unitCost.toStringAsFixed(2),
     );
-    final lotController = TextEditingController(
-      text: initial?.lotCode ?? '',
-    );
+    final lotController = TextEditingController(text: initial?.lotCode ?? '');
     DateTime? expirationDate = initial?.expirationDate;
     String? errorMessage;
 
@@ -776,9 +719,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) {
-          final item = inventory.firstWhere(
-            (entry) => entry.id == inventoryId,
-          );
+          final item = inventory.firstWhere((entry) => entry.id == inventoryId);
           final baseUnit = units.firstWhere(
             (unit) => unit.id == item.baseUomId,
           );
@@ -793,8 +734,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
           final purchaseUnit = compatible.firstWhere(
             (unit) => unit.id == purchaseUomId,
           );
-          final conversion =
-              purchaseUnit.factorToBase / baseUnit.factorToBase;
+          final conversion = purchaseUnit.factorToBase / baseUnit.factorToBase;
 
           return AlertDialog(
             title: Text(
@@ -844,9 +784,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           .map(
                             (unit) => DropdownMenuItem(
                               value: unit.id,
-                              child: Text(
-                                '${unit.name} (${unit.code})',
-                              ),
+                              child: Text('${unit.name} (${unit.code})'),
                             ),
                           )
                           .toList(),
@@ -871,8 +809,9 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: quantityController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: receiptMode
                             ? 'Quantity Received *'
@@ -882,11 +821,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: costController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
-                        labelText:
-                            'Cost per ${purchaseUnit.code} *',
+                        labelText: 'Cost per ${purchaseUnit.code} *',
                         prefixText: '₱',
                       ),
                     ),
@@ -898,12 +837,13 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           onPressed: () async {
                             final date = await showDatePicker(
                               context: dialogContext,
-                              initialDate: expirationDate ??
-                                  DateTime.now()
-                                      .add(const Duration(days: 1)),
+                              initialDate:
+                                  expirationDate ??
+                                  DateTime.now().add(const Duration(days: 1)),
                               firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 3650)),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 3650),
+                              ),
                             );
                             if (date == null) return;
                             setDialogState(() => expirationDate = date);
@@ -946,18 +886,17 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  final quantity =
-                      double.tryParse(quantityController.text.trim());
-                  final unitCost =
-                      double.tryParse(costController.text.trim());
+                  final quantity = double.tryParse(
+                    quantityController.text.trim(),
+                  );
+                  final unitCost = double.tryParse(costController.text.trim());
 
                   if (quantity == null ||
                       quantity <= 0 ||
                       unitCost == null ||
                       unitCost < 0) {
                     setDialogState(() {
-                      errorMessage =
-                          'Enter a valid quantity and unit cost.';
+                      errorMessage = 'Enter a valid quantity and unit cost.';
                     });
                     return;
                   }
@@ -980,8 +919,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       quantity: quantity,
                       baseQuantityPerPurchaseUnit: conversion,
                       unitCost: unitCost,
-                      purchaseOrderItemId:
-                          initial?.purchaseOrderItemId ?? '',
+                      purchaseOrderItemId: initial?.purchaseOrderItemId ?? '',
                       expirationDate: expirationDate,
                       lotCode: lotController.text.trim(),
                     ),
@@ -1025,8 +963,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   child: Text(
                     inventory
                         .firstWhere(
-                          (entry) =>
-                              entry.id == lines[index].inventoryItemId,
+                          (entry) => entry.id == lines[index].inventoryItemId,
                         )
                         .name,
                     style: AppTextStyles.bodyMedium,
@@ -1039,18 +976,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  _money(
-                    lines[index].quantity *
-                        lines[index].unitCost,
-                  ),
+                  _money(lines[index].quantity * lines[index].unitCost),
                   style: AppTextStyles.bodyMedium,
                 ),
                 IconButton(
                   onPressed: () => onRemove(index),
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 19,
-                  ),
+                  icon: const Icon(Icons.delete_outline, size: 19),
                 ),
               ],
             ),
@@ -1122,9 +1053,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       ),
       child: Text(
         'No items added yet.',
-        style: AppTextStyles.body.copyWith(
-          color: AppColors.gray500,
-        ),
+        style: AppTextStyles.body.copyWith(color: AppColors.gray500),
       ),
     );
   }
@@ -1143,9 +1072,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
         .toLowerCase()
         .split('_')
         .map(
-          (part) => part.isEmpty
-              ? part
-              : part[0].toUpperCase() + part.substring(1),
+          (part) =>
+              part.isEmpty ? part : part[0].toUpperCase() + part.substring(1),
         )
         .join(' ');
   }
@@ -1162,15 +1090,24 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
   static String _formatDate(DateTime date) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }

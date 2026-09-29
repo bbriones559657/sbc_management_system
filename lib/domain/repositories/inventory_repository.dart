@@ -15,9 +15,7 @@ abstract class InventoryRepository {
     int limit = 8,
   });
 
-  Future<List<InventoryMovementRecord>> getAllRecentMovements({
-    int limit = 10,
-  });
+  Future<List<InventoryMovementRecord>> getAllRecentMovements({int limit = 10});
 
   Future<List<InventoryLotRecord>> getLots(String inventoryItemId);
 

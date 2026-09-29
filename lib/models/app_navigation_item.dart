@@ -4,8 +4,5 @@ class AppNavigationItem {
   final String label;
   final IconData icon;
 
-  const AppNavigationItem({
-    required this.label,
-    required this.icon,
-  });
+  const AppNavigationItem({required this.label, required this.icon});
 }

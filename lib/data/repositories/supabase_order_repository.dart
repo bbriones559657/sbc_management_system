@@ -15,7 +15,7 @@ class SupabaseOrderRepository implements OrderRepository {
   final SupabaseClient _client;
 
   SupabaseOrderRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<OrderRecord>> getOrders() async {
@@ -57,7 +57,6 @@ class SupabaseOrderRepository implements OrderRepository {
     );
   }
 
-
   @override
   Future<RefundPreview> getRefundPreview(String id) async {
     final orderUuid = await _resolveOrderUuid(id);
@@ -66,9 +65,7 @@ class SupabaseOrderRepository implements OrderRepository {
       params: {'p_order_id': orderUuid},
     );
 
-    return RefundPreview.fromMap(
-      Map<String, dynamic>.from(result as Map),
-    );
+    return RefundPreview.fromMap(Map<String, dynamic>.from(result as Map));
   }
 
   @override
@@ -82,12 +79,7 @@ class SupabaseOrderRepository implements OrderRepository {
 
     final items = quantities.entries
         .where((entry) => entry.value > 0)
-        .map(
-          (entry) => {
-            'order_item_id': entry.key,
-            'quantity': entry.value,
-          },
-        )
+        .map((entry) => {'order_item_id': entry.key, 'quantity': entry.value})
         .toList();
 
     await _client.rpc(
@@ -111,9 +103,9 @@ class SupabaseOrderRepository implements OrderRepository {
         .order('item_name');
 
     return (rows as List)
-        .map((row) => PosMenuItem.fromMap(
-              Map<String, dynamic>.from(row as Map),
-            ))
+        .map(
+          (row) => PosMenuItem.fromMap(Map<String, dynamic>.from(row as Map)),
+        )
         .toList();
   }
 
@@ -123,9 +115,8 @@ class SupabaseOrderRepository implements OrderRepository {
 
     return (result as List)
         .map(
-          (raw) => PosDiscountType.fromMap(
-            Map<String, dynamic>.from(raw as Map),
-          ),
+          (raw) =>
+              PosDiscountType.fromMap(Map<String, dynamic>.from(raw as Map)),
         )
         .toList();
   }
@@ -139,16 +130,15 @@ class SupabaseOrderRepository implements OrderRepository {
         .order('sort_order');
 
     return (rows as List)
-        .map((row) => PosPaymentMethod.fromMap(
-              Map<String, dynamic>.from(row as Map),
-            ))
+        .map(
+          (row) =>
+              PosPaymentMethod.fromMap(Map<String, dynamic>.from(row as Map)),
+        )
         .toList();
   }
 
   @override
-  Future<List<PosModifierGroup>> getModifierGroups(
-    String menuItemId,
-  ) async {
+  Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async {
     final rows = await _client
         .from('v_pos_modifiers')
         .select()
@@ -168,10 +158,8 @@ class SupabaseOrderRepository implements OrderRepository {
         () => _MutableModifierGroup(
           id: groupId,
           name: row['group_name']?.toString() ?? '',
-          minSelections:
-              (row['min_selections'] as num?)?.toInt() ?? 0,
-          maxSelections:
-              (row['max_selections'] as num?)?.toInt(),
+          minSelections: (row['min_selections'] as num?)?.toInt() ?? 0,
+          maxSelections: (row['max_selections'] as num?)?.toInt(),
           isRequired: row['is_required'] == true,
         ),
       );
@@ -180,8 +168,7 @@ class SupabaseOrderRepository implements OrderRepository {
         PosModifierOption(
           id: row['modifier_id']?.toString() ?? '',
           name: row['modifier_name']?.toString() ?? '',
-          priceDelta:
-              (row['price_delta'] as num?)?.toDouble() ?? 0,
+          priceDelta: (row['price_delta'] as num?)?.toDouble() ?? 0,
         ),
       );
     }
@@ -194,9 +181,7 @@ class SupabaseOrderRepository implements OrderRepository {
             minSelections: group.minSelections,
             maxSelections: group.maxSelections,
             isRequired: group.isRequired,
-            options: List<PosModifierOption>.unmodifiable(
-              group.options,
-            ),
+            options: List<PosModifierOption>.unmodifiable(group.options),
           ),
         )
         .toList();
@@ -212,10 +197,7 @@ class SupabaseOrderRepository implements OrderRepository {
   Future<String> startShift({double? openingCash}) async {
     final result = await _client.rpc(
       'start_shift',
-      params: {
-        'p_device_id': null,
-        'p_opening_cash': openingCash,
-      },
+      params: {'p_device_id': null, 'p_opening_cash': openingCash},
     );
 
     final row = Map<String, dynamic>.from(result as Map);
@@ -239,17 +221,13 @@ class SupabaseOrderRepository implements OrderRepository {
   }
 
   @override
-  Future<ShiftCashSnapshot> getShiftCashSnapshot(
-    String shiftId,
-  ) async {
+  Future<ShiftCashSnapshot> getShiftCashSnapshot(String shiftId) async {
     final result = await _client.rpc(
       'get_shift_cash_snapshot',
       params: {'p_shift_id': shiftId},
     );
 
-    return ShiftCashSnapshot.fromMap(
-      Map<String, dynamic>.from(result as Map),
-    );
+    return ShiftCashSnapshot.fromMap(Map<String, dynamic>.from(result as Map));
   }
 
   @override
@@ -327,9 +305,7 @@ class SupabaseOrderRepository implements OrderRepository {
 
     final row = await _findOrderRow('#$orderNumber');
     if (row == null) {
-      throw const FormatException(
-        'The completed order could not be reloaded.',
-      );
+      throw const FormatException('The completed order could not be reloaded.');
     }
 
     return _orderFromMap(row);
@@ -388,15 +364,13 @@ class SupabaseOrderRepository implements OrderRepository {
     final itemRows = (order['order_items'] as List? ?? const []);
     final paymentRows = (order['payments'] as List? ?? const []);
 
-    final items = itemRows
-        .map((raw) {
-          final item = Map<String, dynamic>.from(raw as Map);
-          return {
-            'order_item_id': item['id'],
-            'quantity': (item['quantity'] as num).toDouble(),
-          };
-        })
-        .toList();
+    final items = itemRows.map((raw) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      return {
+        'order_item_id': item['id'],
+        'quantity': (item['quantity'] as num).toDouble(),
+      };
+    }).toList();
 
     Map<String, dynamic>? originalPayment;
     for (final raw in paymentRows) {
@@ -458,15 +432,14 @@ class SupabaseOrderRepository implements OrderRepository {
   }) async {
     await _client.rpc(
       'approve_refund_item_restock',
-      params: {
-        'p_refund_item_id': refundItemId,
-        'p_notes': _nullable(notes),
-      },
+      params: {'p_refund_item_id': refundItemId, 'p_notes': _nullable(notes)},
     );
   }
 
   Future<Map<String, dynamic>?> _findOrderRow(String id) async {
-    dynamic query = _client.from('orders').select(
+    dynamic query = _client
+        .from('orders')
+        .select(
           'id, order_number, created_at, employee_name_snapshot, order_type, '
           'total_amount, status, customer_name, table_number, delivery_reference, '
           'order_items(id, item_name_snapshot, quantity, unit_price), '
@@ -615,7 +588,6 @@ class SupabaseOrderRepository implements OrderRepository {
     return trimmed.isEmpty ? null : trimmed;
   }
 }
-
 
 class _MutableModifierGroup {
   final String id;

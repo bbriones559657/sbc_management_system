@@ -913,7 +913,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       controller: otherPurposeController,
                       decoration: const InputDecoration(
                         labelText: 'Other Purpose / Destination *',
-                        hintText: 'Describe where or why supplies were released',
+                        hintText:
+                            'Describe where or why supplies were released',
                       ),
                       onChanged: (_) => setDialogState(() {
                         errorMessage = null;
@@ -1028,8 +1029,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   conversion == null ||
                   conversion <= 0) {
                 updateDialogState?.call(() {
-                  errorMessage =
-                      'Every supply needs a quantity and a conversion greater than zero.';
+                  errorMessage = 'Every supply needs a quantity and a conversion greater than zero.';
                 });
                 return;
               }
@@ -1037,7 +1037,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
               final deduction = quantity * conversion;
               if (deduction > selectedItem.usableQuantity) {
                 updateDialogState?.call(() {
-                  errorMessage = '${selectedItem.name} only has '
+                  errorMessage =
+                      '${selectedItem.name} only has '
                       '${selectedItem.usableStock} of usable stock.';
                 });
                 return;
@@ -1236,12 +1237,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         decimal: true,
                       ),
                       decoration: InputDecoration(
-                        labelText: '${selectedItem.baseUomCode} in one '
+                        labelText:
+                            '${selectedItem.baseUomCode} in one '
                             '${selectedUnit.name.toLowerCase()} *',
                         helperText: needsPackageSize
                             ? 'Example: enter 50 when one '
-                                '${selectedUnit.name.toLowerCase()} contains '
-                                '50 ${selectedItem.baseUomCode}'
+                                  '${selectedUnit.name.toLowerCase()} contains '
+                                  '50 ${selectedItem.baseUomCode}'
                             : 'Calculated automatically from the selected units',
                       ),
                       onChanged: (_) => onChanged(),

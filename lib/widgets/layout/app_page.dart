@@ -36,9 +36,7 @@ class AppPage extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 effectiveSubtitle,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.gray500,
-                ),
+                style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
               ),
             ],
           );
@@ -84,11 +82,27 @@ class AppPage extends StatelessWidget {
 
   static String _todayLabel() {
     const weekdays = [
-      'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ];
     const months = [
-      'January','February','March','April','May','June',
-      'July','August','September','October','November','December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     final now = DateTime.now();

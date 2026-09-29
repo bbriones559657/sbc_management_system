@@ -30,9 +30,7 @@ class PosDiscountType {
   double calculateDiscount(double subtotal, double manualValue) {
     if (subtotal <= 0) return 0;
 
-    final value = manualValue > 0
-        ? manualValue
-        : (defaultValue ?? 0);
+    final value = manualValue > 0 ? manualValue : (defaultValue ?? 0);
 
     switch (calculationMethod) {
       case 'PERCENTAGE':

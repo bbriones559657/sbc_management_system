@@ -2,10 +2,7 @@ class InventoryCategoryOption {
   final String id;
   final String name;
 
-  const InventoryCategoryOption({
-    required this.id,
-    required this.name,
-  });
+  const InventoryCategoryOption({required this.id, required this.name});
 
   factory InventoryCategoryOption.fromMap(Map<String, dynamic> map) {
     return InventoryCategoryOption(
@@ -67,8 +64,7 @@ class InventoryMovementRecord {
       movementType: map['movement_type']?.toString() ?? '',
       quantityDelta: (map['quantity_delta'] as num?)?.toDouble() ?? 0,
       reason: map['reason']?.toString() ?? '',
-      sourceDocumentNumber:
-          map['source_document_number']?.toString() ?? '',
+      sourceDocumentNumber: map['source_document_number']?.toString() ?? '',
       externalReferenceNumber:
           map['external_reference_number']?.toString() ?? '',
       createdAt: DateTime.parse(map['created_at'].toString()).toLocal(),
@@ -112,12 +108,9 @@ class InventoryLotRecord {
       expirationDate: expirationRaw == null || expirationRaw.isEmpty
           ? null
           : DateTime.tryParse(expirationRaw),
-      receivedQuantity:
-          (map['received_quantity'] as num?)?.toDouble() ?? 0,
-      remainingQuantity:
-          (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
-      unitCostBase:
-          (map['unit_cost_base'] as num?)?.toDouble() ?? 0,
+      receivedQuantity: (map['received_quantity'] as num?)?.toDouble() ?? 0,
+      remainingQuantity: (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
+      unitCostBase: (map['unit_cost_base'] as num?)?.toDouble() ?? 0,
       status: map['status']?.toString() ?? '',
       unitCode: map['uom_code']?.toString() ?? '',
     );
@@ -175,10 +168,10 @@ class StockOutLineInput {
   });
 
   Map<String, dynamic> toJson() => {
-        'inventory_item_id': inventoryItemId,
-        'issue_uom_id': issueUomId,
-        'issue_quantity': issueQuantity,
-        'base_quantity_per_issue_unit': baseQuantityPerIssueUnit,
-        'notes': notes.trim().isEmpty ? null : notes.trim(),
-      };
+    'inventory_item_id': inventoryItemId,
+    'issue_uom_id': issueUomId,
+    'issue_quantity': issueQuantity,
+    'base_quantity_per_issue_unit': baseQuantityPerIssueUnit,
+    'notes': notes.trim().isEmpty ? null : notes.trim(),
+  };
 }

@@ -7,7 +7,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
   final SupabaseClient _client;
 
   SupabaseFinanceRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   @override
   Future<List<SupplierBalanceRecord>> getSupplierBalances() async {
@@ -58,8 +58,9 @@ class SupabaseFinanceRepository implements FinanceRepository {
         'p_supplier_bill_id': supplierBillId,
         'p_payment_method_id': paymentMethodId,
         'p_amount': amount,
-        'p_reference_number':
-            referenceNumber.trim().isEmpty ? null : referenceNumber.trim(),
+        'p_reference_number': referenceNumber.trim().isEmpty
+            ? null
+            : referenceNumber.trim(),
         'p_notes': notes.trim().isEmpty ? null : notes.trim(),
       },
     );
