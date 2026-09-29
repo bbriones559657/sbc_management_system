@@ -22,6 +22,9 @@ class MockExpenseRepository implements ExpenseRepository {
   Future<List<ExpenseCategoryOption>> getCategories() async => const [];
 
   @override
+  Future<List<ExpenseSupplierOption>> getSuppliers() async => const [];
+
+  @override
   Future<void> createExpense(ExpenseRecord expense) async {
     _expenses.insert(0, expense);
   }

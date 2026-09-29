@@ -276,7 +276,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     final results = await Future.wait([
       widget.menuRepository.getCategories(),
       widget.menuRepository.getInventoryOptions(),
-      widget.menuRepository.getRecipeComponents(variant.variantId),
     ]);
 
     if (!mounted) return;
@@ -287,7 +286,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
       inventory: results[1] as List<MenuInventoryOption>,
       existing: variant,
       addVariantTo: null,
-      initialRecipe: results[2] as List<MenuRecipeComponent>,
     );
   }
 
@@ -297,7 +295,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     required List<MenuInventoryOption> inventory,
     required MenuVariantRecord? existing,
     required MenuVariantRecord? addVariantTo,
-    List<MenuRecipeComponent> initialRecipe = const [],
   }) async {
     final isEditing = existing != null;
     final isAddingVariant = addVariantTo != null;
@@ -315,13 +312,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
     String categoryId =
         existing?.categoryId ?? addVariantTo?.categoryId ?? categories.first.id;
-    String inventoryMode =
-        existing?.inventoryTrackingMode ?? 'UNTRACKED';
+    String inventoryMode = existing?.inventoryTrackingMode == 'FINISHED_GOOD'
+        ? 'FINISHED_GOOD'
+        : 'UNTRACKED';
     String finishedInventoryId =
         existing?.finishedInventoryItemId ?? '';
     bool isActive = existing?.isActive ?? true;
-    List<MenuRecipeComponent> recipe =
-        List<MenuRecipeComponent>.from(initialRecipe);
 
     String? errorMessage;
     StateSetter? updateDialogState;
@@ -414,10 +410,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                       value: 'FINISHED_GOOD',
                       child: Text('Finished Good'),
                     ),
-                    DropdownMenuItem(
-                      value: 'RECIPE',
-                      child: Text('Recipe / Ingredients'),
-                    ),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -451,104 +443,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                       setDialogState(() => finishedInventoryId = value);
                     },
                   ),
-                ],
-                if (inventoryMode == 'RECIPE') ...[
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Recipe Components',
-                          style: AppTextStyles.h3,
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final component =
-                              await _showRecipeComponentDialog(
-                            dialogContext,
-                            inventory,
-                          );
-                          if (component == null) return;
-
-                          setDialogState(() {
-                            recipe.removeWhere(
-                              (entry) =>
-                                  entry.inventoryItemId ==
-                                  component.inventoryItemId,
-                            );
-                            recipe.add(component);
-                          });
-                        },
-                        icon: const Icon(Icons.add, size: 17),
-                        label: const Text('Add Ingredient'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (recipe.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'No ingredients configured yet.',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.gray500,
-                        ),
-                      ),
-                    )
-                  else
-                    for (final component in recipe)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.gray100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.gray200),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                component.inventoryItemName,
-                                style: AppTextStyles.bodyMedium,
-                              ),
-                            ),
-                            Text(
-                              '${_qty(component.quantityBaseUom)} ${component.unitCode}',
-                              style: AppTextStyles.body,
-                            ),
-                            if (component.wastagePercent > 0) ...[
-                              const SizedBox(width: 10),
-                              Text(
-                                '+${_qty(component.wastagePercent)}% waste',
-                                style: AppTextStyles.caption,
-                              ),
-                            ],
-                            IconButton(
-                              tooltip: 'Remove',
-                              onPressed: () {
-                                setDialogState(() {
-                                  recipe.removeWhere(
-                                    (entry) =>
-                                        entry.inventoryItemId ==
-                                        component.inventoryItemId,
-                                  );
-                                });
-                              },
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                size: 19,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                 ],
                 if (isEditing) ...[
                   const SizedBox(height: 8),
@@ -606,13 +500,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               return;
             }
 
-            if (inventoryMode == 'RECIPE' && recipe.isEmpty) {
-              updateDialogState?.call(() {
-                errorMessage = 'Add at least one recipe ingredient.';
-              });
-              return;
-            }
-
             try {
               if (existing != null) {
                 await widget.menuRepository.updateVariant(
@@ -625,7 +512,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   isActive: isActive,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: recipe,
+                  recipe: const [],
                 );
               } else if (addVariantTo != null) {
                 await widget.menuRepository.addVariant(
@@ -635,7 +522,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   price: price,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: recipe,
+                  recipe: const [],
                 );
               } else {
                 await widget.menuRepository.createMenuItemWithVariant(
@@ -646,7 +533,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   price: price,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: recipe,
+                  recipe: const [],
                 );
               }
 
@@ -680,145 +567,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     priceController.dispose();
   }
 
-  Future<MenuRecipeComponent?> _showRecipeComponentDialog(
-    BuildContext context,
-    List<MenuInventoryOption> inventory,
-  ) async {
-    if (inventory.isEmpty) return null;
-
-    String inventoryId = inventory.first.id;
-    final quantityController = TextEditingController();
-    final wastageController = TextEditingController(text: '0');
-    String? errorMessage;
-
-    final result = await showDialog<MenuRecipeComponent>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (_, setDialogState) {
-          final selected =
-              inventory.firstWhere((item) => item.id == inventoryId);
-
-          return AlertDialog(
-            title: const Text(
-              'Add Recipe Ingredient',
-              style: AppTextStyles.h2,
-            ),
-            content: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: inventoryId,
-                    decoration: const InputDecoration(
-                      labelText: 'Inventory Item',
-                    ),
-                    items: inventory
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(
-                              '${item.name} (${item.unitCode})',
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => inventoryId = value);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: quantityController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText:
-                          'Quantity per sale (${selected.unitCode})',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: wastageController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Wastage %',
-                    ),
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorMessage!,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.error,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final quantity =
-                      double.tryParse(quantityController.text.trim());
-                  final wastage =
-                      double.tryParse(wastageController.text.trim());
-
-                  if (quantity == null ||
-                      quantity <= 0 ||
-                      wastage == null ||
-                      wastage < 0) {
-                    setDialogState(() {
-                      errorMessage =
-                          'Enter a quantity above 0 and a valid wastage percentage.';
-                    });
-                    return;
-                  }
-
-                  Navigator.pop(
-                    dialogContext,
-                    MenuRecipeComponent(
-                      inventoryItemId: selected.id,
-                      inventoryItemName: selected.name,
-                      unitCode: selected.unitCode,
-                      quantityBaseUom: quantity,
-                      wastagePercent: wastage,
-                    ),
-                  );
-                },
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        },
-      ),
+  Future<void> _showModifiers(MenuVariantRecord variant) async {
+    final groups = await widget.menuRepository.getModifierGroupsForMenuItem(
+      variant.menuItemId,
     );
 
-    quantityController.dispose();
-    wastageController.dispose();
-    return result;
-  }
-
-
-  Future<void> _showModifiers(MenuVariantRecord variant) async {
-    final results = await Future.wait([
-      widget.menuRepository.getModifierGroupsForMenuItem(
-        variant.menuItemId,
-      ),
-      widget.menuRepository.getInventoryOptions(),
-    ]);
-
     if (!mounted) return;
-
-    final groups = results[0] as List<MenuModifierGroupRecord>;
-    final inventory = results[1] as List<MenuInventoryOption>;
 
     await showPrototypeDialog(
       context: context,
@@ -885,11 +639,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                             tooltip: 'Add Modifier',
                             onPressed: () {
                               Navigator.pop(context);
-                              _showModifierEditor(
-                                variant,
-                                group,
-                                inventory,
-                              );
+                              _showModifierEditor(variant, group);
                             },
                             icon: const Icon(
                               Icons.add_circle_outline,
@@ -929,7 +679,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                     _showModifierEditor(
                                       variant,
                                       group,
-                                      inventory,
                                       existing: modifier,
                                     );
                                   },
@@ -1127,8 +876,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
   Future<void> _showModifierEditor(
     MenuVariantRecord variant,
-    MenuModifierGroupRecord group,
-    List<MenuInventoryOption> inventory, {
+    MenuModifierGroupRecord group, {
     MenuModifierRecord? existing,
   }) async {
     final nameController = TextEditingController(
@@ -1141,11 +889,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     );
 
     var active = existing?.isActive ?? true;
-    var recipe = existing == null
-        ? <MenuRecipeComponent>[]
-        : await widget.menuRepository.getModifierRecipeComponents(
-            existing.id,
-          );
+    const recipe = <MenuRecipeComponent>[];
 
     if (!mounted) return;
 
@@ -1191,78 +935,16 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                         setDialogState(() => active = value),
                   ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Inventory Recipe',
-                        style: AppTextStyles.h3,
-                      ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Modifiers may change the selling price. They do not '
+                    'deduct ingredients from inventory.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
                     ),
-                    OutlinedButton.icon(
-                      onPressed: inventory.isEmpty
-                          ? null
-                          : () async {
-                              final component =
-                                  await _showRecipeComponentDialog(
-                                dialogContext,
-                                inventory,
-                              );
-                              if (component == null) return;
-
-                              setDialogState(() {
-                                recipe = [
-                                  ...recipe.where(
-                                    (item) =>
-                                        item.inventoryItemId !=
-                                        component.inventoryItemId,
-                                  ),
-                                  component,
-                                ];
-                              });
-                            },
-                      icon: const Icon(Icons.add, size: 17),
-                      label: const Text('Add Component'),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                if (recipe.isEmpty)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'No inventory ingredient is deducted by this modifier.',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.gray500,
-                      ),
-                    ),
-                  )
-                else
-                  for (final component in recipe)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(component.inventoryItemName),
-                      subtitle: Text(
-                        '${_qty(component.quantityBaseUom)} '
-                        '${component.unitCode} per selection'
-                        '${component.wastagePercent > 0 ? ' • ${_qty(component.wastagePercent)}% wastage' : ''}',
-                      ),
-                      trailing: IconButton(
-                        tooltip: 'Remove',
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () {
-                          setDialogState(() {
-                            recipe = recipe
-                                .where(
-                                  (item) =>
-                                      item.inventoryItemId !=
-                                      component.inventoryItemId,
-                                )
-                                .toList();
-                          });
-                        },
-                      ),
-                    ),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -1357,7 +1039,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             ? 'Finished Good'
             : 'Finished: ${variant.finishedInventoryName}';
       case 'RECIPE':
-        return 'Recipe • ${variant.recipeComponentCount} component(s)';
+        return 'Untracked';
       default:
         return 'Untracked';
     }

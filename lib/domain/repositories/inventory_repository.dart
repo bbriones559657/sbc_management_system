@@ -21,6 +21,16 @@ abstract class InventoryRepository {
 
   Future<List<InventoryLotRecord>> getLots(String inventoryItemId);
 
+  Future<List<StockOutSummary>> getStockOuts({int limit = 20});
+
+  Future<void> createStockOut({
+    required String purpose,
+    required List<StockOutLineInput> items,
+    String referenceNumber = '',
+    String notes = '',
+    DateTime? occurredAt,
+  });
+
   Future<void> disposeLot({
     required String inventoryLotId,
     required String movementType,

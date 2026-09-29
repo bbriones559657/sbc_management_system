@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - brian/full-system-integration
+      - brian/inventory-consultation-alignment
   pull_request:
     branches:
       - main

@@ -15,7 +15,8 @@ class SupabaseExpenseRepository implements ExpenseRepository {
         .from('expenses')
         .select(
           'id, expense_number, expense_date, description, amount, status, '
-          'expense_categories(name)',
+          'supplier_id, reference_number, notes, expense_categories(name), '
+          'suppliers(name)',
         )
         .neq('status', 'VOIDED')
         .order('expense_date', ascending: false)
@@ -27,13 +28,23 @@ class SupabaseExpenseRepository implements ExpenseRepository {
       final category = categoryRaw is Map
           ? Map<String, dynamic>.from(categoryRaw)['name']?.toString() ?? 'Other'
           : 'Other';
+      final supplierRaw = row['suppliers'];
+      final supplierName = supplierRaw is Map
+          ? Map<String, dynamic>.from(supplierRaw)['name']?.toString() ?? ''
+          : '';
+      final expenseDate = DateTime.parse(row['expense_date'].toString());
 
       return ExpenseRecord(
         id: row['id']?.toString() ?? '',
-        date: _formatDate(DateTime.parse(row['expense_date'].toString())),
+        date: _formatDate(expenseDate),
         description: row['description']?.toString() ?? '',
         category: category,
         amount: ((row['amount'] as num?) ?? 0).toDouble(),
+        expenseDate: expenseDate,
+        supplierId: row['supplier_id']?.toString() ?? '',
+        supplierName: supplierName,
+        referenceNumber: row['reference_number']?.toString() ?? '',
+        notes: row['notes']?.toString() ?? '',
       );
     }).toList();
   }
@@ -56,11 +67,29 @@ class SupabaseExpenseRepository implements ExpenseRepository {
   }
 
   @override
+  Future<List<ExpenseSupplierOption>> getSuppliers() async {
+    final rows = await _client
+        .from('suppliers')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+    return (rows as List)
+        .map(
+          (raw) => ExpenseSupplierOption.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<ExpenseRecord?> getExpenseById(String id) async {
     final rows = await _client
         .from('expenses')
         .select(
-          'id, expense_date, description, amount, status, expense_categories(name)',
+          'id, expense_date, description, amount, status, supplier_id, '
+          'reference_number, notes, expense_categories(name), suppliers(name)',
         )
         .eq('id', id)
         .limit(1);
@@ -72,13 +101,23 @@ class SupabaseExpenseRepository implements ExpenseRepository {
     final category = categoryRaw is Map
         ? Map<String, dynamic>.from(categoryRaw)['name']?.toString() ?? 'Other'
         : 'Other';
+    final supplierRaw = row['suppliers'];
+    final supplierName = supplierRaw is Map
+        ? Map<String, dynamic>.from(supplierRaw)['name']?.toString() ?? ''
+        : '';
+    final expenseDate = DateTime.parse(row['expense_date'].toString());
 
     return ExpenseRecord(
       id: row['id']?.toString() ?? '',
-      date: _formatDate(DateTime.parse(row['expense_date'].toString())),
+      date: _formatDate(expenseDate),
       description: row['description']?.toString() ?? '',
       category: category,
       amount: ((row['amount'] as num?) ?? 0).toDouble(),
+      expenseDate: expenseDate,
+      supplierId: row['supplier_id']?.toString() ?? '',
+      supplierName: supplierName,
+      referenceNumber: row['reference_number']?.toString() ?? '',
+      notes: row['notes']?.toString() ?? '',
     );
   }
 
@@ -92,11 +131,11 @@ class SupabaseExpenseRepository implements ExpenseRepository {
         'p_expense_category_id': categoryId,
         'p_description': expense.description,
         'p_amount': expense.amount,
-        'p_expense_date': _parseDisplayDate(expense.date),
+        'p_expense_date': _dateOnly(expense.expenseDate ?? DateTime.now()),
         'p_payment_method_id': null,
-        'p_supplier_id': null,
-        'p_reference_number': null,
-        'p_notes': null,
+        'p_supplier_id': _nullable(expense.supplierId),
+        'p_reference_number': _nullable(expense.referenceNumber),
+        'p_notes': _nullable(expense.notes),
       },
     );
   }
@@ -112,11 +151,11 @@ class SupabaseExpenseRepository implements ExpenseRepository {
         'p_expense_category_id': categoryId,
         'p_description': expense.description,
         'p_amount': expense.amount,
-        'p_expense_date': _parseDisplayDate(expense.date),
+        'p_expense_date': _dateOnly(expense.expenseDate ?? DateTime.now()),
         'p_payment_method_id': null,
-        'p_supplier_id': null,
-        'p_reference_number': null,
-        'p_notes': null,
+        'p_supplier_id': _nullable(expense.supplierId),
+        'p_reference_number': _nullable(expense.referenceNumber),
+        'p_notes': _nullable(expense.notes),
       },
     );
   }
@@ -162,24 +201,17 @@ class SupabaseExpenseRepository implements ExpenseRepository {
       'Jan','Feb','Mar','Apr','May','Jun',
       'Jul','Aug','Sep','Oct','Nov','Dec',
     ];
-    return '${months[date.month - 1]} ${date.day}';
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  String _parseDisplayDate(String value) {
-    final now = DateTime.now();
-    const months = {
-      'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,
-      'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12,
-    };
+  String _dateOnly(DateTime date) {
+    return '${date.year}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
 
-    final parts = value.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2 && months.containsKey(parts[0])) {
-      final day = int.tryParse(parts[1]) ?? now.day;
-      final month = months[parts[0]]!;
-      final dt = DateTime(now.year, month, day);
-      return '${dt.year}-${dt.month.toString().padLeft(2,'0')}-${dt.day.toString().padLeft(2,'0')}';
-    }
-
-    return '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+  String? _nullable(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

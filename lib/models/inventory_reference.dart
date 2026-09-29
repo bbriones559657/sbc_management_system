@@ -19,11 +19,13 @@ class InventoryUnitOption {
   final String id;
   final String code;
   final String name;
+  final String dimension;
 
   const InventoryUnitOption({
     required this.id,
     required this.code,
     required this.name,
+    required this.dimension,
   });
 
   factory InventoryUnitOption.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,7 @@ class InventoryUnitOption {
       id: map['id']?.toString() ?? '',
       code: map['code']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
+      dimension: map['dimension']?.toString() ?? '',
     );
   }
 }
@@ -40,6 +43,8 @@ class InventoryMovementRecord {
   final String movementType;
   final double quantityDelta;
   final String reason;
+  final String sourceDocumentNumber;
+  final String externalReferenceNumber;
   final DateTime createdAt;
 
   const InventoryMovementRecord({
@@ -47,6 +52,8 @@ class InventoryMovementRecord {
     required this.movementType,
     required this.quantityDelta,
     required this.reason,
+    this.sourceDocumentNumber = '',
+    this.externalReferenceNumber = '',
     required this.createdAt,
   });
 
@@ -56,11 +63,14 @@ class InventoryMovementRecord {
       movementType: map['movement_type']?.toString() ?? '',
       quantityDelta: (map['quantity_delta'] as num?)?.toDouble() ?? 0,
       reason: map['reason']?.toString() ?? '',
+      sourceDocumentNumber:
+          map['source_document_number']?.toString() ?? '',
+      externalReferenceNumber:
+          map['external_reference_number']?.toString() ?? '',
       createdAt: DateTime.parse(map['created_at'].toString()).toLocal(),
     );
   }
 }
-
 
 class InventoryLotRecord {
   final String id;
@@ -108,4 +118,63 @@ class InventoryLotRecord {
       unitCode: map['uom_code']?.toString() ?? '',
     );
   }
+}
+
+class StockOutSummary {
+  final String id;
+  final int number;
+  final DateTime occurredAt;
+  final String purpose;
+  final String referenceNumber;
+  final String recordedByName;
+  final int lineCount;
+  final String status;
+
+  const StockOutSummary({
+    required this.id,
+    required this.number,
+    required this.occurredAt,
+    required this.purpose,
+    required this.referenceNumber,
+    required this.recordedByName,
+    required this.lineCount,
+    required this.status,
+  });
+
+  factory StockOutSummary.fromMap(Map<String, dynamic> map) {
+    return StockOutSummary(
+      id: map['id']?.toString() ?? '',
+      number: (map['stock_out_number'] as num?)?.toInt() ?? 0,
+      occurredAt: DateTime.parse(map['occurred_at'].toString()).toLocal(),
+      purpose: map['purpose']?.toString() ?? '',
+      referenceNumber: map['reference_number']?.toString() ?? '',
+      recordedByName: map['recorded_by_name']?.toString() ?? '',
+      lineCount: (map['line_count'] as num?)?.toInt() ?? 0,
+      status: map['status']?.toString() ?? '',
+    );
+  }
+}
+
+class StockOutLineInput {
+  final String inventoryItemId;
+  final String issueUomId;
+  final double issueQuantity;
+  final double baseQuantityPerIssueUnit;
+  final String notes;
+
+  const StockOutLineInput({
+    required this.inventoryItemId,
+    required this.issueUomId,
+    required this.issueQuantity,
+    required this.baseQuantityPerIssueUnit,
+    this.notes = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+        'inventory_item_id': inventoryItemId,
+        'issue_uom_id': issueUomId,
+        'issue_quantity': issueQuantity,
+        'base_quantity_per_issue_unit': baseQuantityPerIssueUnit,
+        'notes': notes.trim().isEmpty ? null : notes.trim(),
+      };
 }

@@ -71,7 +71,8 @@ Recommended sequence:
 6. RPC atomically:
    - validates active shift
    - validates payment total
-   - consumes recipe/finished-good inventory using FEFO
+   - deducts linked countable finished goods using FEFO
+   - leaves prepared-to-order items untracked at ingredient level
    - stores payments
    - completes order
    - issues invoice
@@ -85,10 +86,16 @@ Recommended sequence:
 4. Record actual goods receipt.
 5. Call `post_goods_receipt(receiptId)`.
 6. System creates lots and stock movements.
+7. Receive multiple supplies under one goods receipt.
+8. Release multiple supplies under one stock-out transaction.
+9. Store purchase/release package conversion (for example, 1 box = 50 pieces).
+10. Display per-item movement history with its source document and external reference.
 
 ## Phase 6 — Expenses / reports
 
-Operating expenses should use `expenses`.
+Operating expenses and untracked ingredient/grocery purchases should use
+`expenses` with date, supplier/grocery, purpose, amount, receipt/reference and
+notes.
 
 Inventory purchases should NOT be duplicated into `expenses`.
 

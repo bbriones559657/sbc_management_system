@@ -11,16 +11,16 @@ void main() {
     expect(items.length, 6);
 
     final water = items.firstWhere((item) => item.id == 'INV-001');
-    expect(water.stock, '24 pcs');
+    expect(water.stock, '24 pc');
 
-    await repository.updateInventoryItem(water.copyWith(stock: '26 pcs'));
+    await repository.updateInventoryItem(water.copyWith(stock: '26 pc'));
 
     final updated = await repository.getInventoryItemById('INV-001');
-    expect(updated?.stock, '26 pcs');
+    expect(updated?.stock, '26 pc');
 
-    final milk = await repository.getInventoryItemById('INV-005');
-    expect(milk?.name, 'Milk');
-    expect(milk?.stock, '2 L');
+    final bowls = await repository.getInventoryItemById('INV-005');
+    expect(bowls?.name, 'Takeout Bowls');
+    expect(bowls?.stock, '75 pc');
   });
 
   test('inventory movement keeps its item reference for activity feeds', () {
@@ -29,11 +29,32 @@ void main() {
       'movement_type': 'MANUAL_IN',
       'quantity_delta': 2.5,
       'reason': 'Opening stock',
+      'source_document_number': 'GR-18',
+      'external_reference_number': 'OR-2219',
       'created_at': '2026-09-23T08:00:00Z',
     });
 
     expect(movement.inventoryItemId, 'item-123');
     expect(movement.quantityDelta, 2.5);
+    expect(movement.sourceDocumentNumber, 'GR-18');
+    expect(movement.externalReferenceNumber, 'OR-2219');
+  });
+
+  test('stock-out line serializes package conversion input', () {
+    const line = StockOutLineInput(
+      inventoryItemId: 'cups',
+      issueUomId: 'box',
+      issueQuantity: 2,
+      baseQuantityPerIssueUnit: 50,
+    );
+
+    expect(line.toJson(), {
+      'inventory_item_id': 'cups',
+      'issue_uom_id': 'box',
+      'issue_quantity': 2.0,
+      'base_quantity_per_issue_unit': 50.0,
+      'notes': null,
+    });
   });
 
   test('mock inventory exposes the recent activity contract', () async {

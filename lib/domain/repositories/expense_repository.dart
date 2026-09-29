@@ -7,6 +7,8 @@ abstract class ExpenseRepository {
 
   Future<List<ExpenseCategoryOption>> getCategories();
 
+  Future<List<ExpenseSupplierOption>> getSuppliers();
+
   Future<void> createExpense(ExpenseRecord expense);
 
   Future<void> updateExpense(ExpenseRecord expense);

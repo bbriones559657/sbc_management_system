@@ -25,6 +25,7 @@ class ExpensesScreen extends StatefulWidget {
 class _ExpensesScreenState extends State<ExpensesScreen> {
   List<ExpenseRecord> _expenses = [];
   List<ExpenseCategoryOption> _categories = [];
+  List<ExpenseSupplierOption> _suppliers = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedCategory = 'All Categories';
@@ -46,6 +47,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       final results = await Future.wait([
         widget.expenseRepository.getExpenses(),
         widget.expenseRepository.getCategories(),
+        widget.expenseRepository.getSuppliers(),
       ]);
 
       if (!mounted) return;
@@ -53,6 +55,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       setState(() {
         _expenses = results[0] as List<ExpenseRecord>;
         _categories = results[1] as List<ExpenseCategoryOption>;
+        _suppliers = results[2] as List<ExpenseSupplierOption>;
         _isLoading = false;
 
         if (_selectedCategory != 'All Categories' &&
@@ -77,7 +80,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return _expenses.where((expense) {
       final matchesSearch = query.isEmpty ||
           expense.description.toLowerCase().contains(query) ||
-          expense.category.toLowerCase().contains(query);
+          expense.category.toLowerCase().contains(query) ||
+          expense.supplierName.toLowerCase().contains(query) ||
+          expense.referenceNumber.toLowerCase().contains(query);
 
       final matchesCategory =
           _selectedCategory == 'All Categories' ||
@@ -185,10 +190,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                               'Date',
                               'Description',
                               'Category',
+                              'Supplier / Reference',
                               'Amount',
                               'Actions',
                             ],
-                            flexes: const [2, 4, 3, 2, 2],
+                            flexes: const [2, 4, 3, 3, 2, 2],
                             rows: _filteredExpenses
                                 .map(
                                   (expense) => [
@@ -203,6 +209,23 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                     Text(
                                       expense.category,
                                       style: AppTextStyles.body,
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          expense.supplierName.isEmpty
+                                              ? '—'
+                                              : expense.supplierName,
+                                          style: AppTextStyles.body,
+                                        ),
+                                        if (expense.referenceNumber.isNotEmpty)
+                                          Text(
+                                            expense.referenceNumber,
+                                            style: AppTextStyles.caption,
+                                          ),
+                                      ],
                                     ),
                                     Text(
                                       _money(expense.amount),
@@ -286,13 +309,24 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final amountController = TextEditingController(
       text: existing == null ? '' : existing.amount.toString(),
     );
+    final referenceController = TextEditingController(
+      text: existing?.referenceNumber ?? '',
+    );
+    final notesController = TextEditingController(
+      text: existing?.notes ?? '',
+    );
 
     String selectedCategory = existing?.category ?? _categories.first.name;
+    String selectedSupplierId = existing?.supplierId ?? '';
+    DateTime selectedDate = existing?.expenseDate ?? DateTime.now();
 
     if (!_categories.any(
       (category) => category.name == selectedCategory,
     )) {
       selectedCategory = _categories.first.name;
+    }
+    if (!_suppliers.any((supplier) => supplier.id == selectedSupplierId)) {
+      selectedSupplierId = '';
     }
 
     String? errorMessage;
@@ -306,9 +340,28 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         builder: (_, setDialogState) {
           updateDialogState = setDialogState;
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date == null) return;
+                    setDialogState(() => selectedDate = date);
+                  },
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: Text('Date: ${_formatDate(selectedDate)}'),
+                ),
+              ),
+              const SizedBox(height: 14),
               TextField(
                 controller: descriptionController,
                 decoration: const InputDecoration(
@@ -344,6 +397,45 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   setDialogState(() => selectedCategory = value);
                 },
               ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: selectedSupplierId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Supplier / Grocery',
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text('No linked supplier'),
+                  ),
+                  for (final supplier in _suppliers)
+                    DropdownMenuItem(
+                      value: supplier.id,
+                      child: Text(supplier.name),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setDialogState(() => selectedSupplierId = value);
+                },
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: referenceController,
+                decoration: const InputDecoration(
+                  labelText: 'Receipt / Reference Number',
+                  hintText: 'Official receipt, invoice, or grocery reference',
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                ),
+              ),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
@@ -364,7 +456,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ),
                 ),
               ],
-            ],
+              ],
+            ),
           );
         },
       ),
@@ -389,20 +482,25 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               return;
             }
 
-            final now = DateTime.now();
-            const months = [
-              'Jan','Feb','Mar','Apr','May','Jun',
-              'Jul','Aug','Sep','Oct','Nov','Dec',
-            ];
-            final date =
-                existing?.date ?? '${months[now.month - 1]} ${now.day}';
+            ExpenseSupplierOption? supplier;
+            for (final entry in _suppliers) {
+              if (entry.id == selectedSupplierId) {
+                supplier = entry;
+                break;
+              }
+            }
 
             final record = ExpenseRecord(
               id: existing?.id ?? '',
-              date: date,
+              date: _formatDate(selectedDate),
               description: description,
               category: selectedCategory,
               amount: amount,
+              expenseDate: selectedDate,
+              supplierId: selectedSupplierId,
+              supplierName: supplier?.name ?? '',
+              referenceNumber: referenceController.text.trim(),
+              notes: notesController.text.trim(),
             );
 
             try {
@@ -443,6 +541,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     descriptionController.dispose();
     amountController.dispose();
+    referenceController.dispose();
+    notesController.dispose();
   }
 
   Future<void> _confirmVoidExpense(
@@ -499,5 +599,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   String _money(double value) {
     return '₱${value.toStringAsFixed(2)}';
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan','Feb','Mar','Apr','May','Jun',
+      'Jul','Aug','Sep','Oct','Nov','Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

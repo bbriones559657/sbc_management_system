@@ -4,6 +4,11 @@ class ExpenseRecord {
   final String description;
   final String category;
   final double amount;
+  final DateTime? expenseDate;
+  final String supplierId;
+  final String supplierName;
+  final String referenceNumber;
+  final String notes;
 
   const ExpenseRecord({
     this.id = '',
@@ -11,6 +16,11 @@ class ExpenseRecord {
     required this.description,
     required this.category,
     required this.amount,
+    this.expenseDate,
+    this.supplierId = '',
+    this.supplierName = '',
+    this.referenceNumber = '',
+    this.notes = '',
   });
 
   ExpenseRecord copyWith({
@@ -19,6 +29,11 @@ class ExpenseRecord {
     String? description,
     String? category,
     double? amount,
+    DateTime? expenseDate,
+    String? supplierId,
+    String? supplierName,
+    String? referenceNumber,
+    String? notes,
   }) {
     return ExpenseRecord(
       id: id ?? this.id,
@@ -26,6 +41,25 @@ class ExpenseRecord {
       description: description ?? this.description,
       category: category ?? this.category,
       amount: amount ?? this.amount,
+      expenseDate: expenseDate ?? this.expenseDate,
+      supplierId: supplierId ?? this.supplierId,
+      supplierName: supplierName ?? this.supplierName,
+      referenceNumber: referenceNumber ?? this.referenceNumber,
+      notes: notes ?? this.notes,
+    );
+  }
+}
+
+class ExpenseSupplierOption {
+  final String id;
+  final String name;
+
+  const ExpenseSupplierOption({required this.id, required this.name});
+
+  factory ExpenseSupplierOption.fromMap(Map<String, dynamic> map) {
+    return ExpenseSupplierOption(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
     );
   }
 }

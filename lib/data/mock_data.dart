@@ -101,19 +101,19 @@ class MockData {
   ];
 
   static const inventory = [
-    InventoryItem(id: 'INV-001', name: 'Bottled Water', category: 'Beverage', stock: '24 pcs', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
-    InventoryItem(id: 'INV-002', name: 'Coca-Cola', category: 'Beverage', stock: '18 pcs', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
-    InventoryItem(id: 'INV-003', name: 'Chicken', category: 'Raw Ingredients', stock: '3 kg', status: 'In Stock', supplier: 'ABC Foods', supplierId: 'SUP-001', expiration: 'Aug 26, 2026'),
-    InventoryItem(id: 'INV-004', name: 'Coffee Beans', category: 'Raw Ingredients', stock: '800 g', status: 'In Stock', supplier: 'ABC Foods', supplierId: 'SUP-001', expiration: 'Sep 18, 2026'),
-    InventoryItem(id: 'INV-005', name: 'Milk', category: 'Raw Ingredients', stock: '2 L', status: 'Low Stock', supplier: 'Fresh Dairy', supplierId: 'SUP-002', expiration: 'Aug 28, 2026'),
-    InventoryItem(id: 'INV-006', name: 'Chocolate Cake', category: 'Baked Goods', stock: '2 pcs', status: 'Expiring Soon', supplier: 'Local Bakery', supplierId: 'SUP-004', expiration: 'Aug 25, 2026'),
+    InventoryItem(id: 'INV-001', name: 'Bottled Water', category: 'Finished Goods', stock: '24 pc', currentQuantity: 24, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
+    InventoryItem(id: 'INV-002', name: 'Coca-Cola', category: 'Finished Goods', stock: '18 pc', currentQuantity: 18, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
+    InventoryItem(id: 'INV-003', name: 'Paper Cups', category: 'Packaging', stock: '200 pc', currentQuantity: 200, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
+    InventoryItem(id: 'INV-004', name: 'Cup Lids', category: 'Packaging', stock: '180 pc', currentQuantity: 180, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'In Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
+    InventoryItem(id: 'INV-005', name: 'Takeout Bowls', category: 'Packaging', stock: '75 pc', currentQuantity: 75, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'Low Stock', supplier: 'Café Supplies', supplierId: 'SUP-003', expiration: '—'),
+    InventoryItem(id: 'INV-006', name: 'Chocolate Cake', category: 'Finished Goods', stock: '2 pc', currentQuantity: 2, baseUomCode: 'pc', baseUomId: 'UOM-PC', status: 'Expiring Soon', supplier: 'Local Bakery', supplierId: 'SUP-004', expiration: 'Oct 2, 2026'),
   ];
 
   static const expenses = [
-    ExpenseRecord(id: 'EXP-001', date: 'Aug 24', description: 'Coffee beans', category: 'Ingredients', amount: 1200),
-    ExpenseRecord(id: 'EXP-002', date: 'Aug 24', description: 'Milk', category: 'Ingredients', amount: 450),
+    ExpenseRecord(id: 'EXP-001', date: 'Sep 29, 2026', description: 'Coffee beans and condiments', category: 'Ingredients / Grocery', amount: 1200, supplierName: 'ABC Foods', supplierId: 'SUP-001', referenceNumber: 'OR-1048'),
+    ExpenseRecord(id: 'EXP-002', date: 'Sep 29, 2026', description: 'Milk and dairy grocery', category: 'Ingredients / Grocery', amount: 450, supplierName: 'Fresh Dairy', supplierId: 'SUP-002', referenceNumber: 'OR-2219'),
     ExpenseRecord(id: 'EXP-003', date: 'Aug 23', description: 'Electricity', category: 'Utilities', amount: 2800),
-    ExpenseRecord(id: 'EXP-004', date: 'Aug 23', description: 'Packaging', category: 'Supplies', amount: 650),
+    ExpenseRecord(id: 'EXP-004', date: 'Aug 23', description: 'Equipment repair', category: 'Maintenance / Repair', amount: 650),
   ];
 
   static const suppliers = [

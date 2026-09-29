@@ -142,11 +142,12 @@ insert into public.units_of_measure(code,name,dimension,factor_to_dimension_base
   ('kg','Kilogram','MASS',1000),
   ('ml','Milliliter','VOLUME',1),
   ('L','Liter','VOLUME',1000),
-  ('pc','Piece','COUNT',1)
+  ('pc','Piece','COUNT',1),
+  ('box','Box','COUNT',1),
+  ('pack','Pack','COUNT',1)
 on conflict (code) do nothing;
 
 insert into public.inventory_categories(name,description) values
-  ('Raw Ingredients','Food and beverage ingredients consumed by recipes'),
   ('Packaging','Cups, lids, takeout packaging and similar materials'),
   ('Finished Goods','Ready-to-sell stock such as bottled/canned products')
 on conflict (name) do nothing;
@@ -171,6 +172,7 @@ insert into public.discount_types(
 on conflict (code) do nothing;
 
 insert into public.expense_categories(code,name) values
+  ('INGREDIENTS','Ingredients / Grocery'),
   ('UTILITIES','Utilities'),
   ('RENT','Rent'),
   ('SUPPLIES','Non-Inventory Supplies'),
@@ -257,9 +259,6 @@ with desired(sku,name,category_name,uom_code,reorder_level,track_expiry,qty,expi
   values
     ('INV-001','Bottled Water','Finished Goods','pc',10::numeric,false,24::numeric,null::int,18::numeric),
     ('INV-002','Coca-Cola','Finished Goods','pc',8::numeric,false,18::numeric,null::int,28::numeric),
-    ('INV-003','Chicken','Raw Ingredients','g',1000::numeric,true,3000::numeric,3,0.22::numeric),
-    ('INV-004','Coffee Beans','Raw Ingredients','g',500::numeric,false,800::numeric,null::int,0.85::numeric),
-    ('INV-005','Milk','Raw Ingredients','ml',2000::numeric,true,2000::numeric,5,0.09::numeric),
     ('INV-006','Chocolate Cake','Finished Goods','pc',3::numeric,true,2::numeric,2,90::numeric)
 )
 insert into public.inventory_items(
@@ -284,9 +283,6 @@ with desired(sku,qty,expiry_days,unit_cost) as (
   values
     ('INV-001',24::numeric,null::int,18::numeric),
     ('INV-002',18::numeric,null::int,28::numeric),
-    ('INV-003',3000::numeric,3,0.22::numeric),
-    ('INV-004',800::numeric,null::int,0.85::numeric),
-    ('INV-005',2000::numeric,5,0.09::numeric),
     ('INV-006',2::numeric,2,90::numeric)
 ),
 created_lots as (
@@ -337,9 +333,4 @@ where (
     (mv.sku = 'PRD-006' and ii.sku = 'INV-006')
     or
     (mv.sku = 'PRD-008' and ii.sku = 'INV-002')
-  )
-  and not exists (
-    select 1
-    from public.variant_recipe_components rc
-    where rc.menu_variant_id = mv.id
   );

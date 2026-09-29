@@ -27,11 +27,6 @@ erDiagram
     INVENTORY_ITEMS ||--o{ STOCK_MOVEMENTS : moves
     INVENTORY_LOTS ||--o{ STOCK_MOVEMENTS : lot_trace
 
-    MENU_VARIANTS ||--o{ VARIANT_RECIPE_COMPONENTS : recipe
-    INVENTORY_ITEMS ||--o{ VARIANT_RECIPE_COMPONENTS : consumes
-    MODIFIERS ||--o{ MODIFIER_RECIPE_COMPONENTS : recipe
-    INVENTORY_ITEMS ||--o{ MODIFIER_RECIPE_COMPONENTS : consumes
-
     SUPPLIERS ||--o{ SUPPLIER_ITEMS : supplies
     INVENTORY_ITEMS ||--o{ SUPPLIER_ITEMS : sourced_as
     SUPPLIERS ||--o{ PURCHASE_ORDERS : receives
@@ -39,6 +34,10 @@ erDiagram
     PURCHASE_ORDERS ||--o{ GOODS_RECEIPTS : fulfilled_by
     GOODS_RECEIPTS ||--o{ GOODS_RECEIPT_ITEMS : contains
     GOODS_RECEIPT_ITEMS ||--o| INVENTORY_LOTS : creates
+    PROFILES ||--o{ STOCK_OUT_TRANSACTIONS : records
+    STOCK_OUT_TRANSACTIONS ||--|{ STOCK_OUT_ITEMS : contains
+    INVENTORY_ITEMS ||--o{ STOCK_OUT_ITEMS : releases
+    STOCK_OUT_ITEMS ||--|{ STOCK_MOVEMENTS : traces
     SUPPLIERS ||--o{ SUPPLIER_BILLS : bills
     SUPPLIER_BILLS ||--o{ SUPPLIER_BILL_PAYMENTS : paid_by
 
@@ -66,6 +65,7 @@ erDiagram
 
     EXPENSE_CATEGORIES ||--o{ EXPENSES : classifies
     PAYMENT_METHODS ||--o{ EXPENSES : paid_with
+    SUPPLIERS ||--o{ EXPENSES : referenced_by
 
     INVOICE_SEQUENCES ||--o{ SALES_INVOICES : numbers
     ORDERS ||--o| SALES_INVOICES : documented_by
@@ -98,34 +98,34 @@ Iced Latte
 
 Every sellable item should have at least one variant. Products without visible variants can use a default variant named `Standard`.
 
-### Recipes
+### Prepared items and recipes
 
-Recipes are attached to variants because different sizes can consume different quantities.
+Prepared-to-order menu items are deliberately untracked at ingredient level.
+The system does not require the café to disclose recipes and does not estimate
+ingredient consumption from sales. Management controls whether those menu
+items are available through their active status.
 
-Modifiers can also have recipe components.
-
-Example:
-
-```text
-Large Iced Latte
-  22 g coffee beans
-  240 ml milk
-
-Extra Shot modifier
-  9 g coffee beans
-```
+Only practical countable finished goods may be linked to a menu variant and
+deducted automatically when sold.
 
 ### Inventory
 
 Every incoming tracked quantity is represented by an inventory lot, even when the item does not expire. Expiration may be null.
 
+One goods receipt can contain many received supplies. One stock-out transaction
+can contain many released supplies. Each line stores its entered package unit,
+quantity, and conversion to the inventory item's base unit.
+
 Negative consumption uses FEFO where an expiration date exists.
 
 ### Purchases vs expenses
 
-Inventory purchases are procurement transactions and eventually become Cost of Goods Sold through inventory consumption.
+Purchases of tracked countable supplies and finished goods are procurement
+transactions and are not duplicated as expenses.
 
-Operating expenses remain in `expenses`.
+Untracked ingredients/grocery purchases and operating costs are recorded in
+`expenses`, including date, supplier/grocery, purpose, amount, and receipt or
+reference number.
 
 This prevents double-counting ingredient purchases as both an immediate expense and COGS.
 

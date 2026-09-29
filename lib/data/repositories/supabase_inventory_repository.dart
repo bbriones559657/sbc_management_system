@@ -62,7 +62,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
   Future<List<InventoryUnitOption>> getUnits() async {
     final rows = await _client
         .from('units_of_measure')
-        .select('id, code, name')
+        .select('id, code, name, dimension')
         .eq('is_active', true)
         .order('dimension')
         .order('factor_to_dimension_base');
@@ -82,8 +82,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
     int limit = 8,
   }) async {
     final rows = await _client
-        .from('stock_movements')
-        .select('movement_type, quantity_delta, reason, created_at')
+        .from('v_inventory_movement_history')
+        .select()
         .eq('inventory_item_id', inventoryItemId)
         .order('created_at', ascending: false)
         .limit(limit);
@@ -102,10 +102,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
     int limit = 10,
   }) async {
     final rows = await _client
-        .from('stock_movements')
-        .select(
-          'inventory_item_id, movement_type, quantity_delta, reason, created_at',
-        )
+        .from('v_inventory_movement_history')
+        .select()
         .order('created_at', ascending: false)
         .limit(limit);
 
@@ -136,6 +134,44 @@ class SupabaseInventoryRepository implements InventoryRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Future<List<StockOutSummary>> getStockOuts({int limit = 20}) async {
+    final rows = await _client
+        .from('v_stock_out_summary')
+        .select()
+        .order('occurred_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map(
+          (row) => StockOutSummary.fromMap(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> createStockOut({
+    required String purpose,
+    required List<StockOutLineInput> items,
+    String referenceNumber = '',
+    String notes = '',
+    DateTime? occurredAt,
+  }) async {
+    await _client.rpc(
+      'create_and_post_stock_out',
+      params: {
+        'p_purpose': purpose.trim(),
+        'p_items': items.map((item) => item.toJson()).toList(),
+        'p_reference_number': _nullableText(referenceNumber),
+        'p_notes': _nullableText(notes),
+        'p_occurred_at':
+            (occurredAt ?? DateTime.now()).toUtc().toIso8601String(),
+      },
+    );
   }
 
   @override

@@ -54,10 +54,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return AppPage(
       title: 'Inventory',
       action: widget.canManageInventory
-          ? ElevatedButton.icon(
-              onPressed: _showAddItemDialog,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Item'),
+          ? Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _showStockOutDialog,
+                  icon: const Icon(Icons.output_outlined, size: 18),
+                  label: const Text('Release Supplies'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _showAddItemDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Item'),
+                ),
+              ],
             )
           : null,
       child: FutureBuilder<List<InventoryItem>>(
@@ -350,6 +361,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   color: AppColors.gray500,
                 ),
               ),
+              if (_movementReference(movement).isNotEmpty)
+                Text(
+                  _movementReference(movement),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                ),
             ],
           ),
         ),
@@ -481,9 +501,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          _movementLabel(movement.movementType),
-                          style: AppTextStyles.body,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _movementLabel(movement.movementType),
+                              style: AppTextStyles.body,
+                            ),
+                            if (_movementReference(movement).isNotEmpty)
+                              Text(
+                                _movementReference(movement),
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.gray500,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       Text(
@@ -533,14 +565,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
             },
             icon: const Icon(Icons.archive_outlined, size: 17),
             label: const Text('Archive'),
-          ),
-        if (widget.canManageInventory)
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showStockMovementDialog(latest);
-            },
-            child: const Text('Record Stock Movement'),
           ),
       ],
     );
@@ -827,212 +851,391 @@ class _InventoryScreenState extends State<InventoryScreen> {
     reasonController.dispose();
   }
 
-  Future<void> _showStockMovementDialog(InventoryItem item) async {
-    final quantityController = TextEditingController();
-    final reasonController = TextEditingController();
-    final unitCostController = TextEditingController(text: '0');
-    String movementType = 'MANUAL_IN';
-    DateTime? expirationDate;
+  Future<void> _showStockOutDialog() async {
+    final results = await Future.wait([
+      widget.inventoryRepository.getInventoryItems(),
+      widget.inventoryRepository.getUnits(),
+    ]);
+
+    if (!mounted) return;
+
+    final items = (results[0] as List<InventoryItem>)
+        .where((item) => item.currentQuantity > 0)
+        .toList();
+    final units = results[1] as List<InventoryUnitOption>;
+
+    if (items.isEmpty || units.isEmpty) {
+      _showMessage('No available inventory items or release units found.');
+      return;
+    }
+
+    final purposeController = TextEditingController();
+    final referenceController = TextEditingController();
+    final notesController = TextEditingController();
+    final lines = <_StockOutDraftLine>[
+      _StockOutDraftLine.fromItem(items.first),
+    ];
     String? errorMessage;
+    bool isSaving = false;
     StateSetter? updateDialogState;
 
     await showPrototypeDialog(
       context: context,
-      title: 'Record Stock Movement',
-      width: 560,
+      title: 'Release Multiple Supplies',
+      width: 820,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           updateDialogState = setDialogState;
-          final stockIn = movementType == 'MANUAL_IN';
 
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _detailRow('Item', item.name),
-                _detailRow('Current Stock', item.stock),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: movementType,
-                  decoration: const InputDecoration(
-                    labelText: 'Movement Type',
+          return SizedBox(
+            height: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Record one stock-out transaction containing every supply '
+                    'released for the same purpose.',
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.gray700,
+                    ),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'MANUAL_IN',
-                      child: Text('Stock In'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'MANUAL_OUT',
-                      child: Text('Stock Out'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'WASTE',
-                      child: Text('Waste / Spoilage'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'DAMAGED',
-                      child: Text('Damaged'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'EXPIRED',
-                      child: Text('Expired'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'COMPLIMENTARY',
-                      child: Text('Complimentary'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'STAFF_MEAL',
-                      child: Text('Staff Meal'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setDialogState(() {
-                      movementType = value;
-                      errorMessage = null;
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: quantityController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'Quantity (${item.baseUomCode})',
-                  ),
-                  onChanged: (_) {
-                    updateDialogState?.call(() => errorMessage = null);
-                  },
-                ),
-                if (stockIn) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   TextField(
-                    controller: unitCostController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    controller: purposeController,
                     decoration: const InputDecoration(
-                      labelText: 'Unit Cost',
-                      prefixText: '₱',
+                      labelText: 'Purpose / Destination *',
+                      hintText: 'e.g. Counter supplies for morning shift',
                     ),
                   ),
-                  if (item.trackExpiry) ...[
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: dialogContext,
-                          initialDate: DateTime.now()
-                              .add(const Duration(days: 1)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now()
-                              .add(const Duration(days: 3650)),
-                        );
-
-                        if (date == null) return;
-                        setDialogState(() => expirationDate = date);
-                      },
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      label: Text(
-                        expirationDate == null
-                            ? 'Select Expiration Date'
-                            : 'Expiration: ${_formatDate(expirationDate!)}',
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: referenceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Reference Number',
+                      hintText: 'Optional request, log, or handover reference',
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Supplies to release',
+                          style: AppTextStyles.h3,
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            lines.add(_StockOutDraftLine.fromItem(items.first));
+                            errorMessage = null;
+                          });
+                        },
+                        icon: const Icon(Icons.add, size: 17),
+                        label: const Text('Add Supply'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  for (int index = 0; index < lines.length; index++) ...[
+                    _buildStockOutLine(
+                      line: lines[index],
+                      index: index,
+                      items: items,
+                      units: units,
+                      onChanged: () => setDialogState(() {
+                        errorMessage = null;
+                      }),
+                      onRemove: lines.length == 1
+                          ? null
+                          : () {
+                              setDialogState(() {
+                                lines.removeAt(index).dispose();
+                                errorMessage = null;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Transaction Notes',
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
                       ),
                     ),
                   ],
                 ],
-                const SizedBox(height: 14),
-                TextField(
-                  controller: reasonController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason / Notes',
-                    hintText: 'Why is this stock changing?',
-                  ),
-                ),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    errorMessage!,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
           );
         },
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: isSaving ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: () async {
-            final quantity =
-                double.tryParse(quantityController.text.trim());
-            final unitCost =
-                double.tryParse(unitCostController.text.trim()) ?? 0;
+        ElevatedButton.icon(
+          onPressed: isSaving
+              ? null
+              : () async {
+                  final purpose = purposeController.text.trim();
+                  final selectedIds = lines.map((line) => line.itemId).toList();
+                  final duplicateItems = selectedIds.toSet().length !=
+                      selectedIds.length;
 
-            if (quantity == null || quantity <= 0) {
-              updateDialogState?.call(() {
-                errorMessage = 'Enter a quantity greater than zero.';
-              });
-              return;
-            }
+                  final inputs = <StockOutLineInput>[];
+                  for (final line in lines) {
+                    final quantity =
+                        double.tryParse(line.quantityController.text.trim());
+                    final conversion = double.tryParse(
+                      line.conversionController.text.trim(),
+                    );
+                    if (quantity == null ||
+                        quantity <= 0 ||
+                        conversion == null ||
+                        conversion <= 0) {
+                      updateDialogState?.call(() {
+                        errorMessage =
+                            'Every supply needs a quantity and a conversion greater than zero.';
+                      });
+                      return;
+                    }
 
-            if (movementType == 'MANUAL_IN' &&
-                item.trackExpiry &&
-                expirationDate == null) {
-              updateDialogState?.call(() {
-                errorMessage = 'Expiration date is required for this item.';
-              });
-              return;
-            }
+                    inputs.add(
+                      StockOutLineInput(
+                        inventoryItemId: line.itemId,
+                        issueUomId: line.unitId,
+                        issueQuantity: quantity,
+                        baseQuantityPerIssueUnit: conversion,
+                        notes: line.notesController.text,
+                      ),
+                    );
+                  }
 
-            try {
-              await widget.inventoryRepository.adjustStock(
-                inventoryItemId: item.id,
-                movementType: movementType,
-                quantity: quantity,
-                reason: reasonController.text.trim().isEmpty
-                    ? _movementLabel(movementType)
-                    : reasonController.text.trim(),
-                expirationDate: expirationDate,
-                unitCostBase: unitCost,
-              );
+                  if (purpose.isEmpty || duplicateItems) {
+                    updateDialogState?.call(() {
+                      errorMessage = purpose.isEmpty
+                          ? 'Enter the purpose or destination of this release.'
+                          : 'Each supply can appear only once in a stock-out transaction.';
+                    });
+                    return;
+                  }
 
-              if (!mounted) return;
-              Navigator.pop(context);
-              _refresh();
+                  updateDialogState?.call(() => isSaving = true);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Stock movement recorded.'),
-                ),
-              );
-            } on PostgrestException catch (error) {
-              updateDialogState?.call(() {
-                errorMessage = error.message;
-              });
-            } catch (error) {
-              updateDialogState?.call(() {
-                errorMessage = error.toString();
-              });
-            }
-          },
-          child: const Text('Save Movement'),
+                  try {
+                    await widget.inventoryRepository.createStockOut(
+                      purpose: purpose,
+                      items: inputs,
+                      referenceNumber: referenceController.text,
+                      notes: notesController.text,
+                    );
+
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    _refresh();
+                    _showMessage('Supply release posted successfully.');
+                  } on PostgrestException catch (error) {
+                    updateDialogState?.call(() {
+                      isSaving = false;
+                      errorMessage = error.message;
+                    });
+                  } catch (error) {
+                    updateDialogState?.call(() {
+                      isSaving = false;
+                      errorMessage = error.toString();
+                    });
+                  }
+                },
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Post Stock Out'),
         ),
       ],
     );
 
-    quantityController.dispose();
-    reasonController.dispose();
-    unitCostController.dispose();
+    purposeController.dispose();
+    referenceController.dispose();
+    notesController.dispose();
+    for (final line in lines) {
+      line.dispose();
+    }
+  }
+
+  Widget _buildStockOutLine({
+    required _StockOutDraftLine line,
+    required int index,
+    required List<InventoryItem> items,
+    required List<InventoryUnitOption> units,
+    required VoidCallback onChanged,
+    required VoidCallback? onRemove,
+  }) {
+    final selectedItem = items.firstWhere(
+      (item) => item.id == line.itemId,
+      orElse: () => items.first,
+    );
+    final baseUnit = units.firstWhere(
+      (unit) => unit.id == selectedItem.baseUomId,
+      orElse: () => units.first,
+    );
+    final compatibleUnits = units
+        .where((unit) => unit.dimension == baseUnit.dimension)
+        .toList();
+    final issueQuantity =
+        double.tryParse(line.quantityController.text.trim()) ?? 0;
+    final basePerUnit =
+        double.tryParse(line.conversionController.text.trim()) ?? 0;
+    final baseDeduction = issueQuantity * basePerUnit;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.gray100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gray200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: line.itemId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Supply ${index + 1} *',
+                  ),
+                  items: items
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item.id,
+                          child: Text(
+                            '${item.name} (${item.stock})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final item = items.firstWhere((item) => item.id == value);
+                    line.itemId = value;
+                    line.unitId = item.baseUomId;
+                    line.conversionController.text = '1';
+                    onChanged();
+                  },
+                ),
+              ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Remove supply',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final unit = DropdownButtonFormField<String>(
+                key: ValueKey('${line.itemId}-${line.unitId}'),
+                initialValue: line.unitId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Release Unit *'),
+                items: compatibleUnits
+                    .map(
+                      (unit) => DropdownMenuItem(
+                        value: unit.id,
+                        child: Text('${unit.name} (${unit.code})'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  line.unitId = value;
+                  if (value == selectedItem.baseUomId) {
+                    line.conversionController.text = '1';
+                  }
+                  onChanged();
+                },
+              );
+              final quantity = TextField(
+                controller: line.quantityController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Quantity *'),
+                onChanged: (_) => onChanged(),
+              );
+              final conversion = TextField(
+                controller: line.conversionController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: '${selectedItem.baseUomCode} per release unit *',
+                  helperText: 'Example: 50 pieces in one box',
+                ),
+                onChanged: (_) => onChanged(),
+              );
+
+              if (constraints.maxWidth < 650) {
+                return Column(
+                  children: [
+                    unit,
+                    const SizedBox(height: 10),
+                    quantity,
+                    const SizedBox(height: 10),
+                    conversion,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: unit),
+                  const SizedBox(width: 10),
+                  Expanded(child: quantity),
+                  const SizedBox(width: 10),
+                  Expanded(child: conversion),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Base stock deduction: '
+              '${_quantityWithUnit(baseDeduction, selectedItem.baseUomCode)}',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.gray700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: line.notesController,
+            decoration: const InputDecoration(
+              labelText: 'Line Notes',
+              hintText: 'Optional condition or handover note',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showAddItemDialog() async {
@@ -1350,6 +1553,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  String _movementReference(InventoryMovementRecord movement) {
+    final parts = <String>[];
+    if (movement.sourceDocumentNumber.isNotEmpty) {
+      parts.add(movement.sourceDocumentNumber);
+    }
+    if (movement.externalReferenceNumber.isNotEmpty) {
+      parts.add('Ref: ${movement.externalReferenceNumber}');
+    }
+    return parts.join(' • ');
+  }
+
   String _signedQuantity(double quantity, String unit) {
     final sign = quantity >= 0 ? '+' : '';
     return '$sign${_quantityWithUnit(quantity, unit)}';
@@ -1386,5 +1600,37 @@ class _InventoryScreenState extends State<InventoryScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+}
+
+class _StockOutDraftLine {
+  String itemId;
+  String unitId;
+  final TextEditingController quantityController;
+  final TextEditingController conversionController;
+  final TextEditingController notesController;
+
+  _StockOutDraftLine({
+    required this.itemId,
+    required this.unitId,
+    required this.quantityController,
+    required this.conversionController,
+    required this.notesController,
+  });
+
+  factory _StockOutDraftLine.fromItem(InventoryItem item) {
+    return _StockOutDraftLine(
+      itemId: item.id,
+      unitId: item.baseUomId,
+      quantityController: TextEditingController(text: '1'),
+      conversionController: TextEditingController(text: '1'),
+      notesController: TextEditingController(),
+    );
+  }
+
+  void dispose() {
+    quantityController.dispose();
+    conversionController.dispose();
+    notesController.dispose();
   }
 }

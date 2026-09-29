@@ -31,12 +31,12 @@ Run these tests against a non-production Supabase project before connecting the 
 - Inactive menu items/variants cannot be added.
 - Modifier price must come from modifiers.price_delta, not client input.
 
-## 4. Modifiers and inventory mode
+## 4. Menu inventory mode
 
-- A menu variant may be recipe-driven.
-- A menu variant may be finished-good inventory-driven.
-- A finished-good variant cannot also have a base recipe.
-- A recipe-driven variant cannot be switched to finished-goods mode until its recipe is removed.
+- A menu variant may be untracked or finished-good inventory-driven.
+- Recipe-driven mode and non-empty recipe payloads are rejected.
+- Modifiers may affect price but cannot configure ingredient deductions.
+- A finished-good mapping must point to an active tracked inventory item.
 
 ## 5. Discounts
 
@@ -63,6 +63,11 @@ Run these tests against a non-production Supabase project before connecting the 
 - Earliest expiration is consumed before later expiration.
 - Insufficient stock rolls back checkout when negative stock is disabled.
 - Failed checkout creates no payment and no stock movement.
+- One stock-out accepts multiple unique supply lines.
+- A package conversion deducts the correct base quantity.
+- Incompatible release and base-unit dimensions are rejected.
+- Insufficient stock rolls back the entire multi-line stock-out.
+- Each stock-out movement links to its header and line.
 
 ## 8. Checkout
 

@@ -32,15 +32,22 @@ These items should be confirmed with Street Bowl Café during/after the next dem
 - [ ] Confirm product variants and prices.
 - [ ] Confirm modifier/customization groups.
 - [ ] Confirm which modifiers change price.
-- [ ] Confirm which modifiers consume extra ingredients.
+- [x] Prepared-to-order products and modifiers do not trigger recipe-based ingredient deductions.
+- [x] The system does not require the café to disclose recipes.
+- [ ] Confirm which countable finished goods should deduct automatically per sale.
 
 ## Inventory
 
-- [ ] Confirm all tracked raw ingredients.
-- [ ] Confirm base units for each ingredient.
-- [ ] Confirm packaging materials that should be tracked.
+- [x] Untrackable ingredients are treated as expenses, not measured consumption.
+- [x] Inventory prioritizes countable supplies and countable finished goods.
+- [x] Stock-in supports one transaction with many supply lines.
+- [x] Stock-out supports one transaction with many supply lines.
+- [x] Package conversion is recorded (for example, one box equals 50 pieces).
+- [x] Perishable lots use FEFO.
+- [x] Every stock transaction is traceable to a source/reference and user.
+- [ ] Confirm the final list of packaging/countable supplies to track.
+- [ ] Confirm the package and base unit for each tracked supply.
 - [ ] Confirm finished goods that should deduct as one piece.
-- [ ] Confirm recipe quantity per menu variant.
 - [ ] Confirm low-stock/reorder thresholds.
 - [ ] Confirm expiry-tracked items.
 - [ ] Confirm whether negative stock is ever allowed.

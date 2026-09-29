@@ -32,11 +32,16 @@ Do not place SQL or direct database logic inside Flutter screens.
 - One café branch only.
 - The system may replace Loyverse if accepted by the business.
 - Tax registration is currently unknown.
-- Raw ingredients use real units such as grams, milliliters, kilograms, liters, and pieces.
+- Inventory tracks practical countable supplies and countable finished goods.
+- Untrackable ingredients and grocery purchases are recorded as expenses rather than measured after every use.
 - Menu items may have multiple variants.
 - Menu items and variants can opt in/out of inventory tracking.
-- Prepared menu variants can consume recipe ingredients automatically.
-- Modifiers may have an added price and may also consume inventory.
+- Prepared-to-order menu variants do not store recipes or automatically deduct ingredients.
+- Modifiers may change price but do not deduct ingredients.
+- A stock-in/goods receipt contains one or more supply lines.
+- A stock-out transaction contains one or more supply lines.
+- Purchase/release packaging uses an explicit conversion, such as one box equals 50 pieces.
+- Perishable stock is released by first-expire, first-out (FEFO).
 - Dine-in uses a typed table number; there is no table-reservation/floor-plan module.
 - No permanent customer master database is required.
 - Order records may keep customer/delivery information as transaction snapshots.
@@ -80,8 +85,9 @@ supabase/seed.sql
 ## Automated database tests
 
 The pgTAP regression tests in `supabase/tests/database/` cover cashier
-authorization, shift cash handling, POS checkout, FEFO inventory deduction,
-partial refunds with explicit restocking, and partial purchase-order receiving.
+authorization, shift cash handling, POS checkout, finished-good deduction,
+multi-item stock-out, packaging conversion, FEFO, partial refunds with explicit
+restocking, and partial purchase-order receiving.
 Every test runs inside a transaction and rolls back its isolated fixtures.
 
 From the repository root, run:
@@ -130,7 +136,7 @@ Manager-created staff accounts should eventually be provisioned through a truste
 
 - Money: `numeric(14,2)`
 - Inventory quantities: `numeric(14,4)`
-- Recipe quantities: `numeric(14,4)`
+- Packaging conversion quantities: `numeric(14,4)`
 
 Avoid floating-point types for currency.
 

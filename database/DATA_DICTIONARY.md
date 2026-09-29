@@ -25,8 +25,8 @@
 | `modifier_groups` | Customization groups such as Sugar Level or Add-ons. |
 | `modifiers` | Options such as Extra Shot. |
 | `menu_item_modifier_groups` | Which modifier groups apply to which menu items. |
-| `variant_recipe_components` | Inventory consumed by a variant. |
-| `modifier_recipe_components` | Extra inventory consumed by a modifier. |
+| `variant_recipe_components` | Legacy compatibility table; active recipe deductions are retired. |
+| `modifier_recipe_components` | Legacy compatibility table; active modifier recipe deductions are retired. |
 
 ## Orders and payments
 
@@ -52,6 +52,8 @@
 | `inventory_items` | Stock-controlled materials/products. |
 | `inventory_lots` | Received batches with cost and expiry. |
 | `stock_movements` | Permanent stock ledger. |
+| `stock_out_transactions` | Multi-item supply-release header with purpose, reference, user and date. |
+| `stock_out_items` | Supply lines and package-to-base-unit conversions for a stock-out. |
 | `stock_counts` | Physical count sessions. |
 | `stock_count_items` | Counted/system quantities and variances. |
 
@@ -73,7 +75,7 @@
 | Table | Purpose |
 |---|---|
 | `expense_categories` | Operating expense categories. |
-| `expenses` | Non-inventory operating/non-stock expenses. |
+| `expenses` | Non-inventory operating costs and untracked ingredient/grocery purchases, with supplier and receipt traceability. |
 | `tax_rates` | Configurable sales tax/VAT definitions. |
 | `payment_methods` | Cash, GCash, Maya, Card, Bank Transfer, Other. |
 | `invoice_sequences` | Controlled invoice number sequences. |
@@ -93,6 +95,7 @@ Human-facing numbers are separate fields such as:
 - `shift_number`
 - `purchase_order_number`
 - `receipt_number`
+- `stock_out_number`
 - `refund_number`
 
 ### Money

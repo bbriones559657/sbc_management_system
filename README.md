@@ -15,7 +15,7 @@ The proposed system aims to centralize café operations such as:
 - User management
 - Reports
 
-This project is currently intended for **business presentation, validation, and iterative improvement** before final database implementation.
+This project is currently intended for **business presentation, validation, and iterative improvement** with a Supabase-backed integration environment.
 
 ---
 
@@ -23,17 +23,12 @@ This project is currently intended for **business presentation, validation, and 
 
 The project is currently in the:
 
-**Functional UI Prototype / Database-Ready Architecture Stage**
+**Integrated Functional Prototype / Business-Validation Stage**
 
-The application currently uses sample/mock data.
-
-The following are not yet fully implemented:
-
-- Real database persistence
-- Backend API
-- Real authentication
-- Full role-based authorization
-- Production deployment
+The main application uses Supabase persistence, Auth, row-level security and
+permission-checked database functions. Mock repositories remain available for
+tests and isolated UI development. Production deployment and final regulatory
+validation are not complete.
 
 The purpose of the current version is to:
 
@@ -41,9 +36,8 @@ The purpose of the current version is to:
 - Validate the system with Street Bowl Café
 - Collect business feedback
 - Confirm required data before finalizing the ERD and database
-- Prepare the codebase for future database integration
-
-Mock data is acceptable at this stage.
+- Validate one-source-of-truth data across modules
+- Refine the integrated database before production use
 
 ---
 
@@ -87,7 +81,8 @@ May mainly access operational functions such as:
 - Processing payments
 - Viewing receipts
 
-Role-based restrictions are not fully implemented yet.
+Role-based navigation and server-side permission checks are implemented for the
+integrated prototype.
 
 ---
 
@@ -112,7 +107,8 @@ The prototype currently includes:
 - Restocking
 - Users
 
-Some features are interactive for prototype demonstration, while others currently display sample data only.
+Integrated modules read and write the same Supabase database through repository
+interfaces and transactional RPC functions.
 
 ---
 
@@ -141,7 +137,7 @@ Inventory
   ↓
 Item Details
   ↓
-Stock Movement
+Release Multiple Supplies / Manage Lots
 ```
 
 ### Supplier Flow
@@ -162,9 +158,7 @@ Expenses
 Add Expense
 ```
 
-The prototype does not need to permanently save data yet.
-
-Refreshing or restarting the application may reset prototype data.
+Tracked data persists in Supabase when valid runtime configuration is supplied.
 
 ---
 
@@ -218,24 +212,14 @@ Repository Implementation
 Mock Data / Future API
 ```
 
-Current prototype:
+Integrated prototype:
 
 ```text
 Screen
   ↓
-Repository
+Repository Interface
   ↓
-MockData
-```
-
-Future implementation:
-
-```text
-Screen
-  ↓
-Repository
-  ↓
-API / Backend
+Supabase Repository
   ↓
 Database
 ```
@@ -278,29 +262,34 @@ lib/core/theme/
 
 Current priorities include:
 
-1. Complete repository migration
-2. Improve major prototype workflows
-3. Maintain consistency with Figma
-4. Keep modules organized and reusable
-5. Prepare for business validation
-6. Finalize requirements and ERD after validation
-7. Integrate a real database later
+1. Validate consultation-aligned inventory and expense workflows
+2. Replace development master data with verified café data
+3. Maintain consistency with the approved design system
+4. Complete regression, security and user-acceptance testing
+5. Finalize fiscal, printer and offline requirements
 
 ---
 
 ## Database Status
 
-The final database design has not yet been finalized.
+The Supabase schema and Flutter repositories are integrated. The current
+consultation-aligned rules are:
 
-The project may prepare:
+- one goods receipt may contain many received supplies;
+- one stock-out may contain many released supplies;
+- package conversions are explicit (for example, one box = 50 pieces);
+- perishable lots use FEFO;
+- untrackable ingredients/grocery purchases are expenses;
+- prepared-to-order sales do not deduct recipe ingredients;
+- countable finished goods may deduct automatically when sold.
 
-- Repository interfaces
-- Mock repositories
-- Database-friendly model IDs
-- CRUD method contracts
-- Cleaner separation between UI and data
+Run the application with both required compile-time values:
 
-Real database integration should wait until business validation and ERD refinement are complete.
+```bash
+flutter run -d chrome \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
+```
 
 ---
 

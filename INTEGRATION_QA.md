@@ -1,6 +1,6 @@
 # Full-System Integration QA
 
-Branch: `brian/full-system-integration`
+Branch: `brian/inventory-consultation-alignment`
 
 This document tracks integration work and rollback-based database regression checks. It is not a claim that the application is production-ready.
 
@@ -9,9 +9,9 @@ This document tracks integration work and rollback-based database regression che
 - Supabase Auth and role-aware navigation
 - Dashboard with live daily sales/order/refund/expense metrics
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
-- Inventory with lots, expiry tracking, FEFO consumption, manual movements and lot-specific disposal
-- Menu management with variants, finished-good mappings, recipe mappings and modifiers
-- Expenses with create/update/void workflow
+- Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
+- Menu management with variants, countable finished-good mappings and modifiers; recipe deduction is retired
+- Expenses with date, supplier/grocery, purpose, amount, reference, notes and create/update/void workflow
 - Suppliers with live Supabase records
 - Purchasing with purchase orders, approval, partial receiving, goods receipts and supplier bills
 - Sales & Finance with reporting data and supplier bill payments
@@ -20,8 +20,9 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The automated pgTAP suite contains 57 assertions. Each scenario creates isolated
-fixtures inside a transaction and rolls them back. Run it with:
+The automated pgTAP suite includes 12 consultation-alignment assertions in
+addition to the existing integration regression suite. Each scenario creates
+isolated fixtures inside a transaction and rolls them back. Run it with:
 
 ```bash
 supabase start
@@ -35,8 +36,8 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Finished-good availability is exposed to POS.
 - POS rejects quantity above available finished stock.
 - Checkout deducts finished goods.
-- Recipe-driven variants calculate availability from the limiting ingredient.
-- Recipe checkout deducts the configured ingredient quantities.
+- Prepared-to-order variants do not deduct ingredients.
+- Recipe inventory mode is rejected by the database API.
 - Required modifier rules are enforced.
 - Server-side pricing remains authoritative.
 - Underpayment is rejected.
@@ -60,6 +61,15 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Remaining purchase quantity is calculated from posted receipts only.
 - Over-receiving a purchase-order line is rejected.
 - Receiving the exact remainder transitions the purchase order to `RECEIVED`.
+
+### Practical inventory release
+
+- One stock-out document accepts multiple supplies.
+- Package-to-base-unit conversion is stored and applied.
+- Earliest-expiring usable stock is released first.
+- Insufficient stock rolls back the entire transaction.
+- Movement rows link back to the stock-out line and header.
+- Item history exposes readable source document and receipt/reference values.
 
 ### Shifts and cash
 
@@ -98,16 +108,17 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 
 The schema contains Senior and PWD discount definitions, but the POS intentionally does not expose them yet. Philippine tax/VAT handling depends on the café's actual registration and applicable current rules. Do not enable these discounts until that configuration is verified.
 
-### Real menu and recipes
+### Real menu and practical inventory masters
 
 Development products and inventory are placeholders for integration testing. Before deployment:
 
 - replace seed menu products with Street Bowl Café's real menu;
 - configure actual sizes/variants and prices;
-- configure actual ingredient quantities and wastage;
 - link finished goods to their correct inventory records;
 - configure real modifiers/add-ons;
-- configure supplier-item mappings and purchase units.
+- configure supplier-item mappings, purchase/release units and package conversions;
+- identify the final countable supplies and finished goods;
+- record untracked ingredient/grocery purchases through Expenses.
 
 ### Production settings
 
