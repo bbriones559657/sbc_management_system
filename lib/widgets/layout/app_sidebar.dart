@@ -50,9 +50,7 @@ class _AppSidebarState extends State<AppSidebar> {
     super.didUpdateWidget(oldWidget);
 
     final availableGroups = widget.groups.map((group) => group.label).toSet();
-    _expandedGroups.removeWhere(
-      (label, _) => !availableGroups.contains(label),
-    );
+    _expandedGroups.removeWhere((label, _) => !availableGroups.contains(label));
 
     for (final group in widget.groups) {
       _expandedGroups.putIfAbsent(
@@ -97,9 +95,11 @@ class _AppSidebarState extends State<AppSidebar> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 12),
       children: [
-        for (int groupIndex = 0;
-            groupIndex < widget.groups.length;
-            groupIndex++) ...[
+        for (
+          int groupIndex = 0;
+          groupIndex < widget.groups.length;
+          groupIndex++
+        ) ...[
           if (groupIndex > 0)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
@@ -121,9 +121,7 @@ class _AppSidebarState extends State<AppSidebar> {
   Widget _buildGroupedNavigation() {
     return ListView(
       padding: const EdgeInsets.only(bottom: 12),
-      children: [
-        for (final group in widget.groups) _buildGroup(group),
-      ],
+      children: [for (final group in widget.groups) _buildGroup(group)],
     );
   }
 
@@ -208,11 +206,7 @@ class _SidebarBrand extends StatelessWidget {
             child: CircleAvatar(
               radius: 20,
               backgroundColor: AppColors.primary,
-              child: Icon(
-                Icons.restaurant,
-                size: 20,
-                color: AppColors.white,
-              ),
+              child: Icon(Icons.restaurant, size: 20, color: AppColors.white),
             ),
           ),
         ),
@@ -314,7 +308,11 @@ class _SidebarGroupHeader extends StatelessWidget {
                 AnimatedRotation(
                   turns: expanded ? .5 : 0,
                   duration: const Duration(milliseconds: 180),
-                  child: Icon(Icons.keyboard_arrow_down, size: 19, color: color),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 19,
+                    color: color,
+                  ),
                 ),
                 const SizedBox(width: 4),
               ],
