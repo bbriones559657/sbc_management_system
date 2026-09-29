@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sbc_management_system/data/repositories/mock_inventory_repository.dart';
+import 'package:sbc_management_system/models/inventory_item.dart';
 import 'package:sbc_management_system/models/inventory_reference.dart';
 
 void main() {
@@ -61,5 +62,36 @@ void main() {
     final repository = MockInventoryRepository();
 
     expect(await repository.getAllRecentMovements(), isEmpty);
+  });
+
+  test('inventory item separates usable, expired, and on-hand stock', () {
+    final item = InventoryItem.fromMap({
+      'inventory_item_id': 'cake',
+      'name': 'Chocolate Cake',
+      'category_name': 'Finished Goods',
+      'base_uom_code': 'pc',
+      'current_quantity': 6,
+      'usable_quantity': 3,
+      'expired_quantity': 3,
+      'reorder_level': 1,
+      'next_expiration_date': '2026-10-02',
+    });
+
+    expect(item.stock, '6 pc');
+    expect(item.usableStock, '3 pc');
+    expect(item.expiredStock, '3 pc');
+    expect(item.status, 'Expired');
+  });
+
+  test('inventory units expose standard conversion factors', () {
+    final unit = InventoryUnitOption.fromMap({
+      'id': 'kg',
+      'code': 'kg',
+      'name': 'Kilogram',
+      'dimension': 'MASS',
+      'factor_to_dimension_base': 1000,
+    });
+
+    expect(unit.factorToDimensionBase, 1000);
   });
 }

@@ -30,7 +30,7 @@ class SupabaseReportingRepository implements ReportingRepository {
       _client
           .from('v_inventory_catalog')
           .select(
-            'inventory_item_id, current_quantity, reorder_level, next_expiration_date',
+            'inventory_item_id, usable_quantity, reorder_level, next_expiration_date',
           ),
       _client
           .from('v_product_sales')
@@ -76,7 +76,7 @@ class SupabaseReportingRepository implements ReportingRepository {
       itemCount += 1;
 
       final quantity =
-          (row['current_quantity'] as num?)?.toDouble() ?? 0;
+          (row['usable_quantity'] as num?)?.toDouble() ?? 0;
       final reorder =
           (row['reorder_level'] as num?)?.toDouble() ?? 0;
 

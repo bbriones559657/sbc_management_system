@@ -194,7 +194,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       headers: const [
         'Item',
         'Category',
-        'Stock',
+        'Availability',
         'Reorder Level',
         'Next Expiry',
         'Status',
@@ -220,7 +220,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
               ),
               Text(item.category, style: AppTextStyles.body),
-              Text(item.stock, style: AppTextStyles.bodyMedium),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Usable: ${item.usableStock}',
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                  Text(
+                    'On hand: ${item.stock}',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+                  if (item.expiredQuantity > 0)
+                    Text(
+                      'Expired: ${item.expiredStock}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                ],
+              ),
               Text(
                 _quantityWithUnit(item.reorderLevel, item.baseUomCode),
                 style: AppTextStyles.body,
@@ -440,7 +461,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             const SizedBox(height: 16),
             _detailRow('Category', latest.category),
-            _detailRow('Current Stock', latest.stock),
+            _detailRow('Usable Stock', latest.usableStock),
+            _detailRow('Expired Stock', latest.expiredStock),
+            _detailRow('Total On Hand', latest.stock),
             _detailRow(
               'Reorder Level',
               _quantityWithUnit(latest.reorderLevel, latest.baseUomCode),
@@ -449,7 +472,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               'Expiry Tracking',
               latest.trackExpiry ? 'Enabled' : 'Disabled',
             ),
-            _detailRow('Next Expiration', latest.expiration),
+            _detailRow('Next Usable Expiration', latest.expiration),
             const Divider(height: 28),
             const Text('Recent Stock Movements', style: AppTextStyles.h3),
             const SizedBox(height: 10),
@@ -809,16 +832,27 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (!mounted) return;
 
     final items = (results[0] as List<InventoryItem>)
-        .where((item) => item.currentQuantity > 0)
+        .where((item) => item.usableQuantity > 0)
         .toList();
     final units = results[1] as List<InventoryUnitOption>;
 
     if (items.isEmpty || units.isEmpty) {
-      _showMessage('No available inventory items or release units found.');
+      _showMessage(
+        'No usable supplies are available. Expired stock must be recorded '
+        'through Manage Lots and Dispose.',
+      );
       return;
     }
 
-    final purposeController = TextEditingController();
+    const purposeOptions = [
+      'Released to service counter',
+      'Operational use',
+      'Complimentary',
+      'Staff use',
+      'Other',
+    ];
+    String selectedPurpose = purposeOptions.first;
+    final otherPurposeController = TextEditingController();
     final referenceController = TextEditingController();
     final notesController = TextEditingController();
     final lines = <_StockOutDraftLine>[
@@ -851,13 +885,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: purposeController,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedPurpose,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Purpose / Destination *',
-                      hintText: 'e.g. Counter supplies for morning shift',
                     ),
+                    items: purposeOptions
+                        .map(
+                          (purpose) => DropdownMenuItem(
+                            value: purpose,
+                            child: Text(purpose),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        selectedPurpose = value;
+                        errorMessage = null;
+                      });
+                    },
                   ),
+                  if (selectedPurpose == 'Other') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: otherPurposeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Other Purpose / Destination *',
+                        hintText: 'Describe where or why supplies were released',
+                      ),
+                      onChanged: (_) => setDialogState(() {
+                        errorMessage = null;
+                      }),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: referenceController,
@@ -943,25 +1005,40 @@ class _InventoryScreenState extends State<InventoryScreen> {
           onPressed: () async {
             if (isSaving) return;
 
-            final purpose = purposeController.text.trim();
+            final purpose = selectedPurpose == 'Other'
+                ? otherPurposeController.text.trim()
+                : selectedPurpose;
             final selectedIds = lines.map((line) => line.itemId).toList();
             final duplicateItems =
                 selectedIds.toSet().length != selectedIds.length;
 
             final inputs = <StockOutLineInput>[];
             for (final line in lines) {
+              final selectedItem = items.firstWhere(
+                (item) => item.id == line.itemId,
+              );
               final quantity = double.tryParse(
                 line.quantityController.text.trim(),
               );
-              final conversion = double.tryParse(
-                line.conversionController.text.trim(),
-              );
+              final conversion = line.unitId == selectedItem.baseUomId
+                  ? 1.0
+                  : double.tryParse(line.conversionController.text.trim());
               if (quantity == null ||
                   quantity <= 0 ||
                   conversion == null ||
                   conversion <= 0) {
                 updateDialogState?.call(() {
-                  errorMessage = 'Every supply needs a quantity and a conversion greater than zero.';
+                  errorMessage =
+                      'Every supply needs a quantity and a conversion greater than zero.';
+                });
+                return;
+              }
+
+              final deduction = quantity * conversion;
+              if (deduction > selectedItem.usableQuantity) {
+                updateDialogState?.call(() {
+                  errorMessage = '${selectedItem.name} only has '
+                      '${selectedItem.usableStock} of usable stock.';
                 });
                 return;
               }
@@ -1018,7 +1095,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ],
     );
 
-    purposeController.dispose();
+    otherPurposeController.dispose();
     referenceController.dispose();
     notesController.dispose();
     for (final line in lines) {
@@ -1045,6 +1122,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final compatibleUnits = units
         .where((unit) => unit.dimension == baseUnit.dimension)
         .toList();
+    final selectedUnit = compatibleUnits.firstWhere(
+      (unit) => unit.id == line.unitId,
+      orElse: () => baseUnit,
+    );
+    final usesBaseUnit = selectedUnit.id == baseUnit.id;
+    final needsPackageSize =
+        !usesBaseUnit && _isVariablePackageUnit(selectedUnit);
     final issueQuantity =
         double.tryParse(line.quantityController.text.trim()) ?? 0;
     final basePerUnit =
@@ -1074,7 +1158,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         (item) => DropdownMenuItem(
                           value: item.id,
                           child: Text(
-                            '${item.name} (${item.stock})',
+                            '${item.name} (${item.usableStock} usable)',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1118,9 +1202,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
+                  final issueUnit = compatibleUnits.firstWhere(
+                    (unit) => unit.id == value,
+                  );
                   line.unitId = value;
-                  if (value == selectedItem.baseUomId) {
+                  if (value == baseUnit.id) {
                     line.conversionController.text = '1';
+                  } else if (_isVariablePackageUnit(issueUnit)) {
+                    line.conversionController.clear();
+                  } else {
+                    line.conversionController.text = _plainNumber(
+                      issueUnit.factorToDimensionBase /
+                          baseUnit.factorToDimensionBase,
+                    );
                   }
                   onChanged();
                 },
@@ -1133,17 +1227,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 decoration: const InputDecoration(labelText: 'Quantity *'),
                 onChanged: (_) => onChanged(),
               );
-              final conversion = TextField(
-                controller: line.conversionController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: '${selectedItem.baseUomCode} per release unit *',
-                  helperText: 'Example: 50 pieces in one box',
-                ),
-                onChanged: (_) => onChanged(),
-              );
+              final conversion = usesBaseUnit
+                  ? null
+                  : TextField(
+                      controller: line.conversionController,
+                      readOnly: !needsPackageSize,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: '${selectedItem.baseUomCode} in one '
+                            '${selectedUnit.name.toLowerCase()} *',
+                        helperText: needsPackageSize
+                            ? 'Example: enter 50 when one '
+                                '${selectedUnit.name.toLowerCase()} contains '
+                                '50 ${selectedItem.baseUomCode}'
+                            : 'Calculated automatically from the selected units',
+                      ),
+                      onChanged: (_) => onChanged(),
+                    );
 
               if (constraints.maxWidth < 650) {
                 return Column(
@@ -1151,8 +1253,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     unit,
                     const SizedBox(height: 10),
                     quantity,
-                    const SizedBox(height: 10),
-                    conversion,
+                    if (conversion != null) ...[
+                      const SizedBox(height: 10),
+                      conversion,
+                    ],
                   ],
                 );
               }
@@ -1163,8 +1267,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Expanded(child: unit),
                   const SizedBox(width: 10),
                   Expanded(child: quantity),
-                  const SizedBox(width: 10),
-                  Expanded(child: conversion),
+                  if (conversion != null) ...[
+                    const SizedBox(width: 10),
+                    Expanded(child: conversion),
+                  ],
                 ],
               );
             },
@@ -1516,11 +1622,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   String _quantityWithUnit(double quantity, String unit) {
-    final value = quantity == quantity.roundToDouble()
-        ? quantity.toInt().toString()
-        : quantity.toStringAsFixed(2);
+    final value = _plainNumber(quantity);
 
     return unit.isEmpty ? value : '$value $unit';
+  }
+
+  bool _isVariablePackageUnit(InventoryUnitOption unit) {
+    final code = unit.code.toLowerCase();
+    return code == 'box' || code == 'pack';
+  }
+
+  String _plainNumber(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+
+    return value
+        .toStringAsFixed(4)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 
   String _formatDate(DateTime date) {

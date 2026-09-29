@@ -62,7 +62,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
   Future<List<InventoryUnitOption>> getUnits() async {
     final rows = await _client
         .from('units_of_measure')
-        .select('id, code, name, dimension')
+        .select('id, code, name, dimension, factor_to_dimension_base')
         .eq('is_active', true)
         .order('dimension')
         .order('factor_to_dimension_base');

@@ -1,6 +1,6 @@
 # Full-System Integration QA
 
-Branch: `brian/inventory-consultation-alignment`
+Branch: `brian/inventory-workflow-navigation`
 
 This document tracks integration work and rollback-based database regression checks. It is not a claim that the application is production-ready.
 
@@ -10,6 +10,7 @@ This document tracks integration work and rollback-based database regression che
 - Dashboard with live daily sales/order/refund/expense metrics
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
 - Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
+- Separate on-hand, usable and expired quantities, with expired lots excluded from release and POS availability
 - Menu management with variants, countable finished-good mappings and modifiers; recipe deduction is retired
 - Expenses with date, supplier/grocery, purpose, amount, reference, notes and create/update/void workflow
 - Suppliers with live Supabase records
@@ -20,7 +21,7 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 12 consultation-alignment assertions in
+The automated pgTAP suite includes 20 consultation-alignment assertions in
 addition to the existing integration regression suite. Each scenario creates
 isolated fixtures inside a transaction and rolls them back. Run it with:
 
@@ -66,7 +67,11 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 
 - One stock-out document accepts multiple supplies.
 - Package-to-base-unit conversion is stored and applied.
+- Standard unit conversions are calculated automatically; variable box and pack sizes are entered per release.
 - Earliest-expiring usable stock is released first.
+- Expired lots remain visible on hand until disposal but are excluded from usable stock.
+- POS availability, release validation and low-stock reporting use usable stock.
+- Sale consumption never takes quantity from an expired lot.
 - Insufficient stock rolls back the entire transaction.
 - Movement rows link back to the stock-out line and header.
 - Item history exposes readable source document and receipt/reference values.

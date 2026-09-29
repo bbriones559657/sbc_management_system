@@ -58,9 +58,14 @@ Run these tests against a non-production Supabase project before connecting the 
 ## 7. Inventory ledger and FEFO
 
 - v_inventory_stock.current_quantity equals the sum of stock movement deltas.
+- v_inventory_stock.usable_quantity excludes expired lots.
+- v_inventory_stock.expired_quantity reports expired stock that still needs disposal.
+- v_low_stock compares the reorder level against usable quantity.
 - MANUAL_IN creates a lot and positive movement.
 - WASTE/DAMAGED/EXPIRED/MANUAL_OUT consumes available lots.
 - Earliest expiration is consumed before later expiration.
+- Stock-out and checkout never consume an expired lot.
+- POS availability uses usable quantity rather than total on-hand quantity.
 - Insufficient stock rolls back checkout when negative stock is disabled.
 - Failed checkout creates no payment and no stock movement.
 - One stock-out accepts multiple unique supply lines.

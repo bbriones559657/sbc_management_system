@@ -20,12 +20,14 @@ class InventoryUnitOption {
   final String code;
   final String name;
   final String dimension;
+  final double factorToDimensionBase;
 
   const InventoryUnitOption({
     required this.id,
     required this.code,
     required this.name,
     required this.dimension,
+    this.factorToDimensionBase = 1,
   });
 
   factory InventoryUnitOption.fromMap(Map<String, dynamic> map) {
@@ -34,6 +36,8 @@ class InventoryUnitOption {
       code: map['code']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
       dimension: map['dimension']?.toString() ?? '',
+      factorToDimensionBase:
+          (map['factor_to_dimension_base'] as num?)?.toDouble() ?? 1,
     );
   }
 }

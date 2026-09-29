@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(20);
 
 insert into auth.users (id, email)
 values (
@@ -85,6 +85,42 @@ values
     '30000000-0000-0000-0000-000000000022',
     'CAKE-LATER', now(), current_date + 5,
     2, 2, 80
+  ),
+  (
+    '30000000-0000-0000-0000-000000000034',
+    '30000000-0000-0000-0000-000000000022',
+    'CAKE-EXPIRED', now() - interval '10 days', current_date - 1,
+    3, 3, 80
+  );
+
+insert into public.stock_movements (
+  inventory_item_id, inventory_lot_id, movement_type, quantity_delta,
+  unit_cost_base, reference_type, recorded_by
+)
+values
+  (
+    '30000000-0000-0000-0000-000000000021',
+    '30000000-0000-0000-0000-000000000031',
+    'MANUAL_IN', 100, 2, 'DATABASE_TEST',
+    '30000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '30000000-0000-0000-0000-000000000022',
+    '30000000-0000-0000-0000-000000000032',
+    'MANUAL_IN', 2, 80, 'DATABASE_TEST',
+    '30000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '30000000-0000-0000-0000-000000000022',
+    '30000000-0000-0000-0000-000000000033',
+    'MANUAL_IN', 2, 80, 'DATABASE_TEST',
+    '30000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '30000000-0000-0000-0000-000000000022',
+    '30000000-0000-0000-0000-000000000034',
+    'MANUAL_IN', 3, 80, 'DATABASE_TEST',
+    '30000000-0000-0000-0000-000000000001'
   );
 
 insert into public.menu_categories (id, name, sort_order)
@@ -102,15 +138,21 @@ values (
 );
 
 insert into public.menu_variants (
-  id, menu_item_id, name, price, is_default
+  id, menu_item_id, name, price, is_default,
+  track_finished_inventory, finished_inventory_item_id
 )
-values (
-  '30000000-0000-0000-0000-000000000042',
-  '30000000-0000-0000-0000-000000000041',
-  'Regular',
-  100,
-  true
-);
+values
+  (
+    '30000000-0000-0000-0000-000000000042',
+    '30000000-0000-0000-0000-000000000041',
+    'Regular', 100, true, false, null
+  ),
+  (
+    '30000000-0000-0000-0000-000000000043',
+    '30000000-0000-0000-0000-000000000041',
+    'Packaged Cake', 120, false, true,
+    '30000000-0000-0000-0000-000000000022'
+  );
 
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
@@ -172,6 +214,95 @@ select is(
   2::numeric,
   'the later cake lot remains untouched'
 );
+
+select is(
+  (
+    select current_quantity
+    from public.v_inventory_stock
+    where inventory_item_id = '30000000-0000-0000-0000-000000000022'
+  ),
+  6::numeric,
+  'on-hand stock still includes an expired lot until disposal'
+);
+
+select is(
+  (
+    select usable_quantity
+    from public.v_inventory_stock
+    where inventory_item_id = '30000000-0000-0000-0000-000000000022'
+  ),
+  3::numeric,
+  'usable stock excludes the expired cake lot'
+);
+
+select is(
+  (
+    select expired_quantity
+    from public.v_inventory_stock
+    where inventory_item_id = '30000000-0000-0000-0000-000000000022'
+  ),
+  3::numeric,
+  'expired stock is reported separately'
+);
+
+select is(
+  (
+    select next_expiration_date
+    from public.v_inventory_catalog
+    where inventory_item_id = '30000000-0000-0000-0000-000000000022'
+  ),
+  current_date + 2,
+  'the inventory catalog reports the next usable expiration date'
+);
+
+select is(
+  (
+    select available_quantity
+    from public.v_pos_menu
+    where variant_id = '30000000-0000-0000-0000-000000000043'
+  ),
+  3::numeric,
+  'POS availability uses usable rather than total on-hand stock'
+);
+
+reset role;
+
+select lives_ok(
+  $test$
+    select public.consume_inventory_fefo(
+      '30000000-0000-0000-0000-000000000022',
+      1,
+      null,
+      null,
+      '30000000-0000-0000-0000-000000000001'
+    )
+  $test$,
+  'sale consumption can use the remaining unexpired cake stock'
+);
+
+select is(
+  (
+    select remaining_quantity
+    from public.inventory_lots
+    where id = '30000000-0000-0000-0000-000000000034'
+  ),
+  3::numeric,
+  'sale consumption leaves the expired lot untouched'
+);
+
+select is(
+  (
+    select usable_quantity
+    from public.v_inventory_stock
+    where inventory_item_id = '30000000-0000-0000-0000-000000000022'
+  ),
+  2::numeric,
+  'usable availability decreases after FEFO sale consumption'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '30000000-0000-0000-0000-000000000001';
 
 select is(
   (
