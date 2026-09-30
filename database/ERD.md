@@ -1,6 +1,20 @@
 # Street Bowl Café ERD
 
-This is the logical ERD for the database package.
+This is the logical ERD for the database package. A presentation-ready
+draw.io version is available in [`ERD.drawio`](ERD.drawio).
+
+## Crow's-foot cardinality legend
+
+| Symbol | Meaning |
+|---|---|
+| `||` | Exactly one (mandatory) |
+| `o|` | Zero or one (optional) |
+| `|{` | One or many (mandatory many) |
+| `o{` | Zero or many (optional many) |
+
+Read both ends of every relationship. For example,
+`SUPPLIERS ||--o{ GOODS_RECEIPTS` means that each goods receipt must reference
+exactly one supplier, while one supplier may have zero or many goods receipts.
 
 ```mermaid
 erDiagram
@@ -29,11 +43,13 @@ erDiagram
 
     SUPPLIERS ||--o{ SUPPLIER_ITEMS : supplies
     INVENTORY_ITEMS ||--o{ SUPPLIER_ITEMS : sourced_as
-    SUPPLIERS ||--o{ PURCHASE_ORDERS : receives
+    SUPPLIERS ||--o{ PURCHASE_ORDERS : "receives orders"
     PURCHASE_ORDERS ||--o{ PURCHASE_ORDER_ITEMS : contains
-    PURCHASE_ORDERS ||--o{ GOODS_RECEIPTS : fulfilled_by
+    SUPPLIERS ||--o{ GOODS_RECEIPTS : "fulfills receipts"
+    PURCHASE_ORDERS o|--o{ GOODS_RECEIPTS : "may be referenced by"
     GOODS_RECEIPTS ||--o{ GOODS_RECEIPT_ITEMS : contains
-    GOODS_RECEIPT_ITEMS ||--o| INVENTORY_LOTS : creates
+    PURCHASE_ORDER_ITEMS o|--o{ GOODS_RECEIPT_ITEMS : "may be received as"
+    GOODS_RECEIPT_ITEMS o|--o| INVENTORY_LOTS : "may create"
     PROFILES ||--o{ STOCK_OUT_TRANSACTIONS : records
     STOCK_OUT_TRANSACTIONS ||--|{ STOCK_OUT_ITEMS : contains
     INVENTORY_ITEMS ||--o{ STOCK_OUT_ITEMS : releases
@@ -46,6 +62,7 @@ erDiagram
     DEVICES ||--o{ ORDERS : entered_on
     ORDERS ||--o{ ORDER_ITEMS : contains
     MENU_VARIANTS ||--o{ ORDER_ITEMS : sold_as
+    INVENTORY_ITEMS o|--o{ MENU_VARIANTS : "may fulfill sales of"
     ORDER_ITEMS ||--o{ ORDER_ITEM_MODIFIERS : customized_by
     MODIFIERS ||--o{ ORDER_ITEM_MODIFIERS : selected
 
@@ -76,6 +93,30 @@ erDiagram
     INVENTORY_ITEMS ||--o{ STOCK_COUNT_ITEMS : counted
     STOCK_COUNTS ||--o{ STOCK_COUNT_ITEMS : contains
 ```
+
+## Relationship verb pairs
+
+Use these forward and reverse verbs when explaining the ERD. They make each
+relationship understandable from either entity.
+
+| Entity A | Forward verb | Entity B | Reverse verb |
+|---|---|---|---|
+| Profile / User | processes | Order | is processed by |
+| Order | contains | Order Item | belongs to |
+| Order | receives | Payment | settles |
+| Order | has | Refund | reverses |
+| Menu Variant | is sold as | Order Item | identifies |
+| Supplier | fulfills | Goods Receipt | is fulfilled by |
+| Goods Receipt | contains | Goods Receipt Item | belongs to |
+| Goods Receipt Item | creates | Inventory Lot | is created from |
+| Inventory Item | has | Inventory Lot | belongs to |
+| Stock-out Transaction | contains | Stock-out Item | belongs to |
+| Stock Count | contains | Stock Count Item | belongs to |
+| Supplier | is referenced by | Expense | is paid to |
+
+Optional relationships use “may” in the diagram because the related record is
+not always required. For example, a direct goods receipt may exist without a
+purchase order, and a menu variant may exist without a finished inventory item.
 
 ## Core design choices
 

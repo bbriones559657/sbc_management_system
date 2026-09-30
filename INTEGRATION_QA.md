@@ -30,6 +30,8 @@ This document tracks integration work and rollback-based database regression che
 - Management transaction traceability across sales, refunds, inventory,
   purchasing, expenses and supplier payments
 - Users with role/status management and the protected `create-employee` Edge Function
+- Optional repeatable presentation master data, an editable crow's-foot ERD and
+  an end-to-end live demonstration walkthrough
 
 ## Regression checks completed
 
@@ -44,6 +46,11 @@ supabase test db
 ```
 
 Database CI runs the same suite for integration-branch pushes and pull requests.
+
+The final Phase 10 regression test runs the optional presentation seed twice,
+checks its supplier, package-conversion, menu and modifier masters, and confirms
+that it neither reintroduces recipe deductions nor fabricates inventory lots or
+stock movements.
 
 ### POS and inventory
 

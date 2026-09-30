@@ -82,13 +82,27 @@ supabase/seed.sql
 
 `seed.sql` contains reference/master data only. It does not create an Auth user.
 
+For a presentation environment, optionally run `supabase/demo_seed.sql` after
+the base seed. It is safe to rerun and adds realistic master data only. Create
+the actual receipts, stock releases, expenses and sales through the application
+using [`DEMO_WALKTHROUGH.md`](DEMO_WALKTHROUGH.md).
+
+Presentation resources:
+
+- [`ERD.md`](ERD.md) — complete logical ERD and cardinality explanation;
+- [`ERD.drawio`](ERD.drawio) — editable core ERD for diagrams.net/draw.io;
+- [`DEMO_WALKTHROUGH.md`](DEMO_WALKTHROUGH.md) — 8–12 minute integrated demo;
+- [`PRESENTATION_CHECKLIST.md`](PRESENTATION_CHECKLIST.md) — rehearsal and recovery checklist.
+
 ## Automated database tests
 
 The pgTAP regression tests in `supabase/tests/database/` cover cashier
 authorization, shift cash handling, POS checkout, finished-good deduction,
 multi-item stock-out, packaging conversion, FEFO, partial refunds with explicit
 restocking, partial purchase-order receiving, transaction traceability and API
-security boundaries. Security checks include anonymous-access denial, RLS on
+security boundaries. The suite also proves that the optional presentation seed
+is repeatable, preserves the no-recipe rule and does not fabricate transaction
+history. Security checks include anonymous-access denial, RLS on
 public tables, invoker-security views, protected helper functions and explicit
 Flutter RPC grants.
 Every test runs inside a transaction and rolls back its isolated fixtures.

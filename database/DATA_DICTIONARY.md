@@ -87,6 +87,22 @@
 
 | View | Purpose |
 |---|---|
+| `v_pos_menu` | Active sellable variants, authoritative price and practical finished-good availability for POS. |
+| `v_pos_modifiers` | Active modifier groups/options and their selection rules for POS. |
+| `v_menu_management` | Menu, variant and finished-good mapping data for management screens. |
+| `v_inventory_stock` | On-hand inventory calculated from the permanent stock ledger. |
+| `v_inventory_catalog` | Inventory master data with on-hand, usable and expired quantities for application screens. |
+| `v_inventory_lots` | Per-lot remaining quantity, expiration and availability information. |
+| `v_low_stock` | Tracked items whose usable quantity is at or below the reorder level. |
+| `v_inventory_movement_history` | Per-item movement history with readable source documents and external references. |
+| `v_stock_out_summary` | Multi-item stock-out headers with responsible employee and line totals. |
+| `v_stock_count_summary` | Physical count headers with line and variance counts. |
+| `v_purchase_order_summary` | Purchase-order status and amount summary. |
+| `v_purchase_order_lines_remaining` | Ordered, received and remaining purchase quantities per PO line. |
+| `v_goods_receipt_summary` | Goods receipt header, supplier, receipt reference and posting summary. |
+| `v_goods_receipt_line_details` | Received package quantity, conversion, base quantity and resulting lot balance. |
+| `v_user_management` | Employee profile, role and account status for authorized administrators. |
+| `v_daily_sales` | Daily completed sales totals. |
 | `v_product_sales_daily` | Daily product-level gross sold, refunded and net quantities and sales, using the café's Manila business date. |
 | `v_business_transaction_trace` | Management-only chronological trace across sales, refunds, goods receipts, stock-outs, physical counts, expenses and supplier payments. |
 
@@ -128,3 +144,15 @@ archived_at
 ```
 
 Historical transactional records should not normally be deleted.
+
+## Seed data conventions
+
+`supabase/seed.sql` contains the reference and base prototype masters used by a
+fresh local environment. `supabase/demo_seed.sql` is an optional presentation
+overlay containing stable `DEMO-` supplier codes and `INV-DEMO-` inventory
+SKUs. Both scripts are repeatable.
+
+The presentation seed intentionally creates no Auth users, completed orders,
+payments, refunds, expenses, goods receipts, inventory lots or stock movements.
+Those records must be produced through the application workflows so their audit
+trail and cross-module data flow remain genuine.

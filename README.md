@@ -39,6 +39,12 @@ The purpose of the current version is to:
 - Validate one-source-of-truth data across modules
 - Refine the integrated database before production use
 
+For presentation setup and the recommended live sequence, see
+[`database/DEMO_WALKTHROUGH.md`](database/DEMO_WALKTHROUGH.md) and
+[`database/PRESENTATION_CHECKLIST.md`](database/PRESENTATION_CHECKLIST.md).
+The editable crow's-foot ERD is available at
+[`database/ERD.drawio`](database/ERD.drawio).
+
 ---
 
 ## Business Context
