@@ -43,8 +43,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Purchasing',
-      subtitle:
-          'Create purchase orders and receive several traceable stock items at once.',
+      subtitle: 'Create purchase orders and receive several traceable stock items at once.',
       action: ElevatedButton.icon(
         onPressed: _tab == 0
             ? _showCreatePurchaseOrder
@@ -190,7 +189,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             rows: receipts
                 .map(
                   (receipt) => [
-                    Text('GR-${receipt.number}', style: AppTextStyles.bodyMedium),
+                    Text(
+                      'GR-${receipt.number}',
+                      style: AppTextStyles.bodyMedium,
+                    ),
                     Text(receipt.supplierName, style: AppTextStyles.body),
                     Text(
                       receipt.purchaseOrderNumber == null
@@ -564,7 +566,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       await widget.purchasingRepository.approvePurchaseOrder(order.id);
       if (!mounted) return;
       _refresh();
-              _showMessage('Purchase order PO-${order.number} approved.');
+      _showMessage('Purchase order PO-${order.number} approved.');
     } on PostgrestException catch (error) {
       if (!mounted) return;
       _showMessage(error.message);
@@ -930,8 +932,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     final conversionController = TextEditingController(
       text: initial == null
           ? _qty(
-              selectedPurchaseUnit.factorToBase /
-                  selectedBaseUnit.factorToBase,
+              selectedPurchaseUnit.factorToBase / selectedBaseUnit.factorToBase,
             )
           : _qty(initial.baseQuantityPerPurchaseUnit),
     );
@@ -1161,8 +1162,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       conversion == null ||
                       conversion <= 0) {
                     setDialogState(() {
-                      errorMessage =
-                          'Enter a valid quantity, package conversion and unit cost.';
+                      errorMessage = 'Enter a valid quantity, package conversion and unit cost.';
                     });
                     return;
                   }

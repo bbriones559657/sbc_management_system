@@ -215,8 +215,7 @@ class GoodsReceiptLineRecord {
       id: map['id']?.toString() ?? '',
       inventoryItemName: map['inventory_item_name']?.toString() ?? '',
       purchaseUomCode: map['purchase_uom_code']?.toString() ?? '',
-      purchaseQuantity:
-          (map['purchase_quantity'] as num?)?.toDouble() ?? 0,
+      purchaseQuantity: (map['purchase_quantity'] as num?)?.toDouble() ?? 0,
       baseQuantityPerPurchaseUnit:
           (map['base_quantity_per_purchase_unit'] as num?)?.toDouble() ?? 1,
       baseQuantity: (map['base_quantity'] as num?)?.toDouble() ?? 0,
@@ -227,8 +226,7 @@ class GoodsReceiptLineRecord {
       expirationDate: expiration == null || expiration.isEmpty
           ? null
           : DateTime.tryParse(expiration),
-      remainingQuantity:
-          (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
+      remainingQuantity: (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
       lotStatus: map['lot_status']?.toString() ?? '',
     );
   }
