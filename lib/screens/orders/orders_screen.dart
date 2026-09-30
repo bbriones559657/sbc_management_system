@@ -15,11 +15,15 @@ import 'new_order_screen.dart';
 class OrdersScreen extends StatefulWidget {
   final OrderRepository orderRepository;
   final bool canManageOrders;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
   const OrdersScreen({
     super.key,
     required this.orderRepository,
     required this.canManageOrders,
+    this.refreshListenable,
+    this.onDataChanged,
   });
 
   @override
@@ -37,6 +41,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     _loadOrders();
+    widget.refreshListenable?.addListener(_refreshOrders);
+  }
+
+  @override
+  void didUpdateWidget(covariant OrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refreshOrders);
+      widget.refreshListenable?.addListener(_refreshOrders);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refreshOrders);
+    super.dispose();
   }
 
   void _loadOrders() {
@@ -44,7 +64,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _refreshOrders() {
+    if (!mounted) return;
     setState(_loadOrders);
+  }
+
+  void _notifyDataChanged() {
+    final callback = widget.onDataChanged;
+    if (callback == null) {
+      _refreshOrders();
+    } else {
+      callback();
+    }
   }
 
   @override
@@ -53,13 +83,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
       title: 'Orders',
       action: ElevatedButton.icon(
         onPressed: () async {
-          await Navigator.of(context).push(
+          final changed = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (_) =>
                   NewOrderScreen(orderRepository: widget.orderRepository),
             ),
           );
-          _refreshOrders();
+          if (changed == true) _notifyDataChanged();
         },
         icon: const Icon(Icons.add, size: 18),
         label: const Text('New Order'),
@@ -701,7 +731,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
               if (!context.mounted) return;
               Navigator.pop(context);
-              _refreshOrders();
+              _notifyDataChanged();
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -923,7 +953,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
               if (!context.mounted) return;
               Navigator.pop(context);
-              _refreshOrders();
+              _notifyDataChanged();
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1039,7 +1069,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               if (!context.mounted) return;
 
               Navigator.pop(context);
-              _refreshOrders();
+              _notifyDataChanged();
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

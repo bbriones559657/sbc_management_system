@@ -75,7 +75,7 @@
 | Table | Purpose |
 |---|---|
 | `expense_categories` | Operating expense categories. |
-| `expenses` | Non-inventory operating costs and untracked ingredient/grocery purchases, with supplier and receipt traceability. |
+| `expenses` | Non-inventory operating costs and untracked ingredient/grocery purchases, with required supplier and receipt traceability; active references are unique per supplier. |
 | `tax_rates` | Configurable sales tax/VAT definitions. |
 | `payment_methods` | Cash, GCash, Maya, Card, Bank Transfer, Other. |
 | `invoice_sequences` | Controlled invoice number sequences. |

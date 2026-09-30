@@ -12,8 +12,15 @@ import '../../widgets/layout/app_page.dart';
 
 class MenuManagementScreen extends StatefulWidget {
   final MenuRepository menuRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
-  const MenuManagementScreen({super.key, required this.menuRepository});
+  const MenuManagementScreen({
+    super.key,
+    required this.menuRepository,
+    this.refreshListenable,
+    this.onDataChanged,
+  });
 
   @override
   State<MenuManagementScreen> createState() => _MenuManagementScreenState();
@@ -28,6 +35,22 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant MenuManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
   }
 
   void _reload() {
@@ -35,7 +58,17 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   }
 
   void _refresh() {
+    if (!mounted) return;
     setState(_reload);
+  }
+
+  void _notifyDataChanged() {
+    final callback = widget.onDataChanged;
+    if (callback == null) {
+      _refresh();
+    } else {
+      callback();
+    }
   }
 
   @override
@@ -390,11 +423,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   items: const [
                     DropdownMenuItem(
                       value: 'UNTRACKED',
-                      child: Text('Untracked'),
+                      child: Text('Prepared to Order'),
                     ),
                     DropdownMenuItem(
                       value: 'FINISHED_GOOD',
-                      child: Text('Finished Good'),
+                      child: Text('Countable Finished Product'),
                     ),
                   ],
                   onChanged: (value) {
@@ -419,7 +452,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                           (item) => DropdownMenuItem(
                             value: item.id,
                             child: Text(
-                              '${item.name} — ${_qty(item.currentQuantity)} ${item.unitCode}',
+                              '${item.name} — ${_qty(item.usableQuantity)} ${item.unitCode} usable',
                             ),
                           ),
                         )
@@ -430,6 +463,18 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     },
                   ),
                 ],
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    inventoryMode == 'FINISHED_GOOD'
+                        ? 'Each sale deducts one unit from the linked countable product.'
+                        : 'Prepared items remain sellable without tracking recipe ingredients.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+                ),
                 if (isEditing) ...[
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -496,7 +541,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   isActive: isActive,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: const [],
                 );
               } else if (addVariantTo != null) {
                 await widget.menuRepository.addVariant(
@@ -506,7 +550,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   price: price,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: const [],
                 );
               } else {
                 await widget.menuRepository.createMenuItemWithVariant(
@@ -517,13 +560,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   price: price,
                   inventoryMode: inventoryMode,
                   finishedInventoryItemId: finishedInventoryId,
-                  recipe: const [],
                 );
               }
 
               if (!mounted) return;
               Navigator.pop(context);
-              _refresh();
+              _notifyDataChanged();
 
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Menu configuration saved.')),
@@ -818,6 +860,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
+              _notifyDataChanged();
               _showModifiers(variant);
             } on PostgrestException catch (error) {
               dialogSetState?.call(() {
@@ -850,8 +893,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     );
 
     var active = existing?.isActive ?? true;
-    const recipe = <MenuRecipeComponent>[];
-
     if (!mounted) return;
 
     String? errorMessage;
@@ -943,7 +984,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   groupId: group.groupId,
                   name: name,
                   priceDelta: price,
-                  recipe: recipe,
                 );
               } else {
                 await widget.menuRepository.updateModifier(
@@ -951,12 +991,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   name: name,
                   priceDelta: price,
                   isActive: active,
-                  recipe: recipe,
                 );
               }
 
               if (!mounted) return;
               Navigator.pop(context);
+              _notifyDataChanged();
               _showModifiers(variant);
             } on PostgrestException catch (error) {
               dialogSetState?.call(() {
@@ -995,12 +1035,10 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     switch (variant.inventoryTrackingMode) {
       case 'FINISHED_GOOD':
         return variant.finishedInventoryName.isEmpty
-            ? 'Finished Good'
-            : 'Finished: ${variant.finishedInventoryName}';
-      case 'RECIPE':
-        return 'Untracked';
+            ? 'Countable product'
+            : 'Countable: ${variant.finishedInventoryName}';
       default:
-        return 'Untracked';
+        return 'Prepared to order';
     }
   }
 

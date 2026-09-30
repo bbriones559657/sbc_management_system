@@ -1,5 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 class InventoryRefreshController extends ChangeNotifier {
-  void refresh() => notifyListeners();
+  final VoidCallback? onRefresh;
+
+  InventoryRefreshController({this.onRefresh});
+
+  void refresh() {
+    notifyListeners();
+    onRefresh?.call();
+  }
 }

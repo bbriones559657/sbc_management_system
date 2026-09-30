@@ -65,6 +65,8 @@ May access modules such as:
 - Orders
 - Inventory
 - Expenses
+- Menu Management
+- Purchase Orders and Receiving
 - Sales & Finance
 - Reports
 - Suppliers
@@ -121,6 +123,11 @@ The prototype currently includes:
 
 Integrated modules read and write the same Supabase database through repository
 interfaces and transactional RPC functions.
+
+Prepared-to-order menu products do not require recipe disclosure or automatic
+ingredient deduction. Only linked countable finished products reduce inventory
+per sale. Untracked grocery/ingredient purchases are recorded as traceable
+expenses, while tracked stock purchases remain in Purchasing.
 
 ---
 

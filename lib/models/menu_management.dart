@@ -12,7 +12,6 @@ class MenuVariantRecord {
   final String inventoryTrackingMode;
   final String finishedInventoryItemId;
   final String finishedInventoryName;
-  final int recipeComponentCount;
 
   const MenuVariantRecord({
     required this.menuItemId,
@@ -28,7 +27,6 @@ class MenuVariantRecord {
     required this.inventoryTrackingMode,
     required this.finishedInventoryItemId,
     required this.finishedInventoryName,
-    required this.recipeComponentCount,
   });
 
   factory MenuVariantRecord.fromMap(Map<String, dynamic> map) {
@@ -48,8 +46,6 @@ class MenuVariantRecord {
       finishedInventoryItemId:
           map['finished_inventory_item_id']?.toString() ?? '',
       finishedInventoryName: map['finished_inventory_name']?.toString() ?? '',
-      recipeComponentCount:
-          (map['recipe_component_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -72,13 +68,13 @@ class MenuInventoryOption {
   final String id;
   final String name;
   final String unitCode;
-  final double currentQuantity;
+  final double usableQuantity;
 
   const MenuInventoryOption({
     required this.id,
     required this.name,
     required this.unitCode,
-    required this.currentQuantity,
+    required this.usableQuantity,
   });
 
   factory MenuInventoryOption.fromMap(Map<String, dynamic> map) {
@@ -86,31 +82,9 @@ class MenuInventoryOption {
       id: map['inventory_item_id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
       unitCode: map['base_uom_code']?.toString() ?? '',
-      currentQuantity: (map['current_quantity'] as num?)?.toDouble() ?? 0,
+      usableQuantity: (map['usable_quantity'] as num?)?.toDouble() ?? 0,
     );
   }
-}
-
-class MenuRecipeComponent {
-  final String inventoryItemId;
-  final String inventoryItemName;
-  final String unitCode;
-  final double quantityBaseUom;
-  final double wastagePercent;
-
-  const MenuRecipeComponent({
-    required this.inventoryItemId,
-    required this.inventoryItemName,
-    required this.unitCode,
-    required this.quantityBaseUom,
-    required this.wastagePercent,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'inventory_item_id': inventoryItemId,
-    'quantity_base_uom': quantityBaseUom,
-    'wastage_percent': wastagePercent,
-  };
 }
 
 class MenuModifierGroupRecord {
@@ -140,13 +114,11 @@ class MenuModifierRecord {
   final String name;
   final double priceDelta;
   final bool isActive;
-  final int recipeComponentCount;
 
   const MenuModifierRecord({
     required this.id,
     required this.name,
     required this.priceDelta,
     required this.isActive,
-    required this.recipeComponentCount,
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/state/business_refresh_controller.dart';
 import 'core/state/inventory_refresh_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/supabase_dashboard_repository.dart';
@@ -57,6 +58,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final FinanceRepository _financeRepository;
   late final SupplierRepository _supplierRepository;
   late final UserRepository _userRepository;
+  late final BusinessRefreshController _businessRefreshController;
   late final InventoryRefreshController _inventoryRefreshController;
 
   @override
@@ -72,12 +74,16 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _financeRepository = SupabaseFinanceRepository();
     _supplierRepository = SupabaseSupplierRepository();
     _userRepository = SupabaseUserRepository();
-    _inventoryRefreshController = InventoryRefreshController();
+    _businessRefreshController = BusinessRefreshController();
+    _inventoryRefreshController = InventoryRefreshController(
+      onRefresh: _businessRefreshController.refresh,
+    );
   }
 
   @override
   void dispose() {
     _inventoryRefreshController.dispose();
+    _businessRefreshController.dispose();
     super.dispose();
   }
 
@@ -121,6 +127,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             page: DashboardScreen(
               orderRepository: _orderRepository,
               dashboardRepository: _dashboardRepository,
+              refreshListenable: _businessRefreshController,
+              onDataChanged: _inventoryRefreshController.refresh,
             ),
           ),
         ],
@@ -136,6 +144,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             page: OrdersScreen(
               orderRepository: _orderRepository,
               canManageOrders: !isCashier,
+              refreshListenable: _businessRefreshController,
+              onDataChanged: _inventoryRefreshController.refresh,
             ),
           ),
           if (!isCashier)
@@ -145,6 +155,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               page: SalesFinanceScreen(
                 reportingRepository: _reportingRepository,
                 financeRepository: _financeRepository,
+                refreshListenable: _businessRefreshController,
+                onDataChanged: _businessRefreshController.refresh,
               ),
             ),
         ],
@@ -157,7 +169,11 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             destination(
               label: 'Menu Management',
               icon: Icons.fastfood_outlined,
-              page: MenuManagementScreen(menuRepository: _menuRepository),
+              page: MenuManagementScreen(
+                menuRepository: _menuRepository,
+                refreshListenable: _businessRefreshController,
+                onDataChanged: _businessRefreshController.refresh,
+              ),
             ),
           ],
         ),
@@ -244,7 +260,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             destination(
               label: 'Suppliers',
               icon: Icons.local_shipping_outlined,
-              page: SuppliersScreen(supplierRepository: _supplierRepository),
+              page: SuppliersScreen(
+                supplierRepository: _supplierRepository,
+                onDataChanged: _businessRefreshController.refresh,
+              ),
             ),
           ],
         ),
@@ -255,7 +274,11 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             destination(
               label: 'Expense Records',
               icon: Icons.receipt_outlined,
-              page: ExpensesScreen(expenseRepository: _expenseRepository),
+              page: ExpensesScreen(
+                expenseRepository: _expenseRepository,
+                refreshListenable: _businessRefreshController,
+                onDataChanged: _businessRefreshController.refresh,
+              ),
             ),
           ],
         ),
@@ -266,7 +289,10 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             destination(
               label: 'Reports Overview',
               icon: Icons.analytics_outlined,
-              page: ReportsScreen(reportingRepository: _reportingRepository),
+              page: ReportsScreen(
+                reportingRepository: _reportingRepository,
+                refreshListenable: _businessRefreshController,
+              ),
             ),
           ],
         ),

@@ -12,4 +12,16 @@ void main() {
     expect(notifications, 1);
     controller.dispose();
   });
+
+  test('inventory refresh also broadcasts dependent business changes', () {
+    var businessNotifications = 0;
+    final controller = InventoryRefreshController(
+      onRefresh: () => businessNotifications++,
+    );
+
+    controller.refresh();
+
+    expect(businessNotifications, 1);
+    controller.dispose();
+  });
 }

@@ -12,8 +12,15 @@ import '../../widgets/layout/app_page.dart';
 
 class ExpensesScreen extends StatefulWidget {
   final ExpenseRepository expenseRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
-  const ExpensesScreen({super.key, required this.expenseRepository});
+  const ExpensesScreen({
+    super.key,
+    required this.expenseRepository,
+    this.refreshListenable,
+    this.onDataChanged,
+  });
 
   @override
   State<ExpensesScreen> createState() => _ExpensesScreenState();
@@ -32,6 +39,31 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   void initState() {
     super.initState();
     _loadExpenses();
+    widget.refreshListenable?.addListener(_loadExpenses);
+  }
+
+  @override
+  void didUpdateWidget(covariant ExpensesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_loadExpenses);
+      widget.refreshListenable?.addListener(_loadExpenses);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_loadExpenses);
+    super.dispose();
+  }
+
+  void _notifyDataChanged() {
+    final callback = widget.onDataChanged;
+    if (callback == null) {
+      _loadExpenses();
+    } else {
+      callback();
+    }
   }
 
   Future<void> _loadExpenses() async {
@@ -80,7 +112,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           expense.description.toLowerCase().contains(query) ||
           expense.category.toLowerCase().contains(query) ||
           expense.supplierName.toLowerCase().contains(query) ||
-          expense.referenceNumber.toLowerCase().contains(query);
+          expense.referenceNumber.toLowerCase().contains(query) ||
+          'ex-${expense.expenseNumber}'.contains(query);
 
       final matchesCategory =
           _selectedCategory == 'All Categories' ||
@@ -108,8 +141,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     return AppPage(
       title: 'Expenses',
+      subtitle:
+          'Record untracked grocery purchases and operating costs with receipts.',
       action: ElevatedButton.icon(
-        onPressed: _categories.isEmpty ? null : _showAddExpense,
+        onPressed: _categories.isEmpty || _suppliers.isEmpty
+            ? null
+            : _showAddExpense,
         icon: const Icon(Icons.add, size: 18),
         label: const Text('Add Expense'),
       ),
@@ -122,6 +159,22 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             )
           : Column(
               children: [
+                if (_suppliers.isEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Add the grocery store or supplier in Suppliers before '
+                      'recording an expense.',
+                      style: AppTextStyles.body,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final search = TextField(
@@ -186,7 +239,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                           DataTableCard(
                             headers: const [
                               'Date',
-                              'Description',
+                              'Purpose',
                               'Category',
                               'Supplier / Reference',
                               'Amount',
@@ -196,9 +249,20 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             rows: _filteredExpenses
                                 .map(
                                   (expense) => [
-                                    Text(
-                                      expense.date,
-                                      style: AppTextStyles.bodyMedium,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          expense.date,
+                                          style: AppTextStyles.bodyMedium,
+                                        ),
+                                        if (expense.expenseNumber > 0)
+                                          Text(
+                                            'EX-${expense.expenseNumber}',
+                                            style: AppTextStyles.caption,
+                                          ),
+                                      ],
                                     ),
                                     Text(
                                       expense.description,
@@ -297,7 +361,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _showExpenseEditor({ExpenseRecord? existing}) async {
-    if (_categories.isEmpty) return;
+    if (_categories.isEmpty || _suppliers.isEmpty) return;
 
     final descriptionController = TextEditingController(
       text: existing?.description ?? '',
@@ -311,14 +375,15 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final notesController = TextEditingController(text: existing?.notes ?? '');
 
     String selectedCategory = existing?.category ?? _categories.first.name;
-    String selectedSupplierId = existing?.supplierId ?? '';
+    String selectedSupplierId =
+        existing?.supplierId ?? _suppliers.first.id;
     DateTime selectedDate = existing?.expenseDate ?? DateTime.now();
 
     if (!_categories.any((category) => category.name == selectedCategory)) {
       selectedCategory = _categories.first.name;
     }
     if (!_suppliers.any((supplier) => supplier.id == selectedSupplierId)) {
-      selectedSupplierId = '';
+      selectedSupplierId = _suppliers.first.id;
     }
 
     String? errorMessage;
@@ -356,7 +421,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 const SizedBox(height: 14),
                 TextField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description *'),
+                  decoration: const InputDecoration(
+                    labelText: 'Purpose *',
+                    hintText: 'Example: milk and sugar for daily operations',
+                  ),
                 ),
                 const SizedBox(height: 14),
                 TextField(
@@ -391,19 +459,16 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   initialValue: selectedSupplierId,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Supplier / Grocery',
+                    labelText: 'Supplier / Grocery *',
                   ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('No linked supplier'),
-                    ),
-                    for (final supplier in _suppliers)
-                      DropdownMenuItem(
-                        value: supplier.id,
-                        child: Text(supplier.name),
-                      ),
-                  ],
+                  items: _suppliers
+                      .map(
+                        (supplier) => DropdownMenuItem(
+                          value: supplier.id,
+                          child: Text(supplier.name),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setDialogState(() => selectedSupplierId = value);
@@ -413,7 +478,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 TextField(
                   controller: referenceController,
                   decoration: const InputDecoration(
-                    labelText: 'Receipt / Reference Number',
+                    labelText: 'Receipt / Reference Number *',
                     hintText: 'Official receipt, invoice, or grocery reference',
                   ),
                 ),
@@ -457,11 +522,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           onPressed: () async {
             final description = descriptionController.text.trim();
             final amount = double.tryParse(amountController.text.trim());
+            final referenceNumber = referenceController.text.trim();
 
-            if (description.isEmpty || amount == null || amount <= 0) {
+            if (description.isEmpty ||
+                amount == null ||
+                amount <= 0 ||
+                selectedSupplierId.isEmpty ||
+                referenceNumber.isEmpty) {
               updateDialogState?.call(() {
                 errorMessage =
-                    'Enter a description and an amount greater than zero.';
+                    'Purpose, amount, supplier/grocery, and receipt/reference '
+                    'are required.';
               });
               return;
             }
@@ -476,6 +547,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
             final record = ExpenseRecord(
               id: existing?.id ?? '',
+              expenseNumber: existing?.expenseNumber ?? 0,
+              expenseType: existing?.expenseType ?? 'OPERATING',
               date: _formatDate(selectedDate),
               description: description,
               category: selectedCategory,
@@ -483,7 +556,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               expenseDate: selectedDate,
               supplierId: selectedSupplierId,
               supplierName: supplier?.name ?? '',
-              referenceNumber: referenceController.text.trim(),
+              referenceNumber: referenceNumber,
               notes: notesController.text.trim(),
             );
 
@@ -496,7 +569,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              await _loadExpenses();
+              _notifyDataChanged();
 
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
@@ -557,7 +630,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               await widget.expenseRepository.deleteExpense(expense.id);
               if (!mounted) return;
               Navigator.pop(context);
-              await _loadExpenses();
+              _notifyDataChanged();
             } on PostgrestException catch (error) {
               if (!mounted) return;
               ScaffoldMessenger.of(context)

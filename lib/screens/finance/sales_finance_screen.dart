@@ -16,11 +16,15 @@ import '../../widgets/layout/app_page.dart';
 class SalesFinanceScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
   final FinanceRepository financeRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
   const SalesFinanceScreen({
     super.key,
     required this.reportingRepository,
     required this.financeRepository,
+    this.refreshListenable,
+    this.onDataChanged,
   });
 
   @override
@@ -36,6 +40,22 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant SalesFinanceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
   }
 
   void _reload() {
@@ -51,7 +71,17 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   }
 
   void _refresh() {
+    if (!mounted) return;
     setState(_reload);
+  }
+
+  void _notifyDataChanged() {
+    final callback = widget.onDataChanged;
+    if (callback == null) {
+      _refresh();
+    } else {
+      callback();
+    }
   }
 
   @override
@@ -434,7 +464,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              _refresh();
+              _notifyDataChanged();
 
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Supplier payment recorded.')),

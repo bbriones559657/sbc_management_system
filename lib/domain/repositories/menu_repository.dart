@@ -7,14 +7,8 @@ abstract class MenuRepository {
 
   Future<List<MenuInventoryOption>> getInventoryOptions();
 
-  Future<List<MenuRecipeComponent>> getRecipeComponents(String variantId);
-
   Future<List<MenuModifierGroupRecord>> getModifierGroupsForMenuItem(
     String menuItemId,
-  );
-
-  Future<List<MenuRecipeComponent>> getModifierRecipeComponents(
-    String modifierId,
   );
 
   Future<String> createModifierGroup({
@@ -38,7 +32,6 @@ abstract class MenuRepository {
     required String groupId,
     required String name,
     required double priceDelta,
-    List<MenuRecipeComponent> recipe = const [],
   });
 
   Future<void> updateModifier({
@@ -46,7 +39,6 @@ abstract class MenuRepository {
     required String name,
     required double priceDelta,
     required bool isActive,
-    List<MenuRecipeComponent> recipe = const [],
   });
 
   Future<void> createMenuItemWithVariant({
@@ -57,7 +49,6 @@ abstract class MenuRepository {
     required double price,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   });
 
   Future<void> addVariant({
@@ -67,7 +58,6 @@ abstract class MenuRepository {
     required double price,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   });
 
   Future<void> updateVariant({
@@ -80,6 +70,5 @@ abstract class MenuRepository {
     required bool isActive,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   });
 }

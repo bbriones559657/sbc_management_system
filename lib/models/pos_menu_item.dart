@@ -23,9 +23,7 @@ class PosMenuItem {
     required this.availableQuantity,
   });
 
-  bool get tracksInventory =>
-      inventoryTrackingMode == 'FINISHED_GOOD' ||
-      inventoryTrackingMode == 'RECIPE';
+  bool get tracksInventory => inventoryTrackingMode == 'FINISHED_GOOD';
 
   bool get isOutOfStock => tracksInventory && (availableQuantity ?? 0) <= 0;
 

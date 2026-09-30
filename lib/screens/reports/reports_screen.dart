@@ -11,8 +11,13 @@ import '../../widgets/layout/app_page.dart';
 
 class ReportsScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
+  final Listenable? refreshListenable;
 
-  const ReportsScreen({super.key, required this.reportingRepository});
+  const ReportsScreen({
+    super.key,
+    required this.reportingRepository,
+    this.refreshListenable,
+  });
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -26,6 +31,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant ReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
   }
 
   void _reload() {
@@ -33,6 +54,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _refresh() {
+    if (!mounted) return;
     setState(_reload);
   }
 

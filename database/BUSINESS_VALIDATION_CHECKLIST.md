@@ -63,6 +63,14 @@ These items should be confirmed with Street Bowl Café during/after the next dem
 - [ ] Who may approve purchases?
 - [ ] Who may receive deliveries?
 
+## Expenses
+
+- [x] Expense date, supplier/grocery, purpose, amount and receipt/reference are required.
+- [x] The same supplier receipt/reference cannot be posted twice while active.
+- [x] Tracked inventory purchases are recorded through Purchasing, not duplicated as expenses.
+- [ ] Confirm the final expense categories used by the café.
+- [ ] Confirm whether management wants receipt photo attachments in a future phase.
+
 ## Waste and stock corrections
 
 - [ ] Confirm reason categories: spoiled, damaged, expired, spill, complimentary, staff meal, count correction.

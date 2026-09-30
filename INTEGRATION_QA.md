@@ -29,7 +29,7 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 41 consultation-alignment assertions in
+The automated pgTAP suite includes 54 consultation-alignment assertions in
 addition to the existing integration regression suite. Each scenario creates
 isolated fixtures inside a transaction and rolls them back. Run it with:
 
@@ -46,6 +46,8 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - POS rejects quantity above available finished stock.
 - Checkout deducts finished goods.
 - Prepared-to-order variants do not deduct ingredients.
+- Prepared-to-order variants do not expose recipe-derived stock availability.
+- Only countable finished products can become unavailable from POS stock.
 - Recipe inventory mode is rejected by the database API.
 - Required modifier rules are enforced.
 - Server-side pricing remains authoritative.
@@ -75,6 +77,17 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
   references for the same supplier are rejected.
 - Goods receipt details preserve purchase unit, package conversion, batch/lot,
   expiration date, received base quantity and remaining lot balance.
+
+### Expenses
+
+- Posted expenses require a valid supplier/grocery and receipt/reference.
+- Duplicate active receipt/reference values for the same supplier are rejected.
+- Untracked ingredient/grocery expenses are classified separately from normal
+  operating expenses.
+- Expense creation and editing repeat the same server-side validation.
+- Cashiers cannot create or edit expenses.
+- Order, inventory, purchasing, menu, expense, dashboard, finance and report
+  views share refresh notifications after a successful transaction.
 
 ### Practical inventory release
 

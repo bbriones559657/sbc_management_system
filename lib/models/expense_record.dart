@@ -1,5 +1,7 @@
 class ExpenseRecord {
   final String id;
+  final int expenseNumber;
+  final String expenseType;
   final String date;
   final String description;
   final String category;
@@ -12,6 +14,8 @@ class ExpenseRecord {
 
   const ExpenseRecord({
     this.id = '',
+    this.expenseNumber = 0,
+    this.expenseType = 'OPERATING',
     required this.date,
     required this.description,
     required this.category,
@@ -25,6 +29,8 @@ class ExpenseRecord {
 
   ExpenseRecord copyWith({
     String? id,
+    int? expenseNumber,
+    String? expenseType,
     String? date,
     String? description,
     String? category,
@@ -37,6 +43,8 @@ class ExpenseRecord {
   }) {
     return ExpenseRecord(
       id: id ?? this.id,
+      expenseNumber: expenseNumber ?? this.expenseNumber,
+      expenseType: expenseType ?? this.expenseType,
       date: date ?? this.date,
       description: description ?? this.description,
       category: category ?? this.category,

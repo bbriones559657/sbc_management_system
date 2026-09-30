@@ -14,7 +14,8 @@ class SupabaseExpenseRepository implements ExpenseRepository {
     final rows = await _client
         .from('expenses')
         .select(
-          'id, expense_number, expense_date, description, amount, status, '
+          'id, expense_number, expense_type, expense_date, description, '
+          'amount, status, '
           'supplier_id, reference_number, notes, expense_categories(name), '
           'suppliers(name)',
         )
@@ -37,6 +38,8 @@ class SupabaseExpenseRepository implements ExpenseRepository {
 
       return ExpenseRecord(
         id: row['id']?.toString() ?? '',
+        expenseNumber: (row['expense_number'] as num?)?.toInt() ?? 0,
+        expenseType: row['expense_type']?.toString() ?? 'OPERATING',
         date: _formatDate(expenseDate),
         description: row['description']?.toString() ?? '',
         category: category,
@@ -89,8 +92,9 @@ class SupabaseExpenseRepository implements ExpenseRepository {
     final rows = await _client
         .from('expenses')
         .select(
-          'id, expense_date, description, amount, status, supplier_id, '
-          'reference_number, notes, expense_categories(name), suppliers(name)',
+          'id, expense_number, expense_type, expense_date, description, '
+          'amount, status, supplier_id, reference_number, notes, '
+          'expense_categories(name), suppliers(name)',
         )
         .eq('id', id)
         .limit(1);
@@ -110,6 +114,8 @@ class SupabaseExpenseRepository implements ExpenseRepository {
 
     return ExpenseRecord(
       id: row['id']?.toString() ?? '',
+      expenseNumber: (row['expense_number'] as num?)?.toInt() ?? 0,
+      expenseType: row['expense_type']?.toString() ?? 'OPERATING',
       date: _formatDate(expenseDate),
       description: row['description']?.toString() ?? '',
       category: category,

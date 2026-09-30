@@ -12,8 +12,13 @@ import '../../widgets/layout/app_page.dart';
 
 class SuppliersScreen extends StatefulWidget {
   final SupplierRepository supplierRepository;
+  final VoidCallback? onDataChanged;
 
-  const SuppliersScreen({super.key, required this.supplierRepository});
+  const SuppliersScreen({
+    super.key,
+    required this.supplierRepository,
+    this.onDataChanged,
+  });
 
   @override
   State<SuppliersScreen> createState() => _SuppliersScreenState();
@@ -35,6 +40,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   void _refresh() {
     setState(_reload);
+  }
+
+  void _notifyDataChanged() {
+    _refresh();
+    widget.onDataChanged?.call();
   }
 
   @override
@@ -229,7 +239,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              _refresh();
+              _notifyDataChanged();
             } on PostgrestException catch (error) {
               updateDialogState?.call(() => errorMessage = error.message);
             }
@@ -305,7 +315,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
               if (!mounted) return;
               Navigator.pop(context);
-              _refresh();
+              _notifyDataChanged();
             } on PostgrestException catch (error) {
               updateDialogState?.call(() => errorMessage = error.message);
             }

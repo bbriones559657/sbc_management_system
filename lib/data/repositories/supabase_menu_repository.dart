@@ -46,7 +46,7 @@ class SupabaseMenuRepository implements MenuRepository {
   Future<List<MenuInventoryOption>> getInventoryOptions() async {
     final rows = await _client
         .from('v_inventory_catalog')
-        .select('inventory_item_id, name, base_uom_code, current_quantity')
+        .select('inventory_item_id, name, base_uom_code, usable_quantity')
         .order('name');
 
     return (rows as List)
@@ -59,34 +59,6 @@ class SupabaseMenuRepository implements MenuRepository {
   }
 
   @override
-  Future<List<MenuRecipeComponent>> getRecipeComponents(
-    String variantId,
-  ) async {
-    final componentRows = await _client
-        .from('variant_recipe_components')
-        .select('inventory_item_id, quantity_base_uom, wastage_percent')
-        .eq('menu_variant_id', variantId)
-        .order('inventory_item_id');
-
-    final inventory = await getInventoryOptions();
-    final byId = {for (final item in inventory) item.id: item};
-
-    return (componentRows as List).map((raw) {
-      final row = Map<String, dynamic>.from(raw as Map);
-      final inventoryId = row['inventory_item_id']?.toString() ?? '';
-      final item = byId[inventoryId];
-
-      return MenuRecipeComponent(
-        inventoryItemId: inventoryId,
-        inventoryItemName: item?.name ?? 'Inventory Item',
-        unitCode: item?.unitCode ?? '',
-        quantityBaseUom: (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
-        wastagePercent: (row['wastage_percent'] as num?)?.toDouble() ?? 0,
-      );
-    }).toList();
-  }
-
-  @override
   Future<void> createMenuItemWithVariant({
     required String itemName,
     required String categoryId,
@@ -95,7 +67,6 @@ class SupabaseMenuRepository implements MenuRepository {
     required double price,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   }) async {
     await _client.rpc(
       'create_menu_item_with_variant',
@@ -107,7 +78,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_price': price,
         'p_inventory_mode': inventoryMode,
         'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
-        'p_recipe': recipe.map((component) => component.toJson()).toList(),
+        'p_recipe': const <Map<String, dynamic>>[],
       },
     );
   }
@@ -120,7 +91,6 @@ class SupabaseMenuRepository implements MenuRepository {
     required double price,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   }) async {
     await _client.rpc(
       'add_menu_variant',
@@ -131,7 +101,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_price': price,
         'p_inventory_mode': inventoryMode,
         'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
-        'p_recipe': recipe.map((component) => component.toJson()).toList(),
+        'p_recipe': const <Map<String, dynamic>>[],
       },
     );
   }
@@ -147,7 +117,6 @@ class SupabaseMenuRepository implements MenuRepository {
     required bool isActive,
     required String inventoryMode,
     String finishedInventoryItemId = '',
-    List<MenuRecipeComponent> recipe = const [],
   }) async {
     await _client.rpc(
       'update_menu_variant',
@@ -161,7 +130,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_is_active': isActive,
         'p_inventory_mode': inventoryMode,
         'p_finished_inventory_item_id': _nullable(finishedInventoryItemId),
-        'p_recipe': recipe.map((component) => component.toJson()).toList(),
+        'p_recipe': const <Map<String, dynamic>>[],
       },
     );
   }
@@ -204,42 +173,12 @@ class SupabaseMenuRepository implements MenuRepository {
             name: row['modifier_name']?.toString() ?? '',
             priceDelta: (row['price_delta'] as num?)?.toDouble() ?? 0,
             isActive: row['modifier_active'] == true,
-            recipeComponentCount:
-                (row['recipe_component_count'] as num?)?.toInt() ?? 0,
           ),
         );
       }
     }
 
     return groups.values.map((group) => group.toRecord()).toList();
-  }
-
-  @override
-  Future<List<MenuRecipeComponent>> getModifierRecipeComponents(
-    String modifierId,
-  ) async {
-    final componentRows = await _client
-        .from('modifier_recipe_components')
-        .select('inventory_item_id, quantity_base_uom, wastage_percent')
-        .eq('modifier_id', modifierId)
-        .order('inventory_item_id');
-
-    final inventory = await getInventoryOptions();
-    final byId = {for (final item in inventory) item.id: item};
-
-    return (componentRows as List).map((raw) {
-      final row = Map<String, dynamic>.from(raw as Map);
-      final inventoryId = row['inventory_item_id']?.toString() ?? '';
-      final item = byId[inventoryId];
-
-      return MenuRecipeComponent(
-        inventoryItemId: inventoryId,
-        inventoryItemName: item?.name ?? 'Inventory Item',
-        unitCode: item?.unitCode ?? '',
-        quantityBaseUom: (row['quantity_base_uom'] as num?)?.toDouble() ?? 0,
-        wastagePercent: (row['wastage_percent'] as num?)?.toDouble() ?? 0,
-      );
-    }).toList();
   }
 
   @override
@@ -291,7 +230,6 @@ class SupabaseMenuRepository implements MenuRepository {
     required String groupId,
     required String name,
     required double priceDelta,
-    List<MenuRecipeComponent> recipe = const [],
   }) async {
     final result = await _client.rpc(
       'create_modifier',
@@ -299,7 +237,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_modifier_group_id': groupId,
         'p_name': name.trim(),
         'p_price_delta': priceDelta,
-        'p_recipe': recipe.map((item) => item.toJson()).toList(),
+        'p_recipe': const <Map<String, dynamic>>[],
       },
     );
 
@@ -312,7 +250,6 @@ class SupabaseMenuRepository implements MenuRepository {
     required String name,
     required double priceDelta,
     required bool isActive,
-    List<MenuRecipeComponent> recipe = const [],
   }) async {
     await _client.rpc(
       'update_modifier',
@@ -321,7 +258,7 @@ class SupabaseMenuRepository implements MenuRepository {
         'p_name': name.trim(),
         'p_price_delta': priceDelta,
         'p_is_active': isActive,
-        'p_recipe': recipe.map((item) => item.toJson()).toList(),
+        'p_recipe': const <Map<String, dynamic>>[],
       },
     );
   }

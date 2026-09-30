@@ -12,31 +12,77 @@ import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
 import '../orders/new_order_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final OrderRepository orderRepository;
   final DashboardRepository dashboardRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
   const DashboardScreen({
     super.key,
     required this.orderRepository,
     required this.dashboardRepository,
+    this.refreshListenable,
+    this.onDataChanged,
   });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late Future<_DashboardData> _dashboardFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardFuture = _loadDashboard();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _dashboardFuture = _loadDashboard());
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Dashboard',
       action: ElevatedButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => NewOrderScreen(orderRepository: orderRepository),
-          ),
-        ),
+        onPressed: () async {
+          final changed = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => NewOrderScreen(
+                orderRepository: widget.orderRepository,
+              ),
+            ),
+          );
+          if (changed == true) {
+            widget.onDataChanged?.call();
+            if (widget.onDataChanged == null) _refresh();
+          }
+        },
         icon: const Icon(Icons.add, size: 18),
         label: const Text('New Order'),
       ),
       child: FutureBuilder<_DashboardData>(
-        future: _loadDashboard(),
+        future: _dashboardFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -214,8 +260,8 @@ class DashboardScreen extends StatelessWidget {
 
   Future<_DashboardData> _loadDashboard() async {
     final results = await Future.wait([
-      dashboardRepository.getTodaySummary(),
-      orderRepository.getOrders(),
+      widget.dashboardRepository.getTodaySummary(),
+      widget.orderRepository.getOrders(),
     ]);
 
     return _DashboardData(
