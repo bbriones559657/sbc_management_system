@@ -68,7 +68,8 @@ May access modules such as:
 - Menu Management
 - Purchase Orders and Receiving
 - Sales & Finance
-- Reports
+- Reports Overview
+- Transaction Traceability
 - Suppliers
 - Purchase Orders
 - Multi-item Goods Receiving
@@ -123,6 +124,12 @@ The prototype currently includes:
 
 Integrated modules read and write the same Supabase database through repository
 interfaces and transactional RPC functions.
+
+Report periods now apply consistently to sales, expenses and top-product
+figures. Product results show sold, refunded and net quantities. Management can
+also search one transaction trace that links readable document numbers,
+external receipt/payment references, suppliers or customers, amounts,
+employees and timestamps across the integrated modules.
 
 Prepared-to-order menu products do not require recipe disclosure or automatic
 ingredient deduction. Only linked countable finished products reduce inventory

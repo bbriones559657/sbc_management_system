@@ -18,30 +18,35 @@ class SupabaseReportingRepository implements ReportingRepository {
       now.day,
     ).subtract(Duration(days: days - 1));
     final startDate = _dateOnly(start);
+    final endDate = _dateOnly(DateTime(now.year, now.month, now.day));
 
     final results = await Future.wait([
       _client
           .from('v_daily_sales')
           .select()
           .gte('sales_date', startDate)
+          .lte('sales_date', endDate)
           .order('sales_date'),
       _client
           .from('expenses')
           .select('expense_date, amount')
           .eq('status', 'POSTED')
-          .gte('expense_date', startDate),
+          .gte('expense_date', startDate)
+          .lte('expense_date', endDate),
       _client
           .from('v_inventory_catalog')
           .select(
             'inventory_item_id, usable_quantity, reorder_level, next_expiration_date',
           ),
       _client
-          .from('v_product_sales')
+          .from('v_product_sales_daily')
           .select(
-            'item_name_snapshot, variant_name_snapshot, quantity_sold, gross_line_sales',
+            'menu_item_id, menu_variant_id, item_name_snapshot, '
+            'variant_name_snapshot, quantity_sold, quantity_refunded, '
+            'net_quantity_sold, net_line_sales',
           )
-          .order('quantity_sold', ascending: false)
-          .limit(10),
+          .gte('sales_date', startDate)
+          .lte('sales_date', endDate),
     ]);
 
     final dailySales = (results[0] as List)
@@ -95,12 +100,36 @@ class SupabaseReportingRepository implements ReportingRepository {
       }
     }
 
-    final topProducts = (results[3] as List)
-        .map(
-          (raw) =>
-              ProductSalesRow.fromMap(Map<String, dynamic>.from(raw as Map)),
-        )
-        .toList();
+    final productTotals = <String, _ProductSalesAccumulator>{};
+    for (final raw in results[3] as List) {
+      final row = ProductSalesRow.fromMap(
+        Map<String, dynamic>.from(raw as Map),
+      );
+      final key = [
+        row.menuItemId,
+        row.menuVariantId,
+        row.itemName,
+        row.variantName,
+      ].join(':');
+      productTotals
+          .putIfAbsent(
+            key,
+            () => _ProductSalesAccumulator(
+              menuItemId: row.menuItemId,
+              menuVariantId: row.menuVariantId,
+              itemName: row.itemName,
+              variantName: row.variantName,
+            ),
+          )
+          .add(row);
+    }
+
+    final topProducts = productTotals.values
+        .map((item) => item.toRecord())
+        .toList()
+      ..sort(
+        (a, b) => b.netQuantitySold.compareTo(a.netQuantitySold),
+      );
 
     return ReportingSnapshot(
       dailySales: dailySales,
@@ -118,13 +147,84 @@ class SupabaseReportingRepository implements ReportingRepository {
         lowStockCount: lowStock,
         expiringSoonCount: expiringSoon,
       ),
-      topProducts: topProducts,
+      topProducts: topProducts.take(10).toList(),
     );
+  }
+
+  @override
+  Future<List<TransactionTraceRecord>> getTransactionTrace({
+    required int days,
+  }) async {
+    final now = DateTime.now();
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: days - 1));
+    final endExclusive = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    );
+
+    final rows = await _client
+        .from('v_business_transaction_trace')
+        .select()
+        .gte('occurred_at', start.toUtc().toIso8601String())
+        .lt('occurred_at', endExclusive.toUtc().toIso8601String())
+        .order('occurred_at', ascending: false)
+        .limit(500);
+
+    return (rows as List)
+        .map(
+          (raw) => TransactionTraceRecord.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
   }
 
   String _dateOnly(DateTime date) {
     return '${date.year}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ProductSalesAccumulator {
+  final String menuItemId;
+  final String menuVariantId;
+  final String itemName;
+  final String variantName;
+  double quantitySold = 0;
+  double quantityRefunded = 0;
+  double netQuantitySold = 0;
+  double netSales = 0;
+
+  _ProductSalesAccumulator({
+    required this.menuItemId,
+    required this.menuVariantId,
+    required this.itemName,
+    required this.variantName,
+  });
+
+  void add(ProductSalesRow row) {
+    quantitySold += row.quantitySold;
+    quantityRefunded += row.quantityRefunded;
+    netQuantitySold += row.netQuantitySold;
+    netSales += row.sales;
+  }
+
+  ProductSalesRow toRecord() {
+    return ProductSalesRow(
+      menuItemId: menuItemId,
+      menuVariantId: menuVariantId,
+      itemName: itemName,
+      variantName: variantName,
+      quantitySold: quantitySold,
+      quantityRefunded: quantityRefunded,
+      netQuantitySold: netQuantitySold,
+      sales: netSales,
+    );
   }
 }

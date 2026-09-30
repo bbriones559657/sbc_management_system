@@ -24,12 +24,14 @@ This document tracks integration work and rollback-based database regression che
 - Receiving requires a supplier invoice/grocery receipt reference and supports
   explicit package conversions such as one box containing fifty pieces
 - Sales & Finance with reporting data and supplier bill payments
-- Reports backed by database views
+- Period-aware reports with gross, refunded and net product totals
+- Management transaction traceability across sales, refunds, inventory,
+  purchasing, expenses and supplier payments
 - Users with role/status management and the protected `create-employee` Edge Function
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 54 consultation-alignment assertions in
+The automated pgTAP suite includes 66 consultation-alignment assertions in
 addition to the existing integration regression suite. Each scenario creates
 isolated fixtures inside a transaction and rolls them back. Run it with:
 
@@ -89,6 +91,19 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Order, inventory, purchasing, menu, expense, dashboard, finance and report
   views share refresh notifications after a successful transaction.
 
+### Reports and traceability
+
+- The selected report period applies to daily sales, expenses and top products.
+- Product reporting separates gross sold, refunded and net quantities.
+- Completed line refunds reduce net product sales without changing the original
+  gross sale record.
+- Management can trace sales, refunds, goods receipts, stock-outs, inventory
+  counts, expenses and supplier payments in one chronological view.
+- Trace rows preserve readable document numbers, external receipt/payment
+  references, amounts, supplier/customer context, responsible employee and
+  timestamp where applicable.
+- Cashiers cannot read the management transaction traceability report.
+
 ### Practical inventory release
 
 - One stock-out document accepts multiple supplies.
@@ -138,7 +153,8 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - RLS is enabled on operational tables.
 - Internal helper functions are not exposed to normal API roles.
 - Business-changing operations use permission-checked RPC functions.
-- High-traffic foreign-key indexes were added for POS, inventory, refunds, purchasing and finance.
+- High-traffic foreign-key and report-period indexes were added for POS,
+  inventory, refunds, purchasing, finance and traceability.
 - Overlapping `FOR ALL` management policies were split into action-specific
   `INSERT`, `UPDATE` and `DELETE` policies. Existing read policies and
   permission expressions were preserved, and the duplicate permissive-policy

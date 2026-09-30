@@ -83,6 +83,15 @@ These items should be confirmed with Street Bowl Café during/after the next dem
 - [ ] Confirm partial refund policy.
 - [ ] Confirm whether refunded sealed products can ever return to stock.
 
+## Reports and traceability
+
+- [x] Selected report periods apply consistently to sales, expenses and top products.
+- [x] Product reporting distinguishes gross sold, refunded and net results.
+- [x] Management can search one trace across the integrated business transactions.
+- [x] Trace rows identify the internal document, external reference, employee and timestamp where available.
+- [ ] Confirm whether management needs CSV/PDF export.
+- [ ] Confirm how long transaction trace history should remain immediately searchable.
+
 ## Device and operations
 
 - [ ] Confirm Android tablet model/OS.

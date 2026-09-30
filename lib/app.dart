@@ -36,6 +36,7 @@ import 'screens/menu/menu_management_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/purchasing/purchasing_screen.dart';
 import 'screens/reports/reports_screen.dart';
+import 'screens/reports/transaction_traceability_screen.dart';
 import 'screens/suppliers/suppliers_screen.dart';
 import 'screens/users/users_screen.dart';
 import 'widgets/layout/app_shell.dart';
@@ -290,6 +291,14 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               label: 'Reports Overview',
               icon: Icons.analytics_outlined,
               page: ReportsScreen(
+                reportingRepository: _reportingRepository,
+                refreshListenable: _businessRefreshController,
+              ),
+            ),
+            destination(
+              label: 'Transaction Traceability',
+              icon: Icons.manage_search_outlined,
+              page: TransactionTraceabilityScreen(
                 reportingRepository: _reportingRepository,
                 refreshListenable: _businessRefreshController,
               ),

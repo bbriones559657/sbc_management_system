@@ -91,7 +91,7 @@ Recommended sequence:
 9. Store purchase/release package conversion (for example, 1 box = 50 pieces).
 10. Display per-item movement history with its source document and external reference.
 
-## Phase 6 — Expenses / reports
+## Phase 6 — Expenses
 
 Operating expenses and untracked ingredient/grocery purchases should use
 `expenses` with date, supplier/grocery, purpose, amount, receipt/reference and
@@ -99,9 +99,18 @@ notes.
 
 Inventory purchases should NOT be duplicated into `expenses`.
 
-Reports can query the supplied views.
+## Phase 7 — Reports and traceability
 
-## Phase 7 — Refunds
+1. Use Manila business dates consistently for period filtering.
+2. Show gross sold, refunded and net product quantities and sales.
+3. Keep the operational tables as the source of truth; expose reporting views
+   rather than creating duplicate reporting transactions.
+4. Provide one management trace across sales, refunds, goods receipts,
+   stock-outs, physical counts, expenses and supplier payments.
+5. Preserve readable document numbers, external receipt/payment references,
+   supplier/customer context, amount, employee and timestamp where applicable.
+
+## Phase 8 — Refunds
 
 Manager-authorized refunds call `process_refund`.
 
@@ -109,7 +118,7 @@ The database supports partial refund quantities.
 
 Do not automatically add refunded prepared food back to inventory.
 
-## Phase 8 — Offline-first tablet support
+## Phase 9 — Offline-first tablet support
 
 Do this after the online version is stable.
 

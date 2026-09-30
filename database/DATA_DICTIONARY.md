@@ -83,6 +83,18 @@
 | `credit_notes` | Refund-related fiscal adjustment documents. |
 | `invoice_print_events` | Invoice/receipt print audit records. |
 
+## Reporting views
+
+| View | Purpose |
+|---|---|
+| `v_product_sales_daily` | Daily product-level gross sold, refunded and net quantities and sales, using the café's Manila business date. |
+| `v_business_transaction_trace` | Management-only chronological trace across sales, refunds, goods receipts, stock-outs, physical counts, expenses and supplier payments. |
+
+The transaction trace is derived from the operational source tables. It does
+not duplicate or replace their records. Its `document_number` is the readable
+internal reference, while `external_reference` stores the supplier receipt,
+invoice, payment or other outside reference when one exists.
+
 ## Important field conventions
 
 ### IDs

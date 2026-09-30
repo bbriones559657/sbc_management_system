@@ -225,7 +225,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const SizedBox(height: 22),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Top Products', style: AppTextStyles.h3),
+                  child: Text(
+                    'Top Products — Last $_days Days',
+                    style: AppTextStyles.h3,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (data.topProducts.isEmpty)
@@ -237,10 +240,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     headers: const [
                       'Product',
                       'Variant',
-                      'Quantity Sold',
-                      'Gross Line Sales',
+                      'Sold',
+                      'Refunded',
+                      'Net Quantity',
+                      'Net Sales',
                     ],
-                    flexes: const [3, 2, 2, 2],
+                    flexes: const [3, 2, 1, 1, 2, 2],
                     rows: data.topProducts
                         .map(
                           (row) => [
@@ -249,6 +254,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             Text(
                               _qty(row.quantitySold),
                               style: AppTextStyles.body,
+                            ),
+                            Text(
+                              _qty(row.quantityRefunded),
+                              style: AppTextStyles.body,
+                            ),
+                            Text(
+                              _qty(row.netQuantitySold),
+                              style: AppTextStyles.bodyMedium,
                             ),
                             Text(
                               _money(row.sales),
