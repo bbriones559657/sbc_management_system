@@ -58,6 +58,44 @@ void main() {
     });
   });
 
+  test('stock count summary parses posted count information', () {
+    final summary = StockCountSummary.fromMap({
+      'id': 'count-1',
+      'count_number': 12,
+      'status': 'POSTED',
+      'counted_at': '2026-09-30T08:30:00Z',
+      'posted_at': '2026-09-30T08:35:00Z',
+      'notes': 'Month-end count',
+      'counted_by_name': 'Test Manager',
+      'item_count': 4,
+      'variance_item_count': 2,
+    });
+
+    expect(summary.number, 12);
+    expect(summary.status, 'POSTED');
+    expect(summary.itemCount, 4);
+    expect(summary.varianceItemCount, 2);
+    expect(summary.countedByName, 'Test Manager');
+  });
+
+  test('stock count line serializes adjustment details', () {
+    final line = StockCountLineInput(
+      inventoryItemId: 'cake',
+      countedQuantity: 8,
+      notes: 'Two pieces found during recount',
+      adjustmentExpirationDate: DateTime(2026, 10, 15),
+      unitCostBase: 80,
+    );
+
+    expect(line.toJson(), {
+      'inventory_item_id': 'cake',
+      'counted_quantity': 8.0,
+      'notes': 'Two pieces found during recount',
+      'adjustment_expiration_date': '2026-10-15',
+      'unit_cost_base': 80.0,
+    });
+  });
+
   test('mock inventory exposes the recent activity contract', () async {
     final repository = MockInventoryRepository();
 

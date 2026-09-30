@@ -54,8 +54,8 @@
 | `stock_movements` | Permanent stock ledger. |
 | `stock_out_transactions` | Multi-item supply-release header with purpose, reference, user and date. |
 | `stock_out_items` | Supply lines and package-to-base-unit conversions for a stock-out. |
-| `stock_counts` | Physical count sessions. |
-| `stock_count_items` | Counted/system quantities and variances. |
+| `stock_counts` | Physical count headers, posting state, responsible employee and notes. |
+| `stock_count_items` | System, physical and variance quantities, plus cost/expiry metadata for positive adjustments. |
 
 ## Suppliers and purchasing
 

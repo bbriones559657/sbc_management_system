@@ -107,6 +107,7 @@ The prototype currently includes:
 - Stock Overview
 - Release Supplies
 - Dispose Stock
+- Inventory Count
 - Stock Adjustment
 - Inventory History
 - Expenses

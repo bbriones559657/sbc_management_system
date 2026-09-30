@@ -13,7 +13,9 @@ This document tracks integration work and rollback-based database regression che
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
 - Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
 - Separate inventory workflow views for Stock Overview, Release Supplies,
-  Dispose Stock, Stock Adjustment and Inventory History
+  Dispose Stock, Inventory Count, Stock Adjustment and Inventory History
+- Physical inventory counts accept multiple items, compare physical quantities
+  with system stock and post all variances as one traceable transaction
 - Separate on-hand, usable and expired quantities, with expired lots excluded from release and POS availability
 - Menu management with variants, countable finished-good mappings and modifiers; recipe deduction is retired
 - Expenses with date, supplier/grocery, purpose, amount, reference, notes and create/update/void workflow
@@ -25,7 +27,7 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 20 consultation-alignment assertions in
+The automated pgTAP suite includes 31 consultation-alignment assertions in
 addition to the existing integration regression suite. Each scenario creates
 isolated fixtures inside a transaction and rolls them back. Run it with:
 
@@ -84,6 +86,12 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Disposal requires an exact lot, quantity, disposal type and written reason.
 - Stock adjustments require a physical-count direction, quantity and reason;
   the resulting ledger entry remains part of immutable movement history.
+- One physical count accepts multiple unique items and records the system,
+  physical and variance quantity for every line.
+- Negative count variances deduct available lots in FEFO order; positive
+  variances create a traceable count lot and require expiry when applicable.
+- Count posting is atomic, permission checked and exposed in Inventory History
+  with its `IC-` document number.
 
 ### Shifts and cash
 

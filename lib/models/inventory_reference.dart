@@ -175,3 +175,77 @@ class StockOutLineInput {
     'notes': notes.trim().isEmpty ? null : notes.trim(),
   };
 }
+
+class StockCountSummary {
+  final String id;
+  final int number;
+  final String status;
+  final DateTime countedAt;
+  final DateTime? postedAt;
+  final String notes;
+  final String countedByName;
+  final int itemCount;
+  final int varianceItemCount;
+
+  const StockCountSummary({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.countedAt,
+    required this.postedAt,
+    required this.notes,
+    required this.countedByName,
+    required this.itemCount,
+    required this.varianceItemCount,
+  });
+
+  factory StockCountSummary.fromMap(Map<String, dynamic> map) {
+    final postedAtRaw = map['posted_at']?.toString();
+    return StockCountSummary(
+      id: map['id']?.toString() ?? '',
+      number: (map['count_number'] as num?)?.toInt() ?? 0,
+      status: map['status']?.toString() ?? '',
+      countedAt: DateTime.parse(map['counted_at'].toString()).toLocal(),
+      postedAt: postedAtRaw == null || postedAtRaw.isEmpty
+          ? null
+          : DateTime.parse(postedAtRaw).toLocal(),
+      notes: map['notes']?.toString() ?? '',
+      countedByName: map['counted_by_name']?.toString() ?? '',
+      itemCount: (map['item_count'] as num?)?.toInt() ?? 0,
+      varianceItemCount:
+          (map['variance_item_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class StockCountLineInput {
+  final String inventoryItemId;
+  final double countedQuantity;
+  final String notes;
+  final DateTime? adjustmentExpirationDate;
+  final double unitCostBase;
+
+  const StockCountLineInput({
+    required this.inventoryItemId,
+    required this.countedQuantity,
+    this.notes = '',
+    this.adjustmentExpirationDate,
+    this.unitCostBase = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'inventory_item_id': inventoryItemId,
+    'counted_quantity': countedQuantity,
+    'notes': notes.trim().isEmpty ? null : notes.trim(),
+    'adjustment_expiration_date': adjustmentExpirationDate == null
+        ? null
+        : _dateOnly(adjustmentExpirationDate!),
+    'unit_cost_base': unitCostBase,
+  };
+
+  static String _dateOnly(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+}

@@ -9,9 +9,11 @@ Future<T?> showPrototypeDialog<T>({
   required Widget content,
   List<Widget> actions = const [],
   double width = 520,
+  bool barrierDismissible = true,
 }) {
   return showDialog<T>(
     context: context,
+    barrierDismissible: barrierDismissible,
     builder: (dialogContext) {
       final viewport = MediaQuery.sizeOf(dialogContext);
       final compact = viewport.width < 600;

@@ -21,12 +21,20 @@ abstract class InventoryRepository {
 
   Future<List<StockOutSummary>> getStockOuts({int limit = 20});
 
+  Future<List<StockCountSummary>> getStockCounts({int limit = 20});
+
   Future<void> createStockOut({
     required String purpose,
     required List<StockOutLineInput> items,
     String referenceNumber = '',
     String notes = '',
     DateTime? occurredAt,
+  });
+
+  Future<void> createAndPostStockCount({
+    required List<StockCountLineInput> items,
+    String notes = '',
+    DateTime? countedAt,
   });
 
   Future<void> disposeLot({

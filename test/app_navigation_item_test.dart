@@ -24,21 +24,33 @@ void main() {
           destinationIndex: 4,
         ),
         AppNavigationItem(
+          label: 'Inventory Count',
+          icon: Icons.fact_check_outlined,
+          destinationIndex: 5,
+        ),
+        AppNavigationItem(
           label: 'Stock Adjustment',
           icon: Icons.tune,
-          destinationIndex: 5,
+          destinationIndex: 6,
         ),
         AppNavigationItem(
           label: 'Inventory History',
           icon: Icons.history,
-          destinationIndex: 6,
+          destinationIndex: 7,
         ),
       ],
     );
 
     expect(group.containsDestination(2), isTrue);
-    expect(group.containsDestination(6), isTrue);
+    expect(group.containsDestination(7), isTrue);
     expect(group.containsDestination(1), isFalse);
-    expect(group.items.map((item) => item.destinationIndex), [2, 3, 4, 5, 6]);
+    expect(group.items.map((item) => item.destinationIndex), [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+    ]);
   });
 }

@@ -47,12 +47,23 @@ class MockInventoryRepository implements InventoryRepository {
       const [];
 
   @override
+  Future<List<StockCountSummary>> getStockCounts({int limit = 20}) async =>
+      const [];
+
+  @override
   Future<void> createStockOut({
     required String purpose,
     required List<StockOutLineInput> items,
     String referenceNumber = '',
     String notes = '',
     DateTime? occurredAt,
+  }) async {}
+
+  @override
+  Future<void> createAndPostStockCount({
+    required List<StockCountLineInput> items,
+    String notes = '',
+    DateTime? countedAt,
   }) async {}
 
   @override

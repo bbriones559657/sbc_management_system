@@ -28,6 +28,7 @@ import 'screens/auth/auth_gate.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
 import 'screens/finance/sales_finance_screen.dart';
+import 'screens/inventory/inventory_count_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
 import 'screens/menu/menu_management_screen.dart';
 import 'screens/orders/orders_screen.dart';
@@ -182,6 +183,13 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
                 inventoryRepository: _inventoryRepository,
                 canManageInventory: true,
                 view: InventoryView.disposal,
+              ),
+            ),
+            destination(
+              label: 'Inventory Count',
+              icon: Icons.fact_check_outlined,
+              page: InventoryCountScreen(
+                inventoryRepository: _inventoryRepository,
               ),
             ),
             destination(

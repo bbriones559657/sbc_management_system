@@ -146,6 +146,22 @@ class SupabaseInventoryRepository implements InventoryRepository {
   }
 
   @override
+  Future<List<StockCountSummary>> getStockCounts({int limit = 20}) async {
+    final rows = await _client
+        .from('v_stock_count_summary')
+        .select()
+        .order('counted_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map(
+          (row) =>
+              StockCountSummary.fromMap(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
+  }
+
+  @override
   Future<void> createStockOut({
     required String purpose,
     required List<StockOutLineInput> items,
@@ -161,6 +177,24 @@ class SupabaseInventoryRepository implements InventoryRepository {
         'p_reference_number': _nullableText(referenceNumber),
         'p_notes': _nullableText(notes),
         'p_occurred_at': (occurredAt ?? DateTime.now())
+            .toUtc()
+            .toIso8601String(),
+      },
+    );
+  }
+
+  @override
+  Future<void> createAndPostStockCount({
+    required List<StockCountLineInput> items,
+    String notes = '',
+    DateTime? countedAt,
+  }) async {
+    await _client.rpc(
+      'create_and_post_stock_count',
+      params: {
+        'p_items': items.map((item) => item.toJson()).toList(),
+        'p_notes': _nullableText(notes),
+        'p_counted_at': (countedAt ?? DateTime.now())
             .toUtc()
             .toIso8601String(),
       },
