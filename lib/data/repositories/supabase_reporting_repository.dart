@@ -124,12 +124,9 @@ class SupabaseReportingRepository implements ReportingRepository {
           .add(row);
     }
 
-    final topProducts = productTotals.values
-        .map((item) => item.toRecord())
-        .toList()
-      ..sort(
-        (a, b) => b.netQuantitySold.compareTo(a.netQuantitySold),
-      );
+    final topProducts =
+        productTotals.values.map((item) => item.toRecord()).toList()
+          ..sort((a, b) => b.netQuantitySold.compareTo(a.netQuantitySold));
 
     return ReportingSnapshot(
       dailySales: dailySales,
@@ -161,11 +158,7 @@ class SupabaseReportingRepository implements ReportingRepository {
       now.month,
       now.day,
     ).subtract(Duration(days: days - 1));
-    final endExclusive = DateTime(
-      now.year,
-      now.month,
-      now.day + 1,
-    );
+    final endExclusive = DateTime(now.year, now.month, now.day + 1);
 
     final rows = await _client
         .from('v_business_transaction_trace')

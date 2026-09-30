@@ -84,10 +84,8 @@ class ProductSalesRow {
       itemName: map['item_name_snapshot']?.toString() ?? '',
       variantName: map['variant_name_snapshot']?.toString() ?? '',
       quantitySold: (map['quantity_sold'] as num?)?.toDouble() ?? 0,
-      quantityRefunded:
-          (map['quantity_refunded'] as num?)?.toDouble() ?? 0,
-      netQuantitySold:
-          (map['net_quantity_sold'] as num?)?.toDouble() ?? 0,
+      quantityRefunded: (map['quantity_refunded'] as num?)?.toDouble() ?? 0,
+      netQuantitySold: (map['net_quantity_sold'] as num?)?.toDouble() ?? 0,
       sales: (map['net_line_sales'] as num?)?.toDouble() ?? 0,
     );
   }

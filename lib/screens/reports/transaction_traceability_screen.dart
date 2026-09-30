@@ -65,8 +65,7 @@ class _TransactionTraceabilityScreenState
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Transaction Traceability',
-      subtitle:
-          'Follow each document back to its receipt/reference and employee (up to 500 recent records).',
+      subtitle: 'Follow each document back to its receipt/reference and employee (up to 500 recent records).',
       action: OutlinedButton.icon(
         onPressed: _refresh,
         icon: const Icon(Icons.refresh, size: 18),
@@ -193,7 +192,8 @@ class _TransactionTraceabilityScreenState
       onChanged: (value) => setState(() => _search = value),
       decoration: const InputDecoration(
         prefixIcon: Icon(Icons.search),
-        hintText: 'Search document, receipt, supplier, customer, or employee...',
+        hintText:
+            'Search document, receipt, supplier, customer, or employee...',
       ),
     );
 
@@ -290,8 +290,7 @@ class _TransactionTraceabilityScreenState
     final query = _search.trim().toLowerCase();
 
     return records.where((record) {
-      final typeMatches =
-          _eventType == 'ALL' || record.eventType == _eventType;
+      final typeMatches = _eventType == 'ALL' || record.eventType == _eventType;
       final searchMatches =
           query.isEmpty ||
           record.documentNumber.toLowerCase().contains(query) ||
