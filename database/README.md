@@ -87,7 +87,10 @@ supabase/seed.sql
 The pgTAP regression tests in `supabase/tests/database/` cover cashier
 authorization, shift cash handling, POS checkout, finished-good deduction,
 multi-item stock-out, packaging conversion, FEFO, partial refunds with explicit
-restocking, and partial purchase-order receiving.
+restocking, partial purchase-order receiving, transaction traceability and API
+security boundaries. Security checks include anonymous-access denial, RLS on
+public tables, invoker-security views, protected helper functions and explicit
+Flutter RPC grants.
 Every test runs inside a transaction and rolls back its isolated fixtures.
 
 From the repository root, run:
@@ -129,6 +132,11 @@ sbc_management_system/
 ## Security rule
 
 Never place a Supabase `service_role` key inside the Flutter application.
+
+The public Data API is default-deny: anonymous users have no access to the
+business-data schema, and new database objects receive no client privileges
+until a migration explicitly grants them. RLS and internal RPC authorization
+remain required even when an object has been granted to `authenticated`.
 
 Manager-created staff accounts should eventually be provisioned through a trusted server or Supabase Edge Function using the Admin API.
 

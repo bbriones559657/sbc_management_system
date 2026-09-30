@@ -33,9 +33,10 @@ This document tracks integration work and rollback-based database regression che
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 66 consultation-alignment assertions in
-addition to the existing integration regression suite. Each scenario creates
-isolated fixtures inside a transaction and rolls them back. Run it with:
+The automated pgTAP suite includes 85 consultation-alignment and security
+assertions in addition to the existing integration regression suite. Each
+scenario creates isolated fixtures inside a transaction and rolls them back.
+Run it with:
 
 ```bash
 supabase start
@@ -153,8 +154,15 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 ## Database hardening
 
 - RLS is enabled on operational tables.
+- Anonymous access to the public business-data schema, tables, views,
+  sequences and RPC functions is explicitly denied.
+- Public and private schema default privileges now fail closed. Every future
+  table, sequence, view or RPC must be deliberately granted in its migration.
 - Internal helper functions are not exposed to normal API roles.
 - Business-changing operations use permission-checked RPC functions.
+- Automated security regression tests verify RLS coverage, invoker-security
+  views, pinned search paths, hidden helper functions and the Flutter RPC
+  allow-list.
 - High-traffic foreign-key and report-period indexes were added for POS,
   inventory, refunds, purchasing, finance and traceability.
 - Overlapping `FOR ALL` management policies were split into action-specific

@@ -10,6 +10,14 @@ Run these tests against a non-production Supabase project before connecting the 
 - Verify a MANAGER cannot change a user's role to ADMIN.
 - Verify only an account with roles.manage can change role assignments.
 - Verify anonymous requests cannot read business tables.
+- Verify anonymous requests cannot execute any function in the public schema.
+- Verify all public application tables have RLS enabled.
+- Verify all public views use `security_invoker=true`.
+- Verify every `SECURITY DEFINER` function has a pinned `search_path`.
+- Verify trigger/helper functions are not executable by authenticated clients.
+- Verify every RPC called by Flutter has an explicit authenticated grant.
+- Create a probe table, sequence and function and verify default privileges do
+  not expose them until explicitly granted.
 
 ## 2. Shift gate
 
