@@ -15,10 +15,11 @@ class ResponsiveFilterBar extends StatelessWidget {
     required this.filterWidths,
     this.breakpoint = 760,
     this.gap = 12,
-  }) : assert(filters.length == filterWidths.length);
+  });
 
   @override
   Widget build(BuildContext context) {
+    assert(filters.length == filterWidths.length);
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < breakpoint) {
