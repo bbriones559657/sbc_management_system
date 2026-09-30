@@ -68,7 +68,9 @@ May access modules such as:
 - Sales & Finance
 - Reports
 - Suppliers
-- Restocking
+- Purchase Orders
+- Multi-item Goods Receiving
+- Supplier Bills
 - Users
 
 ### Employee / Staff

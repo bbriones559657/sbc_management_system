@@ -43,6 +43,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Purchasing',
+      subtitle:
+          'Create purchase orders and receive several traceable stock items at once.',
       action: ElevatedButton.icon(
         onPressed: _tab == 0
             ? _showCreatePurchaseOrder
@@ -110,7 +112,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             rows: orders
                 .map(
                   (order) => [
-                    Text('#${order.number}', style: AppTextStyles.bodyMedium),
+                    Text('PO-${order.number}', style: AppTextStyles.bodyMedium),
                     Text(order.supplierName, style: AppTextStyles.body),
                     Text('${order.lineCount}', style: AppTextStyles.body),
                     Text(
@@ -177,27 +179,33 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               'Receipt',
               'Supplier',
               'PO',
-              'Invoice',
+              'Invoice / Receipt',
+              'Received',
               'Lines',
               'Total',
               'Status',
+              'Actions',
             ],
-            flexes: const [1, 3, 1, 2, 1, 2, 2],
+            flexes: const [1, 3, 1, 2, 2, 1, 2, 2, 1],
             rows: receipts
                 .map(
                   (receipt) => [
-                    Text('#${receipt.number}', style: AppTextStyles.bodyMedium),
+                    Text('GR-${receipt.number}', style: AppTextStyles.bodyMedium),
                     Text(receipt.supplierName, style: AppTextStyles.body),
                     Text(
                       receipt.purchaseOrderNumber == null
                           ? 'Direct'
-                          : '#${receipt.purchaseOrderNumber}',
+                          : 'PO-${receipt.purchaseOrderNumber}',
                       style: AppTextStyles.body,
                     ),
                     Text(
                       receipt.supplierInvoiceNumber.isEmpty
                           ? '—'
                           : receipt.supplierInvoiceNumber,
+                      style: AppTextStyles.body,
+                    ),
+                    Text(
+                      _formatDate(receipt.receivedAt),
                       style: AppTextStyles.body,
                     ),
                     Text('${receipt.lineCount}', style: AppTextStyles.body),
@@ -209,12 +217,153 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       alignment: Alignment.centerLeft,
                       child: StatusBadge(_statusLabel(receipt.status)),
                     ),
+                    TextButton(
+                      onPressed: () => _showReceiptDetails(receipt),
+                      child: const Text('View'),
+                    ),
                   ],
                 )
                 .toList(),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showReceiptDetails(GoodsReceiptSummary receipt) async {
+    List<GoodsReceiptLineRecord> lines;
+    try {
+      lines = await widget.purchasingRepository.getGoodsReceiptLines(
+        receipt.id,
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showMessage(error.message);
+      return;
+    } catch (error) {
+      if (mounted) _showMessage(error.toString());
+      return;
+    }
+
+    if (!mounted) return;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Goods Receipt GR-${receipt.number}',
+      width: 820,
+      content: SizedBox(
+        height: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 24,
+                runSpacing: 10,
+                children: [
+                  _receiptDetail('Supplier', receipt.supplierName),
+                  _receiptDetail(
+                    'External Reference',
+                    receipt.supplierInvoiceNumber,
+                  ),
+                  _receiptDetail(
+                    'Reference Date',
+                    receipt.supplierInvoiceDate == null
+                        ? '—'
+                        : _formatDate(receipt.supplierInvoiceDate!),
+                  ),
+                  _receiptDetail(
+                    'Purchase Order',
+                    receipt.purchaseOrderNumber == null
+                        ? 'Direct Receipt'
+                        : 'PO-${receipt.purchaseOrderNumber}',
+                  ),
+                  _receiptDetail('Posted', _formatDate(receipt.receivedAt)),
+                  _receiptDetail(
+                    'Received By',
+                    receipt.receivedByName.isEmpty
+                        ? '—'
+                        : receipt.receivedByName,
+                  ),
+                  _receiptDetail('Total', _money(receipt.total)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text('Received Items', style: AppTextStyles.h3),
+              const SizedBox(height: 10),
+              if (lines.isEmpty)
+                _emptyLines()
+              else
+                for (final line in lines) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.gray200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                line.inventoryItemName,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                            ),
+                            Text(
+                              _money(line.lineTotal),
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${_qty(line.purchaseQuantity)} ${line.purchaseUomCode} '
+                          '× ${_money(line.unitCost)} each',
+                          style: AppTextStyles.body,
+                        ),
+                        Text(
+                          'Conversion: 1 ${line.purchaseUomCode} = '
+                          '${_qty(line.baseQuantityPerPurchaseUnit)} '
+                          '${line.baseUomCode} • Added: '
+                          '${_qty(line.baseQuantity)} ${line.baseUomCode}',
+                          style: AppTextStyles.caption,
+                        ),
+                        Text(
+                          'Lot: ${line.lotCode.isEmpty ? 'Auto-generated' : line.lotCode} '
+                          '• Expiry: ${line.expirationDate == null ? 'Not applicable' : _formatDate(line.expirationDate!)} '
+                          '• Remaining: ${_qty(line.remainingQuantity)} ${line.baseUomCode}',
+                          style: AppTextStyles.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _receiptDetail(String label, String value) {
+    return SizedBox(
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: AppTextStyles.bodyMedium),
+        ],
+      ),
     );
   }
 
@@ -245,6 +394,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     DateTime? expectedDate;
     final notesController = TextEditingController();
     List<PurchaseLineInput> lines = [];
+    bool isSaving = false;
     String? errorMessage;
     StateSetter? updateDialogState;
 
@@ -252,6 +402,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       context: context,
       title: 'New Purchase Order',
       width: 760,
+      barrierDismissible: false,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           updateDialogState = setDialogState;
@@ -348,6 +499,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     ),
                   ),
                 ],
+                if (isSaving) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                ],
               ],
             ),
           );
@@ -355,11 +510,15 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (isSaving) return;
+            Navigator.pop(context);
+          },
           child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: () async {
+            if (isSaving) return;
             if (lines.isEmpty) {
               updateDialogState?.call(() {
                 errorMessage = 'Add at least one purchase item.';
@@ -367,6 +526,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               return;
             }
 
+            updateDialogState?.call(() => isSaving = true);
             try {
               await widget.purchasingRepository.createPurchaseOrder(
                 supplierId: supplierId,
@@ -381,10 +541,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               _showMessage('Purchase order created as Draft.');
             } on PostgrestException catch (error) {
               updateDialogState?.call(() {
+                isSaving = false;
                 errorMessage = error.message;
               });
             } catch (error) {
               updateDialogState?.call(() {
+                isSaving = false;
                 errorMessage = error.toString();
               });
             }
@@ -402,7 +564,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       await widget.purchasingRepository.approvePurchaseOrder(order.id);
       if (!mounted) return;
       _refresh();
-      _showMessage('Purchase order #${order.number} approved.');
+              _showMessage('Purchase order PO-${order.number} approved.');
     } on PostgrestException catch (error) {
       if (!mounted) return;
       _showMessage(error.message);
@@ -438,6 +600,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     DateTime? invoiceDate = DateTime.now();
     DateTime? dueDate;
     bool createBill = true;
+    bool isSaving = false;
     String? errorMessage;
     StateSetter? updateDialogState;
 
@@ -457,8 +620,9 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: order == null ? 'Receive Stock' : 'Receive PO #${order.number}',
+      title: order == null ? 'Receive Stock' : 'Receive PO-${order.number}',
       width: 780,
+      barrierDismissible: false,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           updateDialogState = setDialogState;
@@ -489,64 +653,79 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                 TextField(
                   controller: invoiceController,
                   decoration: const InputDecoration(
-                    labelText: 'Supplier Invoice Number',
+                    labelText: 'Supplier Invoice / Grocery Receipt Number *',
+                    hintText: 'Required external reference',
                   ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: dialogContext,
-                            initialDate: invoiceDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 3650),
-                            ),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 3650),
-                            ),
-                          );
-                          if (date == null) return;
-                          setDialogState(() => invoiceDate = date);
-                        },
-                        icon: const Icon(Icons.calendar_month_outlined),
-                        label: Text(
-                          invoiceDate == null
-                              ? 'Invoice Date'
-                              : 'Invoice: ${_formatDate(invoiceDate!)}',
-                        ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final invoiceDateButton = OutlinedButton.icon(
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: invoiceDate ?? DateTime.now(),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 3650),
+                          ),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 3650),
+                          ),
+                        );
+                        if (date == null) return;
+                        setDialogState(() => invoiceDate = date);
+                      },
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: Text(
+                        invoiceDate == null
+                            ? 'Invoice / Receipt Date *'
+                            : 'Reference: ${_formatDate(invoiceDate!)}',
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: createBill
-                            ? () async {
-                                final date = await showDatePicker(
-                                  context: dialogContext,
-                                  initialDate: DateTime.now().add(
-                                    const Duration(days: 30),
-                                  ),
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 3650),
-                                  ),
-                                );
-                                if (date == null) return;
-                                setDialogState(() => dueDate = date);
-                              }
-                            : null,
-                        icon: const Icon(Icons.event_outlined),
-                        label: Text(
-                          dueDate == null
-                              ? 'Bill Due Date'
-                              : 'Due: ${_formatDate(dueDate!)}',
-                        ),
+                    );
+                    final dueDateButton = OutlinedButton.icon(
+                      onPressed: createBill
+                          ? () async {
+                              final date = await showDatePicker(
+                                context: dialogContext,
+                                initialDate: DateTime.now().add(
+                                  const Duration(days: 30),
+                                ),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 3650),
+                                ),
+                              );
+                              if (date == null) return;
+                              setDialogState(() => dueDate = date);
+                            }
+                          : null,
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(
+                        dueDate == null
+                            ? 'Bill Due Date'
+                            : 'Due: ${_formatDate(dueDate!)}',
                       ),
-                    ),
-                  ],
+                    );
+
+                    if (constraints.maxWidth < 560) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          invoiceDateButton,
+                          const SizedBox(height: 10),
+                          dueDateButton,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: invoiceDateButton),
+                        const SizedBox(width: 10),
+                        Expanded(child: dueDateButton),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -579,6 +758,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     _receiptLineTile(
                       line: lines[index],
                       inventory: inventory,
+                      units: units,
                       onEdit: () async {
                         final edited = await _showLineEditor(
                           dialogContext,
@@ -591,9 +771,9 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
                         setDialogState(() => lines[index] = edited);
                       },
-                      onRemove: order == null
-                          ? () => setDialogState(() => lines.removeAt(index))
-                          : null,
+                      onRemove: lines.length == 1
+                          ? null
+                          : () => setDialogState(() => lines.removeAt(index)),
                     ),
                 const SizedBox(height: 8),
                 SwitchListTile(
@@ -626,6 +806,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     ),
                   ),
                 ],
+                if (isSaving) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                ],
               ],
             ),
           );
@@ -633,11 +817,31 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (isSaving) return;
+            Navigator.pop(context);
+          },
           child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: () async {
+            if (isSaving) return;
+            if (invoiceController.text.trim().isEmpty) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'Supplier invoice or grocery receipt number is required.';
+              });
+              return;
+            }
+
+            if (invoiceDate == null) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'Supplier invoice or grocery receipt date is required.';
+              });
+              return;
+            }
+
             if (lines.isEmpty) {
               updateDialogState?.call(() {
                 errorMessage = 'Add at least one received item.';
@@ -658,13 +862,14 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               }
             }
 
+            updateDialogState?.call(() => isSaving = true);
             try {
               await widget.purchasingRepository.receiveStock(
                 supplierId: supplierId,
                 items: lines,
                 purchaseOrderId: order?.id ?? '',
                 supplierInvoiceNumber: invoiceController.text.trim(),
-                supplierInvoiceDate: invoiceDate,
+                supplierInvoiceDate: invoiceDate!,
                 notes: notesController.text.trim(),
                 createSupplierBill: createBill,
                 dueDate: dueDate,
@@ -676,10 +881,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               _showMessage('Stock received and inventory updated.');
             } on PostgrestException catch (error) {
               updateDialogState?.call(() {
+                isSaving = false;
                 errorMessage = error.message;
               });
             } catch (error) {
               updateDialogState?.call(() {
+                isSaving = false;
                 errorMessage = error.toString();
               });
             }
@@ -711,6 +918,23 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     final costController = TextEditingController(
       text: initial == null ? '' : initial.unitCost.toStringAsFixed(2),
     );
+    final selectedItem = inventory.firstWhere(
+      (entry) => entry.id == inventoryId,
+    );
+    final selectedBaseUnit = units.firstWhere(
+      (unit) => unit.id == selectedItem.baseUomId,
+    );
+    final selectedPurchaseUnit = units.firstWhere(
+      (unit) => unit.id == purchaseUomId,
+    );
+    final conversionController = TextEditingController(
+      text: initial == null
+          ? _qty(
+              selectedPurchaseUnit.factorToBase /
+                  selectedBaseUnit.factorToBase,
+            )
+          : _qty(initial.baseQuantityPerPurchaseUnit),
+    );
     final lotController = TextEditingController(text: initial?.lotCode ?? '');
     DateTime? expirationDate = initial?.expirationDate;
     String? errorMessage;
@@ -734,7 +958,13 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
           final purchaseUnit = compatible.firstWhere(
             (unit) => unit.id == purchaseUomId,
           );
-          final conversion = purchaseUnit.factorToBase / baseUnit.factorToBase;
+          final standardConversion =
+              purchaseUnit.factorToBase / baseUnit.factorToBase;
+          final lockedToPurchaseOrder =
+              initial?.purchaseOrderItemId.isNotEmpty == true;
+          final needsPackageConversion =
+              purchaseUnit.dimension == 'COUNT' &&
+              purchaseUnit.id != item.baseUomId;
 
           return AlertDialog(
             title: Text(
@@ -770,6 +1000,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                                   (entry) => entry.id == value,
                                 );
                                 purchaseUomId = next.baseUomId;
+                                conversionController.text = '1';
                                 expirationDate = null;
                               });
                             },
@@ -792,20 +1023,49 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           ? null
                           : (value) {
                               if (value == null) return;
-                              setDialogState(() => purchaseUomId = value);
+                              final nextUnit = compatible.firstWhere(
+                                (unit) => unit.id == value,
+                              );
+                              setDialogState(() {
+                                purchaseUomId = value;
+                                final requiresManual =
+                                    nextUnit.dimension == 'COUNT' &&
+                                    nextUnit.id != item.baseUomId;
+                                conversionController.text = requiresManual
+                                    ? ''
+                                    : _qty(
+                                        nextUnit.factorToBase /
+                                            baseUnit.factorToBase,
+                                      );
+                              });
                             },
                     ),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '1 ${purchaseUnit.code} = '
-                        '${_qty(conversion)} ${item.baseUomCode}',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.gray500,
+                    if (needsPackageConversion && !lockedToPurchaseOrder)
+                      TextField(
+                        controller: conversionController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText:
+                              '${item.baseUomCode} per ${purchaseUnit.code} *',
+                          helperText:
+                              'Example: enter 50 when one box contains 50 ${item.baseUomCode}.',
+                        ),
+                      )
+                    else
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '1 ${purchaseUnit.code} = '
+                          '${_qty(lockedToPurchaseOrder ? initial!.baseQuantityPerPurchaseUnit : standardConversion)} '
+                          '${item.baseUomCode}',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.gray500,
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 14),
                     TextField(
                       controller: quantityController,
@@ -890,13 +1150,19 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     quantityController.text.trim(),
                   );
                   final unitCost = double.tryParse(costController.text.trim());
+                  final conversion = double.tryParse(
+                    conversionController.text.trim(),
+                  );
 
                   if (quantity == null ||
                       quantity <= 0 ||
                       unitCost == null ||
-                      unitCost < 0) {
+                      unitCost < 0 ||
+                      conversion == null ||
+                      conversion <= 0) {
                     setDialogState(() {
-                      errorMessage = 'Enter a valid quantity and unit cost.';
+                      errorMessage =
+                          'Enter a valid quantity, package conversion and unit cost.';
                     });
                     return;
                   }
@@ -935,6 +1201,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     quantityController.dispose();
     costController.dispose();
+    conversionController.dispose();
     lotController.dispose();
     return result;
   }
@@ -993,11 +1260,15 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   Widget _receiptLineTile({
     required PurchaseLineInput line,
     required List<PurchaseInventoryOption> inventory,
+    required List<PurchaseUnitOption> units,
     required VoidCallback onEdit,
     VoidCallback? onRemove,
   }) {
     final item = inventory.firstWhere(
       (entry) => entry.id == line.inventoryItemId,
+    );
+    final purchaseUnit = units.firstWhere(
+      (entry) => entry.id == line.purchaseUomId,
     );
 
     return Container(
@@ -1008,37 +1279,60 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.gray200),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(item.name, style: AppTextStyles.bodyMedium),
+              Text(
+                '${_qty(line.quantity)} ${purchaseUnit.code} received • '
+                '1 ${purchaseUnit.code} = '
+                '${_qty(line.baseQuantityPerPurchaseUnit)} ${item.baseUomCode}'
+                '${line.expirationDate == null ? '' : ' • exp. ${_formatDate(line.expirationDate!)}'}',
+                style: AppTextStyles.caption,
+              ),
+            ],
+          );
+          final actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _money(line.quantity * line.unitCost),
+                style: AppTextStyles.bodyMedium,
+              ),
+              IconButton(
+                tooltip: 'Edit',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 19),
+              ),
+              if (onRemove != null)
+                IconButton(
+                  tooltip: 'Remove',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete_outline, size: 19),
+                ),
+            ],
+          );
+
+          if (constraints.maxWidth < 520) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name, style: AppTextStyles.bodyMedium),
-                Text(
-                  '${_qty(line.quantity)} received'
-                  '${line.expirationDate == null ? '' : ' • exp. ${_formatDate(line.expirationDate!)}'}',
-                  style: AppTextStyles.caption,
-                ),
+                details,
+                const SizedBox(height: 6),
+                Align(alignment: Alignment.centerRight, child: actions),
               ],
-            ),
-          ),
-          Text(
-            _money(line.quantity * line.unitCost),
-            style: AppTextStyles.bodyMedium,
-          ),
-          IconButton(
-            tooltip: 'Edit',
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, size: 19),
-          ),
-          if (onRemove != null)
-            IconButton(
-              tooltip: 'Remove',
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline, size: 19),
-            ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: details),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }

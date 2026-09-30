@@ -137,7 +137,9 @@ class GoodsReceiptSummary {
   final String supplierName;
   final int? purchaseOrderNumber;
   final String supplierInvoiceNumber;
+  final DateTime? supplierInvoiceDate;
   final DateTime receivedAt;
+  final String receivedByName;
   final String status;
   final int lineCount;
   final double total;
@@ -148,23 +150,86 @@ class GoodsReceiptSummary {
     required this.supplierName,
     required this.purchaseOrderNumber,
     required this.supplierInvoiceNumber,
+    required this.supplierInvoiceDate,
     required this.receivedAt,
+    required this.receivedByName,
     required this.status,
     required this.lineCount,
     required this.total,
   });
 
   factory GoodsReceiptSummary.fromMap(Map<String, dynamic> map) {
+    final invoiceDate = map['supplier_invoice_date']?.toString();
     return GoodsReceiptSummary(
       id: map['id']?.toString() ?? '',
       number: (map['receipt_number'] as num?)?.toInt() ?? 0,
       supplierName: map['supplier_name']?.toString() ?? '',
       purchaseOrderNumber: (map['purchase_order_number'] as num?)?.toInt(),
       supplierInvoiceNumber: map['supplier_invoice_number']?.toString() ?? '',
+      supplierInvoiceDate: invoiceDate == null || invoiceDate.isEmpty
+          ? null
+          : DateTime.tryParse(invoiceDate),
       receivedAt: DateTime.parse(map['received_at'].toString()).toLocal(),
+      receivedByName: map['received_by_name']?.toString() ?? '',
       status: map['status']?.toString() ?? '',
       lineCount: (map['line_count'] as num?)?.toInt() ?? 0,
       total: (map['receipt_total'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class GoodsReceiptLineRecord {
+  final String id;
+  final String inventoryItemName;
+  final String purchaseUomCode;
+  final double purchaseQuantity;
+  final double baseQuantityPerPurchaseUnit;
+  final double baseQuantity;
+  final String baseUomCode;
+  final double unitCost;
+  final double lineTotal;
+  final String lotCode;
+  final DateTime? expirationDate;
+  final double remainingQuantity;
+  final String lotStatus;
+
+  const GoodsReceiptLineRecord({
+    required this.id,
+    required this.inventoryItemName,
+    required this.purchaseUomCode,
+    required this.purchaseQuantity,
+    required this.baseQuantityPerPurchaseUnit,
+    required this.baseQuantity,
+    required this.baseUomCode,
+    required this.unitCost,
+    required this.lineTotal,
+    required this.lotCode,
+    required this.expirationDate,
+    required this.remainingQuantity,
+    required this.lotStatus,
+  });
+
+  factory GoodsReceiptLineRecord.fromMap(Map<String, dynamic> map) {
+    final expiration = map['expiration_date']?.toString();
+    return GoodsReceiptLineRecord(
+      id: map['id']?.toString() ?? '',
+      inventoryItemName: map['inventory_item_name']?.toString() ?? '',
+      purchaseUomCode: map['purchase_uom_code']?.toString() ?? '',
+      purchaseQuantity:
+          (map['purchase_quantity'] as num?)?.toDouble() ?? 0,
+      baseQuantityPerPurchaseUnit:
+          (map['base_quantity_per_purchase_unit'] as num?)?.toDouble() ?? 1,
+      baseQuantity: (map['base_quantity'] as num?)?.toDouble() ?? 0,
+      baseUomCode: map['base_uom_code']?.toString() ?? '',
+      unitCost: (map['unit_cost_purchase_uom'] as num?)?.toDouble() ?? 0,
+      lineTotal: (map['line_total'] as num?)?.toDouble() ?? 0,
+      lotCode: map['lot_code']?.toString() ?? '',
+      expirationDate: expiration == null || expiration.isEmpty
+          ? null
+          : DateTime.tryParse(expiration),
+      remainingQuantity:
+          (map['remaining_quantity'] as num?)?.toDouble() ?? 0,
+      lotStatus: map['lot_status']?.toString() ?? '',
     );
   }
 }

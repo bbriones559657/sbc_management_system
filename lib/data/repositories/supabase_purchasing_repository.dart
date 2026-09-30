@@ -125,6 +125,25 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   }
 
   @override
+  Future<List<GoodsReceiptLineRecord>> getGoodsReceiptLines(
+    String goodsReceiptId,
+  ) async {
+    final rows = await _client
+        .from('v_goods_receipt_line_details')
+        .select()
+        .eq('goods_receipt_id', goodsReceiptId)
+        .order('inventory_item_name');
+
+    return (rows as List)
+        .map(
+          (raw) => GoodsReceiptLineRecord.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<void> createPurchaseOrder({
     required String supplierId,
     required List<PurchaseLineInput> items,
@@ -156,9 +175,9 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   Future<void> receiveStock({
     required String supplierId,
     required List<PurchaseLineInput> items,
+    required String supplierInvoiceNumber,
+    required DateTime supplierInvoiceDate,
     String purchaseOrderId = '',
-    String supplierInvoiceNumber = '',
-    DateTime? supplierInvoiceDate,
     String notes = '',
     bool createSupplierBill = true,
     DateTime? dueDate,
@@ -170,9 +189,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         'p_items': items.map((item) => item.toReceiptJson()).toList(),
         'p_purchase_order_id': _nullable(purchaseOrderId),
         'p_supplier_invoice_number': _nullable(supplierInvoiceNumber),
-        'p_supplier_invoice_date': supplierInvoiceDate == null
-            ? null
-            : _dateOnly(supplierInvoiceDate),
+        'p_supplier_invoice_date': _dateOnly(supplierInvoiceDate),
         'p_notes': _nullable(notes),
         'p_create_supplier_bill': createSupplierBill,
         'p_due_date': dueDate == null ? null : _dateOnly(dueDate),

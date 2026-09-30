@@ -15,6 +15,10 @@ abstract class PurchasingRepository {
 
   Future<List<GoodsReceiptSummary>> getGoodsReceipts();
 
+  Future<List<GoodsReceiptLineRecord>> getGoodsReceiptLines(
+    String goodsReceiptId,
+  );
+
   Future<void> createPurchaseOrder({
     required String supplierId,
     required List<PurchaseLineInput> items,
@@ -27,9 +31,9 @@ abstract class PurchasingRepository {
   Future<void> receiveStock({
     required String supplierId,
     required List<PurchaseLineInput> items,
+    required String supplierInvoiceNumber,
+    required DateTime supplierInvoiceDate,
     String purchaseOrderId = '',
-    String supplierInvoiceNumber = '',
-    DateTime? supplierInvoiceDate,
     String notes = '',
     bool createSupplierBill = true,
     DateTime? dueDate,

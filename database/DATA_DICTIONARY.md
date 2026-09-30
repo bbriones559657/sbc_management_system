@@ -65,8 +65,8 @@
 | `supplier_items` | Supplier-specific item/UOM/pack/cost defaults. |
 | `purchase_orders` | Optional planned purchases. |
 | `purchase_order_items` | PO lines. |
-| `goods_receipts` | Actual supplier deliveries/direct purchases received. |
-| `goods_receipt_items` | Received lines; each can create an inventory lot. |
+| `goods_receipts` | Actual supplier deliveries/direct purchases with mandatory supplier invoice or grocery receipt traceability. |
+| `goods_receipt_items` | Multi-item received lines with purchase-unit conversion, cost, batch and expiration details; each creates an inventory lot. |
 | `supplier_bills` | Amount owed to suppliers. |
 | `supplier_bill_payments` | Full or partial settlement of supplier bills. |
 

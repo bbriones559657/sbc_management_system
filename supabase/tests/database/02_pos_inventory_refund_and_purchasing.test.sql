@@ -602,8 +602,8 @@ select throws_ok(
         order by created_at desc
         limit 1
       ),
-      null,
-      null,
+      'DB-TEST-INVOICE-OVER-RECEIPT',
+      current_date,
       'Over-receipt attempt',
       false,
       null

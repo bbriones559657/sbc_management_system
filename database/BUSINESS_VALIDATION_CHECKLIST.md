@@ -43,6 +43,9 @@ These items should be confirmed with Street Bowl Café during/after the next dem
 - [x] Stock-in supports one transaction with many supply lines.
 - [x] Stock-out supports one transaction with many supply lines.
 - [x] Package conversion is recorded (for example, one box equals 50 pieces).
+- [x] One goods receipt can stock in multiple supplies at once.
+- [x] Supplier invoice/grocery receipt number and date are required for receiving.
+- [x] Posted receipt details remain linked to their created inventory lots.
 - [x] Perishable lots use FEFO.
 - [x] Every stock transaction is traceable to a source/reference and user.
 - [ ] Confirm the final list of packaging/countable supplies to track.

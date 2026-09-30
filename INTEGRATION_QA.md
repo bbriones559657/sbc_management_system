@@ -21,13 +21,15 @@ This document tracks integration work and rollback-based database regression che
 - Expenses with date, supplier/grocery, purpose, amount, reference, notes and create/update/void workflow
 - Suppliers with live Supabase records
 - Purchasing with purchase orders, approval, partial receiving, goods receipts and supplier bills
+- Receiving requires a supplier invoice/grocery receipt reference and supports
+  explicit package conversions such as one box containing fifty pieces
 - Sales & Finance with reporting data and supplier bill payments
 - Reports backed by database views
 - Users with role/status management and the protected `create-employee` Edge Function
 
 ## Regression checks completed
 
-The automated pgTAP suite includes 31 consultation-alignment assertions in
+The automated pgTAP suite includes 41 consultation-alignment assertions in
 addition to the existing integration regression suite. Each scenario creates
 isolated fixtures inside a transaction and rolls them back. Run it with:
 
@@ -68,6 +70,11 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Remaining purchase quantity is calculated from posted receipts only.
 - Over-receiving a purchase-order line is rejected.
 - Receiving the exact remainder transitions the purchase order to `RECEIVED`.
+- One direct goods receipt accepts multiple supplies and posts them atomically.
+- Supplier invoice/grocery receipt number and date are mandatory and duplicate
+  references for the same supplier are rejected.
+- Goods receipt details preserve purchase unit, package conversion, batch/lot,
+  expiration date, received base quantity and remaining lot balance.
 
 ### Practical inventory release
 
