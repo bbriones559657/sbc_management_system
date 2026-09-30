@@ -14,10 +14,7 @@ import '../../widgets/layout/app_page.dart';
 class InventoryCountScreen extends StatefulWidget {
   final InventoryRepository inventoryRepository;
 
-  const InventoryCountScreen({
-    super.key,
-    required this.inventoryRepository,
-  });
+  const InventoryCountScreen({super.key, required this.inventoryRepository});
 
   @override
   State<InventoryCountScreen> createState() => _InventoryCountScreenState();
@@ -111,9 +108,7 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
                         style: AppTextStyles.body,
                       ),
                       Text(
-                        count.countedByName.isEmpty
-                            ? '—'
-                            : count.countedByName,
+                        count.countedByName.isEmpty ? '—' : count.countedByName,
                         style: AppTextStyles.body,
                       ),
                       StatusBadge(count.status),
@@ -189,19 +184,22 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
                       ),
                       OutlinedButton.icon(
                         onPressed: () {
-                          final usedIds = lines.map((line) => line.itemId).toSet();
+                          final usedIds = lines
+                              .map((line) => line.itemId)
+                              .toSet();
                           final available = items.where(
                             (item) => !usedIds.contains(item.id),
                           );
                           if (available.isEmpty) {
                             setDialogState(() {
-                              errorMessage =
-                                  'Every available inventory item is already included.';
+                              errorMessage = 'Every available inventory item is already included.';
                             });
                             return;
                           }
                           setDialogState(() {
-                            lines.add(_CountDraftLine.fromItem(available.first));
+                            lines.add(
+                              _CountDraftLine.fromItem(available.first),
+                            );
                             errorMessage = null;
                           });
                         },
@@ -271,14 +269,14 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
             final inputs = <StockCountLineInput>[];
             for (final line in lines) {
               final item = items.firstWhere((item) => item.id == line.itemId);
-              final counted =
-                  double.tryParse(line.countedController.text.trim());
+              final counted = double.tryParse(
+                line.countedController.text.trim(),
+              );
               final unitCost =
                   double.tryParse(line.unitCostController.text.trim()) ?? -1;
               if (counted == null || counted < 0 || unitCost < 0) {
                 updateDialogState?.call(() {
-                  errorMessage =
-                      'Every counted quantity and unit cost must be zero or greater.';
+                  errorMessage = 'Every counted quantity and unit cost must be zero or greater.';
                 });
                 return;
               }
@@ -403,7 +401,7 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(child: itemField),
-                        if (removeButton != null) removeButton,
+                        ?removeButton,
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -480,9 +478,7 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
                       context: context,
                       initialDate: DateTime.now(),
                       firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(
-                        const Duration(days: 3650),
-                      ),
+                      lastDate: DateTime.now().add(const Duration(days: 3650)),
                     );
                     if (date == null) return;
                     line.expirationDate = date;

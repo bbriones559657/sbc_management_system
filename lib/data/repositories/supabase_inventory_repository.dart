@@ -194,9 +194,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
       params: {
         'p_items': items.map((item) => item.toJson()).toList(),
         'p_notes': _nullableText(notes),
-        'p_counted_at': (countedAt ?? DateTime.now())
-            .toUtc()
-            .toIso8601String(),
+        'p_counted_at': (countedAt ?? DateTime.now()).toUtc().toIso8601String(),
       },
     );
   }

@@ -212,8 +212,7 @@ class StockCountSummary {
       notes: map['notes']?.toString() ?? '',
       countedByName: map['counted_by_name']?.toString() ?? '',
       itemCount: (map['item_count'] as num?)?.toInt() ?? 0,
-      varianceItemCount:
-          (map['variance_item_count'] as num?)?.toInt() ?? 0,
+      varianceItemCount: (map['variance_item_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
