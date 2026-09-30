@@ -16,8 +16,8 @@ Run these tests against a non-production Supabase project before connecting the 
 - Verify every `SECURITY DEFINER` function has a pinned `search_path`.
 - Verify trigger/helper functions are not executable by authenticated clients.
 - Verify every RPC called by Flutter has an explicit authenticated grant.
-- Create a probe table, sequence and function and verify default privileges do
-  not expose them until explicitly granted.
+- Create probe tables and sequences and inspect the migration owner's function
+  defaults to verify future objects are not exposed until explicitly granted.
 
 ## 2. Shift gate
 

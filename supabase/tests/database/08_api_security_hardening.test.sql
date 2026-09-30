@@ -209,11 +209,6 @@ create table public.phase_nine_default_privilege_probe (
   id bigint generated always as identity primary key
 );
 
-create function public.phase_nine_default_privilege_probe()
-returns integer
-language sql
-as $$ select 1 $$;
-
 select ok(
   not has_table_privilege(
     'anon',
@@ -251,21 +246,44 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege(
-    'anon',
-    'public.phase_nine_default_privilege_probe()',
-    'EXECUTE'
+  exists (
+    select 1
+    from pg_default_acl d
+    where d.defaclrole = (
+      select p.proowner
+      from pg_proc p
+      where p.oid = 'public.create_expense(uuid,text,numeric,date,uuid,uuid,text,text)'::regprocedure
+    )
+      and d.defaclnamespace = 'public'::regnamespace
+      and d.defaclobjtype = 'f'
   ),
-  'new public functions do not grant anonymous execution by default'
+  'the migration owner has explicit public-function defaults'
 );
 
-select ok(
-  not has_function_privilege(
-    'authenticated',
-    'public.phase_nine_default_privilege_probe()',
-    'EXECUTE'
+select is(
+  (
+    select count(*)
+    from pg_default_acl d
+    cross join lateral aclexplode(d.defaclacl) a
+    where d.defaclrole = (
+      select p.proowner
+      from pg_proc p
+      where p.oid = 'public.create_expense(uuid,text,numeric,date,uuid,uuid,text,text)'::regprocedure
+    )
+      and d.defaclnamespace = 'public'::regnamespace
+      and d.defaclobjtype = 'f'
+      and a.privilege_type = 'EXECUTE'
+      and (
+        a.grantee = 0
+        or a.grantee in (
+          select r.oid
+          from pg_roles r
+          where r.rolname in ('anon', 'authenticated')
+        )
+      )
   ),
-  'new public functions require an explicit authenticated grant'
+  0::bigint,
+  'future migration functions require an explicit client execute grant'
 );
 
 select * from finish();
