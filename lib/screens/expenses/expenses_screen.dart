@@ -141,8 +141,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     return AppPage(
       title: 'Expenses',
-      subtitle:
-          'Record untracked grocery purchases and operating costs with receipts.',
+      subtitle: 'Record untracked grocery purchases and operating costs with receipts.',
       action: ElevatedButton.icon(
         onPressed: _categories.isEmpty || _suppliers.isEmpty
             ? null
@@ -375,8 +374,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final notesController = TextEditingController(text: existing?.notes ?? '');
 
     String selectedCategory = existing?.category ?? _categories.first.name;
-    String selectedSupplierId =
-        existing?.supplierId ?? _suppliers.first.id;
+    String selectedSupplierId = existing?.supplierId ?? _suppliers.first.id;
     DateTime selectedDate = existing?.expenseDate ?? DateTime.now();
 
     if (!_categories.any((category) => category.name == selectedCategory)) {

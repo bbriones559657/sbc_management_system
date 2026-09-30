@@ -68,9 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () async {
           final changed = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => NewOrderScreen(
-                orderRepository: widget.orderRepository,
-              ),
+              builder: (_) =>
+                  NewOrderScreen(orderRepository: widget.orderRepository),
             ),
           );
           if (changed == true) {

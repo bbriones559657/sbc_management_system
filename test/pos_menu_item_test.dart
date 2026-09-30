@@ -2,10 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sbc_management_system/models/pos_menu_item.dart';
 
 void main() {
-  PosMenuItem item({
-    required String mode,
-    double? availableQuantity,
-  }) {
+  PosMenuItem item({required String mode, double? availableQuantity}) {
     return PosMenuItem(
       variantId: 'variant',
       menuItemId: 'item',
@@ -31,10 +28,7 @@ void main() {
   });
 
   test('countable finished goods are unavailable at zero usable stock', () {
-    final finishedGood = item(
-      mode: 'FINISHED_GOOD',
-      availableQuantity: 0,
-    );
+    final finishedGood = item(mode: 'FINISHED_GOOD', availableQuantity: 0);
 
     expect(finishedGood.tracksInventory, isTrue);
     expect(finishedGood.isOutOfStock, isTrue);
