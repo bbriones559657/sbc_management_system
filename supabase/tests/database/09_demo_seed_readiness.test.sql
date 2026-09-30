@@ -5,9 +5,11 @@ create extension if not exists pgtap with schema extensions;
 select plan(14);
 
 -- Running the presentation seed twice proves that it is safe to rerun while
--- preparing or recovering a demonstration environment.
-\ir ../../demo_seed.sql
-\ir ../../demo_seed.sql
+-- preparing or recovering a demonstration environment. Supabase mounts only
+-- supabase/tests in the pg_prove container, so the mirrored fixture must stay
+-- inside that directory. Database CI verifies it matches supabase/demo_seed.sql.
+\ir fixtures/demo_seed.psql
+\ir fixtures/demo_seed.psql
 
 select is(
   (
