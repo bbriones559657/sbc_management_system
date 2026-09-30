@@ -14,15 +14,31 @@ void main() {
           destinationIndex: 2,
         ),
         AppNavigationItem(
+          label: 'Release Supplies',
+          icon: Icons.output_outlined,
+          destinationIndex: 3,
+        ),
+        AppNavigationItem(
+          label: 'Dispose Stock',
+          icon: Icons.delete_sweep_outlined,
+          destinationIndex: 4,
+        ),
+        AppNavigationItem(
+          label: 'Stock Adjustment',
+          icon: Icons.tune,
+          destinationIndex: 5,
+        ),
+        AppNavigationItem(
           label: 'Inventory History',
           icon: Icons.history,
-          destinationIndex: 3,
+          destinationIndex: 6,
         ),
       ],
     );
 
     expect(group.containsDestination(2), isTrue);
-    expect(group.containsDestination(3), isTrue);
+    expect(group.containsDestination(6), isTrue);
     expect(group.containsDestination(1), isFalse);
+    expect(group.items.map((item) => item.destinationIndex), [2, 3, 4, 5, 6]);
   });
 }

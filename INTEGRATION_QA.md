@@ -12,6 +12,8 @@ This document tracks integration work and rollback-based database regression che
 - Dashboard with live daily sales/order/refund/expense metrics
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
 - Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
+- Separate inventory workflow views for Stock Overview, Release Supplies,
+  Dispose Stock, Stock Adjustment and Inventory History
 - Separate on-hand, usable and expired quantities, with expired lots excluded from release and POS availability
 - Menu management with variants, countable finished-good mappings and modifiers; recipe deduction is retired
 - Expenses with date, supplier/grocery, purpose, amount, reference, notes and create/update/void workflow
@@ -77,6 +79,11 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Insufficient stock rolls back the entire transaction.
 - Movement rows link back to the stock-out line and header.
 - Item history exposes readable source document and receipt/reference values.
+- Inventory History can be filtered by item, movement type, date range,
+  document/reference, reason, or item name.
+- Disposal requires an exact lot, quantity, disposal type and written reason.
+- Stock adjustments require a physical-count direction, quantity and reason;
+  the resulting ledger entry remains part of immutable movement history.
 
 ### Shifts and cash
 
@@ -91,6 +98,8 @@ Database CI runs the same suite for integration-branch pushes and pull requests.
 - Cashier navigation exposes only Dashboard, Orders / POS and Stock Overview.
 - Management navigation groups operational, inventory, purchasing, finance,
   reporting and administration destinations without changing authorization.
+- Release, disposal and adjustment actions continue to rely on server-side
+  `inventory.adjust` permission checks; hiding navigation is not the security boundary.
 - Cashiers cannot create suppliers.
 - Cashiers cannot create menu products/variants.
 - Profile RLS prevents a cashier from reading or editing another employee profile.

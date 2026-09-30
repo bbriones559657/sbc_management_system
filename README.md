@@ -104,7 +104,11 @@ The prototype currently includes:
 - Void / Refund actions
 - Inventory
 - Item Details
-- Stock Movement
+- Stock Overview
+- Release Supplies
+- Dispose Stock
+- Stock Adjustment
+- Inventory History
 - Expenses
 - Sales & Finance
 - Reports

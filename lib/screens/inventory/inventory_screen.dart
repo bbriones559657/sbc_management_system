@@ -12,14 +12,24 @@ import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 
+enum InventoryView {
+  overview,
+  release,
+  disposal,
+  adjustment,
+  history,
+}
+
 class InventoryScreen extends StatefulWidget {
   final InventoryRepository inventoryRepository;
   final bool canManageInventory;
+  final InventoryView view;
 
   const InventoryScreen({
     super.key,
     required this.inventoryRepository,
     required this.canManageInventory,
+    this.view = InventoryView.overview,
   });
 
   @override
@@ -29,10 +39,16 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   late Future<List<InventoryItem>> _itemsFuture;
   late Future<List<InventoryMovementRecord>> _movementsFuture;
+  late Future<List<InventoryMovementRecord>> _recentMovementsFuture;
+  late Future<List<StockOutSummary>> _stockOutsFuture;
 
   String _searchQuery = '';
   String _categoryFilter = 'All Categories';
   String _stockFilter = 'All Stock';
+  String _historySearch = '';
+  String _historyItemId = '';
+  String _historyMovementType = '';
+  String _historyDateRange = 'All Dates';
 
   @override
   void initState() {
@@ -42,7 +58,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _reload() {
     _itemsFuture = widget.inventoryRepository.getInventoryItems();
-    _movementsFuture = widget.inventoryRepository.getAllRecentMovements();
+    _recentMovementsFuture = widget.view == InventoryView.overview
+        ? widget.inventoryRepository.getAllRecentMovements()
+        : Future.value(const <InventoryMovementRecord>[]);
+    _movementsFuture = widget.view == InventoryView.history
+        ? widget.inventoryRepository.getAllRecentMovements(limit: 250)
+        : Future.value(const <InventoryMovementRecord>[]);
+    _stockOutsFuture = widget.view == InventoryView.release
+        ? widget.inventoryRepository.getStockOuts(limit: 100)
+        : Future.value(const <StockOutSummary>[]);
   }
 
   void _refresh() {
@@ -51,24 +75,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return switch (widget.view) {
+      InventoryView.overview => _buildOverviewPage(),
+      InventoryView.release => _buildReleasePage(),
+      InventoryView.disposal => _buildDisposalPage(),
+      InventoryView.adjustment => _buildAdjustmentPage(),
+      InventoryView.history => _buildHistoryPage(),
+    };
+  }
+
+  Widget _buildOverviewPage() {
     return AppPage(
-      title: 'Inventory',
+      title: 'Stock Overview',
+      subtitle: 'Monitor usable, expired, and total on-hand quantities.',
       action: widget.canManageInventory
-          ? Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _showStockOutDialog,
-                  icon: const Icon(Icons.output_outlined, size: 18),
-                  label: const Text('Release Supplies'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _showAddItemDialog,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Item'),
-                ),
-              ],
+          ? ElevatedButton.icon(
+              onPressed: _showAddItemDialog,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add Item'),
             )
           : null,
       child: FutureBuilder<List<InventoryItem>>(
@@ -115,6 +139,532 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReleasePage() {
+    return AppPage(
+      title: 'Release Supplies',
+      subtitle:
+          'Post one traceable stock-out transaction for multiple supplies.',
+      action: ElevatedButton.icon(
+        onPressed: _showStockOutDialog,
+        icon: const Icon(Icons.output_outlined, size: 18),
+        label: const Text('New Release'),
+      ),
+      child: FutureBuilder<List<StockOutSummary>>(
+        future: _stockOutsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) return _buildError(snapshot.error);
+
+          final releases = snapshot.data ?? const <StockOutSummary>[];
+          if (releases.isEmpty) {
+            return _buildEmptyState(
+              icon: Icons.output_outlined,
+              title: 'No supply releases yet',
+              message:
+                  'Create a release when countable supplies leave storage.',
+            );
+          }
+
+          return SingleChildScrollView(
+            child: DataTableCard(
+              headers: const [
+                'Document',
+                'Date',
+                'Purpose',
+                'Reference',
+                'Items',
+                'Recorded By',
+                'Status',
+              ],
+              flexes: const [2, 2, 3, 2, 1, 2, 1],
+              rows: releases
+                  .map(
+                    (release) => [
+                      Text(
+                        'SO-${release.number}',
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                      Text(
+                        _formatDateTime(release.occurredAt),
+                        style: AppTextStyles.body,
+                      ),
+                      Text(release.purpose, style: AppTextStyles.body),
+                      Text(
+                        release.referenceNumber.isEmpty
+                            ? '—'
+                            : release.referenceNumber,
+                        style: AppTextStyles.body,
+                      ),
+                      Text('${release.lineCount}', style: AppTextStyles.body),
+                      Text(
+                        release.recordedByName.isEmpty
+                            ? '—'
+                            : release.recordedByName,
+                        style: AppTextStyles.body,
+                      ),
+                      StatusBadge(release.status),
+                    ],
+                  )
+                  .toList(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDisposalPage() {
+    return AppPage(
+      title: 'Dispose Stock',
+      subtitle:
+          'Record expired, damaged, or spoiled stock against its exact lot.',
+      child: FutureBuilder<List<InventoryItem>>(
+        future: _itemsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) return _buildError(snapshot.error);
+
+          final items = (snapshot.data ?? const <InventoryItem>[])
+              .where((item) => item.currentQuantity > 0)
+              .toList()
+            ..sort((a, b) {
+              final expiredOrder = b.expiredQuantity.compareTo(
+                a.expiredQuantity,
+              );
+              return expiredOrder != 0
+                  ? expiredOrder
+                  : a.name.compareTo(b.name);
+            });
+
+          if (items.isEmpty) {
+            return _buildEmptyState(
+              icon: Icons.delete_sweep_outlined,
+              title: 'No stock available for disposal',
+              message: 'Only lots with remaining on-hand stock appear here.',
+            );
+          }
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWorkflowNotice(
+                  'Choose an item, review its lots, then dispose only the '
+                  'affected batch. Expired quantities remain on hand until '
+                  'this disposal is posted.',
+                ),
+                const SizedBox(height: 16),
+                DataTableCard(
+                  headers: const [
+                    'Item',
+                    'Category',
+                    'Usable',
+                    'Expired',
+                    'On Hand',
+                    'Action',
+                  ],
+                  flexes: const [3, 2, 2, 2, 2, 2],
+                  rows: items
+                      .map(
+                        (item) => [
+                          Text(item.name, style: AppTextStyles.bodyMedium),
+                          Text(item.category, style: AppTextStyles.body),
+                          Text(item.usableStock, style: AppTextStyles.body),
+                          Text(
+                            item.expiredStock,
+                            style: AppTextStyles.body.copyWith(
+                              color: item.expiredQuantity > 0
+                                  ? AppColors.error
+                                  : AppColors.gray700,
+                            ),
+                          ),
+                          Text(item.stock, style: AppTextStyles.body),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton(
+                              onPressed: () => _showLots(item),
+                              child: const Text('Review Lots'),
+                            ),
+                          ),
+                        ],
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAdjustmentPage() {
+    return AppPage(
+      title: 'Stock Adjustment',
+      subtitle:
+          'Correct a verified physical-count difference with a required reason.',
+      child: FutureBuilder<List<InventoryItem>>(
+        future: _itemsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) return _buildError(snapshot.error);
+
+          final items = snapshot.data ?? const <InventoryItem>[];
+          if (items.isEmpty) {
+            return _buildEmptyState(
+              icon: Icons.tune,
+              title: 'No inventory items available',
+              message: 'Add an inventory item before recording adjustments.',
+            );
+          }
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWorkflowNotice(
+                  'Use adjustments only after a physical count or a confirmed '
+                  'recording error. Disposal and normal supply releases must '
+                  'use their dedicated workflows.',
+                ),
+                const SizedBox(height: 16),
+                DataTableCard(
+                  headers: const [
+                    'Item',
+                    'Category',
+                    'Usable',
+                    'On Hand',
+                    'Action',
+                  ],
+                  flexes: const [3, 2, 2, 2, 2],
+                  rows: items
+                      .map(
+                        (item) => [
+                          Text(item.name, style: AppTextStyles.bodyMedium),
+                          Text(item.category, style: AppTextStyles.body),
+                          Text(item.usableStock, style: AppTextStyles.body),
+                          Text(item.stock, style: AppTextStyles.body),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton(
+                              onPressed: () => _showAdjustmentDialog(item),
+                              child: const Text('Adjust'),
+                            ),
+                          ),
+                        ],
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHistoryPage() {
+    return AppPage(
+      title: 'Inventory History',
+      subtitle:
+          'Trace stock movements by item, movement type, date, or reference.',
+      child: FutureBuilder<List<InventoryItem>>(
+        future: _itemsFuture,
+        builder: (context, itemSnapshot) {
+          if (itemSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (itemSnapshot.hasError) return _buildError(itemSnapshot.error);
+
+          final items = itemSnapshot.data ?? const <InventoryItem>[];
+          return FutureBuilder<List<InventoryMovementRecord>>(
+            future: _movementsFuture,
+            builder: (context, movementSnapshot) {
+              if (movementSnapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (movementSnapshot.hasError) {
+                return _buildError(movementSnapshot.error);
+              }
+
+              final movements = movementSnapshot.data ??
+                  const <InventoryMovementRecord>[];
+              final filtered = _filterMovements(movements, items);
+              final itemById = {for (final item in items) item.id: item};
+
+              return Column(
+                children: [
+                  _buildHistoryFilters(items),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? _buildEmptyState(
+                            icon: Icons.history,
+                            title: 'No matching movements',
+                            message:
+                                'Try changing the history filters or reference search.',
+                          )
+                        : SingleChildScrollView(
+                            child: DataTableCard(
+                              headers: const [
+                                'Date',
+                                'Item',
+                                'Movement',
+                                'Quantity',
+                                'Source / Reference',
+                                'Reason',
+                              ],
+                              flexes: const [2, 3, 2, 2, 3, 3],
+                              rows: filtered
+                                  .map(
+                                    (movement) => [
+                                      Text(
+                                        _formatDateTime(movement.createdAt),
+                                        style: AppTextStyles.body,
+                                      ),
+                                      Text(
+                                        itemById[movement.inventoryItemId]
+                                                ?.name ??
+                                            'Inventory item',
+                                        style: AppTextStyles.bodyMedium,
+                                      ),
+                                      Text(
+                                        _movementLabel(movement.movementType),
+                                        style: AppTextStyles.body,
+                                      ),
+                                      Text(
+                                        _signedQuantity(
+                                          movement.quantityDelta,
+                                          itemById[movement.inventoryItemId]
+                                                  ?.baseUomCode ??
+                                              '',
+                                        ),
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          color: movement.quantityDelta >= 0
+                                              ? AppColors.success
+                                              : AppColors.primary,
+                                        ),
+                                      ),
+                                      Text(
+                                        _movementReference(movement).isEmpty
+                                            ? '—'
+                                            : _movementReference(movement),
+                                        style: AppTextStyles.body,
+                                      ),
+                                      Text(
+                                        movement.reason.isEmpty
+                                            ? '—'
+                                            : movement.reason,
+                                        style: AppTextStyles.body,
+                                      ),
+                                    ],
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHistoryFilters(List<InventoryItem> items) {
+    const movementTypes = [
+      'MANUAL_IN',
+      'MANUAL_OUT',
+      'PURCHASE_RECEIPT',
+      'SALE_CONSUMPTION',
+      'STOCK_COUNT_ADJUSTMENT',
+      'WASTE',
+      'DAMAGED',
+      'EXPIRED',
+      'COMPLIMENTARY',
+      'STAFF_MEAL',
+    ];
+    const dateRanges = ['All Dates', 'Today', 'Last 7 Days', 'Last 30 Days'];
+
+    final search = TextField(
+      onChanged: (value) => setState(() => _historySearch = value),
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search),
+        hintText: 'Search reference, reason, or item...',
+      ),
+    );
+    final item = DropdownButtonFormField<String>(
+      initialValue: _historyItemId,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Item'),
+      items: [
+        const DropdownMenuItem(value: '', child: Text('All Items')),
+        for (final item in items)
+          DropdownMenuItem(
+            value: item.id,
+            child: Text(item.name, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _historyItemId = value);
+      },
+    );
+    final movement = DropdownButtonFormField<String>(
+      initialValue: _historyMovementType,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Movement'),
+      items: [
+        const DropdownMenuItem(value: '', child: Text('All Movements')),
+        for (final type in movementTypes)
+          DropdownMenuItem(value: type, child: Text(_movementLabel(type))),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _historyMovementType = value);
+      },
+    );
+    final date = DropdownButtonFormField<String>(
+      initialValue: _historyDateRange,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Date'),
+      items: [
+        for (final range in dateRanges)
+          DropdownMenuItem(value: range, child: Text(range)),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _historyDateRange = value);
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 760) {
+          return Column(
+            children: [
+              search,
+              const SizedBox(height: 10),
+              item,
+              const SizedBox(height: 10),
+              movement,
+              const SizedBox(height: 10),
+              date,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: item),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: movement),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: date),
+          ],
+        );
+      },
+    );
+  }
+
+  List<InventoryMovementRecord> _filterMovements(
+    List<InventoryMovementRecord> movements,
+    List<InventoryItem> items,
+  ) {
+    final query = _historySearch.trim().toLowerCase();
+    final itemById = {for (final item in items) item.id: item};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return movements.where((movement) {
+      if (_historyItemId.isNotEmpty &&
+          movement.inventoryItemId != _historyItemId) {
+        return false;
+      }
+      if (_historyMovementType.isNotEmpty &&
+          movement.movementType != _historyMovementType) {
+        return false;
+      }
+
+      final movementDate = DateTime(
+        movement.createdAt.year,
+        movement.createdAt.month,
+        movement.createdAt.day,
+      );
+      final minimumDate = switch (_historyDateRange) {
+        'Today' => today,
+        'Last 7 Days' => today.subtract(const Duration(days: 6)),
+        'Last 30 Days' => today.subtract(const Duration(days: 29)),
+        _ => null,
+      };
+      if (minimumDate != null && movementDate.isBefore(minimumDate)) {
+        return false;
+      }
+
+      if (query.isEmpty) return true;
+      final searchable = [
+        itemById[movement.inventoryItemId]?.name ?? '',
+        _movementLabel(movement.movementType),
+        movement.reason,
+        movement.sourceDocumentNumber,
+        movement.externalReferenceNumber,
+      ].join(' ').toLowerCase();
+      return searchable.contains(query);
+    }).toList();
+  }
+
+  Widget _buildWorkflowNotice(String message) {
+    return SectionCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.info, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.body.copyWith(color: AppColors.gray700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.gray500, size: 40),
+          const SizedBox(height: 12),
+          Text(title, style: AppTextStyles.h3),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(color: AppColors.gray500),
+          ),
+        ],
       ),
     );
   }
@@ -287,7 +837,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return SectionCard(
       child: FutureBuilder<List<InventoryMovementRecord>>(
-        future: _movementsFuture,
+        future: _recentMovementsFuture,
         builder: (context, snapshot) {
           final movements = snapshot.data ?? const <InventoryMovementRecord>[];
 
@@ -692,9 +1242,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   ) async {
     final quantityController = TextEditingController();
     final reasonController = TextEditingController();
-    String movementType =
-        lot.expirationDate != null &&
-            lot.expirationDate!.isBefore(DateTime.now())
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiration = lot.expirationDate;
+    String movementType = expiration != null && expiration.isBefore(today)
         ? 'EXPIRED'
         : 'WASTE';
     String? errorMessage;
@@ -756,8 +1307,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 controller: reasonController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Notes',
-                  hintText: 'Optional details about the disposal',
+                  labelText: 'Reason / Notes *',
+                  hintText: 'Explain why this exact lot is being disposed',
                 ),
               ),
               if (errorMessage != null) ...[
@@ -779,6 +1330,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ElevatedButton(
           onPressed: () async {
             final quantity = double.tryParse(quantityController.text.trim());
+            final reason = reasonController.text.trim();
 
             if (quantity == null ||
                 quantity <= 0 ||
@@ -789,15 +1341,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
               });
               return;
             }
+            if (reason.isEmpty) {
+              dialogSetState?.call(() {
+                errorMessage = 'A disposal reason is required for traceability.';
+              });
+              return;
+            }
 
             try {
               await widget.inventoryRepository.disposeLot(
                 inventoryLotId: lot.id,
                 movementType: movementType,
                 quantity: quantity,
-                reason: reasonController.text.trim().isEmpty
-                    ? _movementLabel(movementType)
-                    : reasonController.text.trim(),
+                reason: reason,
               );
 
               if (!mounted) return;
@@ -821,6 +1377,220 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     quantityController.dispose();
     reasonController.dispose();
+  }
+
+  Future<void> _showAdjustmentDialog(InventoryItem item) async {
+    final quantityController = TextEditingController();
+    final reasonController = TextEditingController();
+    final unitCostController = TextEditingController(text: '0');
+    String movementType = 'STOCK_COUNT_ADJUSTMENT';
+    DateTime? expirationDate;
+    String? errorMessage;
+    bool isSaving = false;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Adjust Stock — ${item.name}',
+      width: 560,
+      content: StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          updateDialogState = setDialogState;
+          final isIncrease = movementType == 'MANUAL_IN';
+
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _detailRow('Current Usable', item.usableStock),
+                _detailRow('Current On Hand', item.stock),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: movementType,
+                  decoration: const InputDecoration(
+                    labelText: 'Adjustment Direction *',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'STOCK_COUNT_ADJUSTMENT',
+                      child: Text('Decrease to match physical count'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'MANUAL_IN',
+                      child: Text('Increase to match physical count'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      movementType = value;
+                      expirationDate = null;
+                      errorMessage = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Adjustment Quantity (${item.baseUomCode}) *',
+                    helperText:
+                        'Enter the difference, not the final physical count.',
+                  ),
+                ),
+                if (isIncrease) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: unitCostController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Unit Cost',
+                      prefixText: '₱',
+                    ),
+                  ),
+                  if (item.trackExpiry) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: dialogContext,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 3650),
+                            ),
+                          );
+                          if (date == null) return;
+                          setDialogState(() => expirationDate = date);
+                        },
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        label: Text(
+                          expirationDate == null
+                              ? 'Select Expiration Date *'
+                              : 'Expiration: ${_formatDate(expirationDate!)}',
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 14),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Adjustment Reason *',
+                    hintText: 'Example: Physical count variance on closing',
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+                if (isSaving) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            if (isSaving) return;
+
+            final quantity = double.tryParse(quantityController.text.trim());
+            final unitCost =
+                double.tryParse(unitCostController.text.trim()) ?? -1;
+            final reason = reasonController.text.trim();
+            final isIncrease = movementType == 'MANUAL_IN';
+
+            if (quantity == null || quantity <= 0) {
+              updateDialogState?.call(() {
+                errorMessage = 'Adjustment quantity must be greater than zero.';
+              });
+              return;
+            }
+            if (!isIncrease && quantity > item.currentQuantity) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'The decrease cannot exceed the current on-hand stock.';
+              });
+              return;
+            }
+            if (reason.isEmpty) {
+              updateDialogState?.call(() {
+                errorMessage = 'An adjustment reason is required.';
+              });
+              return;
+            }
+            if (unitCost < 0) {
+              updateDialogState?.call(() {
+                errorMessage = 'Unit cost cannot be negative.';
+              });
+              return;
+            }
+            if (isIncrease && item.trackExpiry && expirationDate == null) {
+              updateDialogState?.call(() {
+                errorMessage = 'Expiration date is required for this item.';
+              });
+              return;
+            }
+
+            updateDialogState?.call(() => isSaving = true);
+
+            try {
+              await widget.inventoryRepository.adjustStock(
+                inventoryItemId: item.id,
+                movementType: movementType,
+                quantity: quantity,
+                reason: reason,
+                expirationDate: expirationDate,
+                unitCostBase: isIncrease ? unitCost : 0,
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _refresh();
+              _showMessage('Stock adjustment recorded in inventory history.');
+            } on PostgrestException catch (error) {
+              updateDialogState?.call(() {
+                isSaving = false;
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              updateDialogState?.call(() {
+                isSaving = false;
+                errorMessage = error.toString();
+              });
+            }
+          },
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Record Adjustment'),
+        ),
+      ],
+    );
+
+    quantityController.dispose();
+    reasonController.dispose();
+    unitCostController.dispose();
   }
 
   Future<void> _showStockOutDialog() async {

@@ -162,8 +162,47 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             page: InventoryScreen(
               inventoryRepository: _inventoryRepository,
               canManageInventory: !isCashier,
+              view: InventoryView.overview,
             ),
           ),
+          if (!isCashier) ...[
+            destination(
+              label: 'Release Supplies',
+              icon: Icons.output_outlined,
+              page: InventoryScreen(
+                inventoryRepository: _inventoryRepository,
+                canManageInventory: true,
+                view: InventoryView.release,
+              ),
+            ),
+            destination(
+              label: 'Dispose Stock',
+              icon: Icons.delete_sweep_outlined,
+              page: InventoryScreen(
+                inventoryRepository: _inventoryRepository,
+                canManageInventory: true,
+                view: InventoryView.disposal,
+              ),
+            ),
+            destination(
+              label: 'Stock Adjustment',
+              icon: Icons.tune,
+              page: InventoryScreen(
+                inventoryRepository: _inventoryRepository,
+                canManageInventory: true,
+                view: InventoryView.adjustment,
+              ),
+            ),
+            destination(
+              label: 'Inventory History',
+              icon: Icons.history,
+              page: InventoryScreen(
+                inventoryRepository: _inventoryRepository,
+                canManageInventory: true,
+                view: InventoryView.history,
+              ),
+            ),
+          ],
         ],
       ),
       if (!isCashier) ...[
