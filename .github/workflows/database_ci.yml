@@ -1,14 +1,17 @@
 name: Database CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - brian/full-system-integration
       - brian/inventory-consultation-alignment
+      - brian/inventory-workflow-navigation
   pull_request:
     branches:
       - main
       - brian/full-system-integration
+      - brian/inventory-workflow-navigation
 
 jobs:
   database-tests:
