@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/state/inventory_refresh_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/supabase_dashboard_repository.dart';
 import 'data/repositories/supabase_expense_repository.dart';
@@ -56,6 +57,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final FinanceRepository _financeRepository;
   late final SupplierRepository _supplierRepository;
   late final UserRepository _userRepository;
+  late final InventoryRefreshController _inventoryRefreshController;
 
   @override
   void initState() {
@@ -70,6 +72,13 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _financeRepository = SupabaseFinanceRepository();
     _supplierRepository = SupabaseSupplierRepository();
     _userRepository = SupabaseUserRepository();
+    _inventoryRefreshController = InventoryRefreshController();
+  }
+
+  @override
+  void dispose() {
+    _inventoryRefreshController.dispose();
+    super.dispose();
   }
 
   @override
@@ -162,6 +171,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             icon: Icons.view_list_outlined,
             page: InventoryScreen(
               inventoryRepository: _inventoryRepository,
+              refreshController: _inventoryRefreshController,
               canManageInventory: !isCashier,
               view: InventoryView.overview,
             ),
@@ -172,6 +182,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.output_outlined,
               page: InventoryScreen(
                 inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
                 canManageInventory: true,
                 view: InventoryView.release,
               ),
@@ -181,6 +192,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.delete_sweep_outlined,
               page: InventoryScreen(
                 inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
                 canManageInventory: true,
                 view: InventoryView.disposal,
               ),
@@ -190,6 +202,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.fact_check_outlined,
               page: InventoryCountScreen(
                 inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
               ),
             ),
             destination(
@@ -197,6 +210,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.tune,
               page: InventoryScreen(
                 inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
                 canManageInventory: true,
                 view: InventoryView.adjustment,
               ),
@@ -206,6 +220,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.history,
               page: InventoryScreen(
                 inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
                 canManageInventory: true,
                 view: InventoryView.history,
               ),
@@ -223,6 +238,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.assignment_outlined,
               page: PurchasingScreen(
                 purchasingRepository: _purchasingRepository,
+                onInventoryChanged: _inventoryRefreshController.refresh,
               ),
             ),
             destination(

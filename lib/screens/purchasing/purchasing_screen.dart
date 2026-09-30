@@ -12,8 +12,13 @@ import '../../widgets/layout/app_page.dart';
 
 class PurchasingScreen extends StatefulWidget {
   final PurchasingRepository purchasingRepository;
+  final VoidCallback? onInventoryChanged;
 
-  const PurchasingScreen({super.key, required this.purchasingRepository});
+  const PurchasingScreen({
+    super.key,
+    required this.purchasingRepository,
+    this.onInventoryChanged,
+  });
 
   @override
   State<PurchasingScreen> createState() => _PurchasingScreenState();
@@ -878,6 +883,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               );
 
               if (!mounted) return;
+              widget.onInventoryChanged?.call();
               Navigator.pop(context);
               _refresh();
               _showMessage('Stock received and inventory updated.');

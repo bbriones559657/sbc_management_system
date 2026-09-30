@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/state/inventory_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -13,8 +14,13 @@ import '../../widgets/layout/app_page.dart';
 
 class InventoryCountScreen extends StatefulWidget {
   final InventoryRepository inventoryRepository;
+  final InventoryRefreshController? refreshController;
 
-  const InventoryCountScreen({super.key, required this.inventoryRepository});
+  const InventoryCountScreen({
+    super.key,
+    required this.inventoryRepository,
+    this.refreshController,
+  });
 
   @override
   State<InventoryCountScreen> createState() => _InventoryCountScreenState();
@@ -27,13 +33,39 @@ class _InventoryCountScreenState extends State<InventoryCountScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshController?.addListener(_handleExternalRefresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryCountScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshController == widget.refreshController) return;
+    oldWidget.refreshController?.removeListener(_handleExternalRefresh);
+    widget.refreshController?.addListener(_handleExternalRefresh);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshController?.removeListener(_handleExternalRefresh);
+    super.dispose();
   }
 
   void _reload() {
     _countsFuture = widget.inventoryRepository.getStockCounts(limit: 100);
   }
 
-  void _refresh() => setState(_reload);
+  void _refresh() {
+    final controller = widget.refreshController;
+    if (controller == null) {
+      _handleExternalRefresh();
+      return;
+    }
+    controller.refresh();
+  }
+
+  void _handleExternalRefresh() {
+    if (mounted) setState(_reload);
+  }
 
   @override
   Widget build(BuildContext context) {

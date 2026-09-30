@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/state/inventory_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -16,12 +17,14 @@ enum InventoryView { overview, release, disposal, adjustment, history }
 
 class InventoryScreen extends StatefulWidget {
   final InventoryRepository inventoryRepository;
+  final InventoryRefreshController? refreshController;
   final bool canManageInventory;
   final InventoryView view;
 
   const InventoryScreen({
     super.key,
     required this.inventoryRepository,
+    this.refreshController,
     required this.canManageInventory,
     this.view = InventoryView.overview,
   });
@@ -48,6 +51,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshController?.addListener(_handleExternalRefresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshController == widget.refreshController) return;
+    oldWidget.refreshController?.removeListener(_handleExternalRefresh);
+    widget.refreshController?.addListener(_handleExternalRefresh);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshController?.removeListener(_handleExternalRefresh);
+    super.dispose();
   }
 
   void _reload() {
@@ -64,7 +82,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _refresh() {
-    setState(_reload);
+    final controller = widget.refreshController;
+    if (controller == null) {
+      _handleExternalRefresh();
+      return;
+    }
+    controller.refresh();
+  }
+
+  void _handleExternalRefresh() {
+    if (mounted) setState(_reload);
   }
 
   @override
