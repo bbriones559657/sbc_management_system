@@ -12,13 +12,7 @@ import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 
-enum InventoryView {
-  overview,
-  release,
-  disposal,
-  adjustment,
-  history,
-}
+enum InventoryView { overview, release, disposal, adjustment, history }
 
 class InventoryScreen extends StatefulWidget {
   final InventoryRepository inventoryRepository;
@@ -232,17 +226,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
           }
           if (snapshot.hasError) return _buildError(snapshot.error);
 
-          final items = (snapshot.data ?? const <InventoryItem>[])
-              .where((item) => item.currentQuantity > 0)
-              .toList()
-            ..sort((a, b) {
-              final expiredOrder = b.expiredQuantity.compareTo(
-                a.expiredQuantity,
-              );
-              return expiredOrder != 0
-                  ? expiredOrder
-                  : a.name.compareTo(b.name);
-            });
+          final items =
+              (snapshot.data ?? const <InventoryItem>[])
+                  .where((item) => item.currentQuantity > 0)
+                  .toList()
+                ..sort((a, b) {
+                  final expiredOrder = b.expiredQuantity.compareTo(
+                    a.expiredQuantity,
+                  );
+                  return expiredOrder != 0
+                      ? expiredOrder
+                      : a.name.compareTo(b.name);
+                });
 
           if (items.isEmpty) {
             return _buildEmptyState(
@@ -309,8 +304,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildAdjustmentPage() {
     return AppPage(
       title: 'Stock Adjustment',
-      subtitle:
-          'Correct a verified physical-count difference with a required reason.',
+      subtitle: 'Correct a verified physical-count difference with a required reason.',
       child: FutureBuilder<List<InventoryItem>>(
         future: _itemsFuture,
         builder: (context, snapshot) {
@@ -390,16 +384,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
           return FutureBuilder<List<InventoryMovementRecord>>(
             future: _movementsFuture,
             builder: (context, movementSnapshot) {
-              if (movementSnapshot.connectionState ==
-                  ConnectionState.waiting) {
+              if (movementSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (movementSnapshot.hasError) {
                 return _buildError(movementSnapshot.error);
               }
 
-              final movements = movementSnapshot.data ??
-                  const <InventoryMovementRecord>[];
+              final movements =
+                  movementSnapshot.data ?? const <InventoryMovementRecord>[];
               final filtered = _filterMovements(movements, items);
               final itemById = {for (final item in items) item.id: item};
 
@@ -412,8 +405,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ? _buildEmptyState(
                             icon: Icons.history,
                             title: 'No matching movements',
-                            message:
-                                'Try changing the history filters or reference search.',
+                            message: 'Try changing the history filters or reference search.',
                           )
                         : SingleChildScrollView(
                             child: DataTableCard(
@@ -450,11 +442,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                   ?.baseUomCode ??
                                               '',
                                         ),
-                                        style: AppTextStyles.bodyMedium.copyWith(
-                                          color: movement.quantityDelta >= 0
-                                              ? AppColors.success
-                                              : AppColors.primary,
-                                        ),
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(
+                                              color: movement.quantityDelta >= 0
+                                                  ? AppColors.success
+                                                  : AppColors.primary,
+                                            ),
                                       ),
                                       Text(
                                         _movementReference(movement).isEmpty
@@ -1343,7 +1336,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             }
             if (reason.isEmpty) {
               dialogSetState?.call(() {
-                errorMessage = 'A disposal reason is required for traceability.';
+                errorMessage =
+                    'A disposal reason is required for traceability.';
               });
               return;
             }
