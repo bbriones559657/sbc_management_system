@@ -9,6 +9,7 @@ import '../../models/inventory_item.dart';
 import '../../models/inventory_reference.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
@@ -570,35 +571,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       },
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 10),
-              item,
-              const SizedBox(height: 10),
-              movement,
-              const SizedBox(height: 10),
-              date,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(flex: 3, child: search),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: item),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: movement),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: date),
-          ],
-        );
-      },
+    return ResponsiveFilterBar(
+      primary: search,
+      filters: [item, movement, date],
+      filterWidths: const [220, 190, 160],
+      breakpoint: 900,
+      gap: 10,
     );
   }
 
@@ -729,30 +707,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       },
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 12),
-              category,
-              const SizedBox(height: 12),
-              stock,
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(flex: 3, child: search),
-            const SizedBox(width: 12),
-            SizedBox(width: 220, child: category),
-            const SizedBox(width: 12),
-            SizedBox(width: 180, child: stock),
-          ],
-        );
-      },
+    return ResponsiveFilterBar(
+      primary: search,
+      filters: [category, stock],
+      filterWidths: const [220, 180],
     );
   }
 

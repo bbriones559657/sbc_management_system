@@ -43,7 +43,18 @@ class SummaryCard extends StatelessWidget {
                   children: [
                     Text(label, style: AppTextStyles.caption),
                     const SizedBox(height: 5),
-                    Text(value, style: AppTextStyles.h2.copyWith(fontSize: 23)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          value,
+                          maxLines: 1,
+                          style: AppTextStyles.h2.copyWith(fontSize: 23),
+                        ),
+                      ),
+                    ),
                     const Spacer(),
                     Text(
                       subtitle,

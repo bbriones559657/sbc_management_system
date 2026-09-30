@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -18,26 +20,39 @@ Future<T?> showPrototypeDialog<T>({
       final viewport = MediaQuery.sizeOf(dialogContext);
       final compact = viewport.width < 600;
       final horizontalInset = compact ? 16.0 : 40.0;
-      final availableWidth = viewport.width - (horizontalInset * 2);
-      final availableHeight = viewport.height - 160;
+      final contentHorizontalPadding = compact ? 18.0 : 24.0;
+      final availableWidth = math.max(
+        0.0,
+        viewport.width -
+            (horizontalInset * 2) -
+            (contentHorizontalPadding * 2),
+      );
 
       return AlertDialog(
+        scrollable: true,
         insetPadding: EdgeInsets.symmetric(
           horizontal: horizontalInset,
           vertical: 24,
         ),
-        title: Text(title, style: AppTextStyles.h2),
+        title: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.h2,
+        ),
+        contentPadding: EdgeInsets.fromLTRB(
+          contentHorizontalPadding,
+          18,
+          contentHorizontalPadding,
+          8,
+        ),
         content: SizedBox(
           width: width.clamp(0.0, availableWidth).toDouble(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: availableHeight
-                  .clamp(120.0, double.infinity)
-                  .toDouble(),
-            ),
-            child: content,
-          ),
+          child: content,
         ),
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowAlignment: OverflowBarAlignment.end,
+        actionsOverflowButtonSpacing: 8,
         actions: actions.isEmpty
             ? [
                 TextButton(

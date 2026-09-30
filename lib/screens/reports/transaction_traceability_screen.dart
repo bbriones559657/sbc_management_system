@@ -5,6 +5,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/reporting_repository.dart';
 import '../../models/reporting.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/app_page.dart';
 
@@ -241,46 +242,10 @@ class _TransactionTraceabilityScreenState
       },
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 12),
-              period,
-              const SizedBox(height: 12),
-              type,
-            ],
-          );
-        }
-
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: period),
-                  const SizedBox(width: 12),
-                  Expanded(child: type),
-                ],
-              ),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: search),
-            const SizedBox(width: 12),
-            SizedBox(width: 170, child: period),
-            const SizedBox(width: 12),
-            SizedBox(width: 210, child: type),
-          ],
-        );
-      },
+    return ResponsiveFilterBar(
+      primary: search,
+      filters: [period, type],
+      filterWidths: const [170, 210],
     );
   }
 

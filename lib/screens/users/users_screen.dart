@@ -7,6 +7,7 @@ import '../../domain/repositories/user_repository.dart';
 import '../../models/user_record.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 
@@ -96,8 +97,8 @@ class _UsersScreenState extends State<UsersScreen> {
 
           return Column(
             children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
+              Builder(
+                builder: (context) {
                   final search = TextField(
                     onChanged: (value) => setState(() => _search = value),
                     decoration: const InputDecoration(
@@ -122,18 +123,11 @@ class _UsersScreenState extends State<UsersScreen> {
                     },
                   );
 
-                  if (constraints.maxWidth < 620) {
-                    return Column(
-                      children: [search, const SizedBox(height: 12), role],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      Expanded(child: search),
-                      const SizedBox(width: 12),
-                      SizedBox(width: 190, child: role),
-                    ],
+                  return ResponsiveFilterBar(
+                    primary: search,
+                    filters: [role],
+                    filterWidths: const [190],
+                    breakpoint: 620,
                   );
                 },
               ),

@@ -9,6 +9,8 @@ This document tracks integration work and rollback-based database regression che
 - Supabase Auth and role-aware navigation
 - Grouped role-aware navigation with collapsible desktop sections, a compact
   tablet rail and a phone drawer
+- Shared responsive filter bars, narrow-phone page actions and scroll-safe
+  dialogs across the integrated modules
 - Dashboard with live daily sales/order/refund/expense metrics
 - Orders / POS with shifts, payments, variants, modifiers, promotional discounts, refunds and invoice issuance
 - Inventory with multi-item stock-out, package conversions, lots, FEFO, traceable movements and lot-specific disposal
@@ -198,3 +200,16 @@ Before production:
 ## Flutter validation
 
 GitHub contains a Flutter CI workflow for `flutter analyze` and `flutter test`. A local run should also be completed after pulling the integration branch, because the development environment has the project's exact Flutter SDK and platform-generated files.
+
+### Responsive UI checks
+
+- Search/filter controls stack consistently below their configured breakpoint.
+- Page-level actions use the available width on very narrow phones.
+- Summary values scale down instead of overflowing their cards.
+- Wide data tables retain horizontal scrolling on phone layouts.
+- Dialog content remains scrollable on small screens and when the keyboard is open.
+- Authentication/account-state cards use safe-area padding and vertical scrolling.
+- Purchasing line summaries move their amount/actions below item details when space is limited.
+
+Widget regression tests exercise the shared filters, a phone-sized page with a
+large summary amount and wide table, and a long phone-sized dialog.

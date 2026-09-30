@@ -58,7 +58,13 @@ class AppPage extends StatelessWidget {
                       if (compact && action != null) ...[
                         titleBlock,
                         const SizedBox(height: 14),
-                        action!,
+                        if (constraints.maxWidth < 420)
+                          SizedBox(width: double.infinity, child: action!)
+                        else
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: action!,
+                          ),
                       ] else
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,

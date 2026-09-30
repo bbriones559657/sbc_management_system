@@ -1230,33 +1230,57 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.gray200),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    inventory
-                        .firstWhere(
-                          (entry) => entry.id == lines[index].inventoryItemId,
-                        )
-                        .name,
-                    style: AppTextStyles.bodyMedium,
-                  ),
-                ),
-                Text(
-                  '${_qty(lines[index].quantity)} × '
-                  '${_money(lines[index].unitCost)}',
-                  style: AppTextStyles.body,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _money(lines[index].quantity * lines[index].unitCost),
-                  style: AppTextStyles.bodyMedium,
-                ),
-                IconButton(
-                  onPressed: () => onRemove(index),
-                  icon: const Icon(Icons.delete_outline, size: 19),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemName = inventory
+                    .firstWhere(
+                      (entry) => entry.id == lines[index].inventoryItemId,
+                    )
+                    .name;
+                final details = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(itemName, style: AppTextStyles.bodyMedium),
+                    Text(
+                      '${_qty(lines[index].quantity)} × '
+                      '${_money(lines[index].unitCost)}',
+                      style: AppTextStyles.body,
+                    ),
+                  ],
+                );
+                final actions = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _money(lines[index].quantity * lines[index].unitCost),
+                      style: AppTextStyles.bodyMedium,
+                    ),
+                    IconButton(
+                      tooltip: 'Remove',
+                      onPressed: () => onRemove(index),
+                      icon: const Icon(Icons.delete_outline, size: 19),
+                    ),
+                  ],
+                );
+
+                if (constraints.maxWidth < 420) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      details,
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actions,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [Expanded(child: details), actions],
+                );
+              },
             ),
           ),
       ],

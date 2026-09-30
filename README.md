@@ -94,6 +94,11 @@ Products, Inventory, Purchasing, Expenses, Reports, and Administration. The
 full sidebar collapses into an icon rail on medium screens and a drawer on
 phones.
 
+Responsive list filters use the same stacked phone layout and aligned desktop
+layout throughout the system. Page actions expand on very narrow screens,
+tables scroll horizontally when required, and long forms/dialogs scroll instead
+of overflowing the viewport or on-screen keyboard.
+
 ---
 
 ## Current Modules

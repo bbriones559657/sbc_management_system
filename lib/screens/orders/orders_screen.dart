@@ -8,6 +8,7 @@ import '../../models/order_record.dart';
 import '../../models/refund_preview.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 import 'new_order_screen.dart';
@@ -234,38 +235,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       },
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 900) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: date),
-                  const SizedBox(width: 12),
-                  Expanded(child: type),
-                ],
-              ),
-              const SizedBox(height: 12),
-              status,
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(flex: 3, child: search),
-            const SizedBox(width: 12),
-            SizedBox(width: 165, child: date),
-            const SizedBox(width: 12),
-            SizedBox(width: 160, child: type),
-            const SizedBox(width: 12),
-            SizedBox(width: 155, child: status),
-          ],
-        );
-      },
+    return ResponsiveFilterBar(
+      primary: search,
+      filters: [date, type, status],
+      filterWidths: const [165, 160, 155],
+      breakpoint: 900,
     );
   }
 

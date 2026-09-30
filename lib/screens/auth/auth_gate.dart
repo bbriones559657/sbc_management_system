@@ -165,44 +165,61 @@ class _AccountStateScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.gray100,
-      body: Center(
-        child: Container(
-          width: 460,
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border.all(color: AppColors.gray200),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.manage_accounts_outlined,
-                size: 42,
-                color: AppColors.primary,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              width: 460,
+              padding: EdgeInsets.all(
+                MediaQuery.sizeOf(context).width < 400 ? 20 : 28,
               ),
-              const SizedBox(height: 16),
-              Text(title, style: AppTextStyles.h2),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: AppColors.gray700),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border.all(color: AppColors.gray200),
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  OutlinedButton(
-                    onPressed: onSignOut,
-                    child: const Text('Sign out'),
+                  const Icon(
+                    Icons.manage_accounts_outlined,
+                    size: 42,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(width: 10),
-                  FilledButton(onPressed: onRetry, child: const Text('Retry')),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.h2,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.gray700,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton(
+                        onPressed: onSignOut,
+                        child: const Text('Sign out'),
+                      ),
+                      FilledButton(
+                        onPressed: onRetry,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

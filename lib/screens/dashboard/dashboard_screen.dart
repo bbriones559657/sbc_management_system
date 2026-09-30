@@ -136,10 +136,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 5),
-                          Text(
-                            _money(summary.netSales),
-                            style: AppTextStyles.display.copyWith(
-                              color: AppColors.white,
+                          SizedBox(
+                            width: double.infinity,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _money(summary.netSales),
+                                maxLines: 1,
+                                style: AppTextStyles.display.copyWith(
+                                  color: AppColors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],

@@ -501,7 +501,13 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
             ),
           ),
           const SizedBox(width: 14),
-          Text(value, style: AppTextStyles.bodyMedium),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.bodyMedium,
+            ),
+          ),
         ],
       ),
     );
