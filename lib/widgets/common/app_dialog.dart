@@ -23,9 +23,7 @@ Future<T?> showPrototypeDialog<T>({
       final contentHorizontalPadding = compact ? 18.0 : 24.0;
       final availableWidth = math.max(
         0.0,
-        viewport.width -
-            (horizontalInset * 2) -
-            (contentHorizontalPadding * 2),
+        viewport.width - (horizontalInset * 2) - (contentHorizontalPadding * 2),
       );
 
       return AlertDialog(

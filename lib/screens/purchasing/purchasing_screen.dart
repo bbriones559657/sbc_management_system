@@ -1269,16 +1269,16 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     children: [
                       details,
                       const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: actions,
-                      ),
+                      Align(alignment: Alignment.centerRight, child: actions),
                     ],
                   );
                 }
 
                 return Row(
-                  children: [Expanded(child: details), actions],
+                  children: [
+                    Expanded(child: details),
+                    actions,
+                  ],
                 );
               },
             ),

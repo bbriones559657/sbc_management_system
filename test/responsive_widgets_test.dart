@@ -106,7 +106,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('prototype dialogs scroll instead of overflowing', (tester) async {
+  testWidgets('prototype dialogs scroll instead of overflowing', (
+    tester,
+  ) async {
     _setViewport(tester, const Size(320, 640));
     await tester.pumpWidget(
       MaterialApp(

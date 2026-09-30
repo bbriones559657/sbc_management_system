@@ -26,10 +26,7 @@ class ResponsiveFilterBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               primary,
-              for (final filter in filters) ...[
-                SizedBox(height: gap),
-                filter,
-              ],
+              for (final filter in filters) ...[SizedBox(height: gap), filter],
             ],
           );
         }
