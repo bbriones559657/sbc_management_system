@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
-import '../../models/order_item.dart';
 import '../../models/order_record.dart';
+import '../../models/pos_checkout.dart';
+import '../../models/pos_discount.dart';
+import '../../models/pos_menu_item.dart';
+import '../../models/pos_modifier.dart';
+import '../../models/pos_payment_method.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/header_brand_motif.dart';
@@ -20,93 +25,31 @@ class NewOrderScreen extends StatefulWidget {
 }
 
 class _NewOrderScreenState extends State<NewOrderScreen> {
-  static const String _prototypeEmployeeName = 'Brian';
-  static const String _prototypeEmployeeId = 'USR-004';
+  final _searchController = TextEditingController();
+  final _customerNameController = TextEditingController();
+  final _tableNumberController = TextEditingController();
+  final _deliveryReferenceController = TextEditingController();
 
-  final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _customerNameController = TextEditingController();
-  final TextEditingController _tableNumberController = TextEditingController();
-  final TextEditingController _deliveryReferenceController =
-      TextEditingController();
+  final List<_PosCartLine> _cart = [];
 
-  final Map<String, int> _cart = {};
-  late final DateTime _orderCreatedAt;
+  late Future<List<PosMenuItem>> _menuFuture;
+  late Future<List<PosPaymentMethod>> _paymentMethodsFuture;
+  late Future<List<PosDiscountType>> _discountTypesFuture;
 
   String _selectedCategory = 'All';
   String _orderType = 'Dine In';
   String _searchQuery = '';
-
-  static const List<_Product> _products = [
-    _Product(
-      id: 'PRD-001',
-      name: 'Chicken Bowl',
-      category: 'Rice Bowls',
-      price: 150,
-      icon: Icons.rice_bowl_outlined,
-    ),
-    _Product(
-      id: 'PRD-002',
-      name: 'Beef Bowl',
-      category: 'Rice Bowls',
-      price: 170,
-      icon: Icons.rice_bowl,
-    ),
-    _Product(
-      id: 'PRD-003',
-      name: 'Iced Coffee',
-      category: 'Coffee',
-      price: 150,
-      icon: Icons.coffee_outlined,
-    ),
-    _Product(
-      id: 'PRD-004',
-      name: 'Hot Coffee',
-      category: 'Coffee',
-      price: 120,
-      icon: Icons.local_cafe_outlined,
-    ),
-    _Product(
-      id: 'PRD-005',
-      name: 'Bottled Water',
-      category: 'Beverages',
-      price: 40,
-      icon: Icons.local_drink_outlined,
-    ),
-    _Product(
-      id: 'PRD-006',
-      name: 'Chocolate Cake',
-      category: 'Baked Goods',
-      price: 180,
-      icon: Icons.cake_outlined,
-    ),
-    _Product(
-      id: 'PRD-007',
-      name: 'Cookie',
-      category: 'Baked Goods',
-      price: 50,
-      icon: Icons.cookie_outlined,
-    ),
-    _Product(
-      id: 'PRD-008',
-      name: 'Canned Soda',
-      category: 'Beverages',
-      price: 60,
-      icon: Icons.local_drink,
-    ),
-  ];
-
-  static const List<String> _categories = [
-    'All',
-    'Rice Bowls',
-    'Coffee',
-    'Beverages',
-    'Baked Goods',
-  ];
+  String? _openShiftId;
+  bool _loadingShift = true;
+  bool _startingShift = false;
+  bool _endingShift = false;
+  bool _submittingOrder = false;
 
   @override
   void initState() {
     super.initState();
-    _orderCreatedAt = DateTime.now();
+    _reloadPosData();
+    _loadShift();
   }
 
   @override
@@ -118,26 +61,438 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.dispose();
   }
 
-  List<_Product> get _filteredProducts {
-    return _products.where((product) {
-      final categoryMatches =
-          _selectedCategory == 'All' || product.category == _selectedCategory;
-      final searchMatches = product.name.toLowerCase().contains(
-        _searchQuery.trim().toLowerCase(),
-      );
-      return categoryMatches && searchMatches;
-    }).toList();
+  void _reloadPosData() {
+    _menuFuture = widget.orderRepository.getPosMenu();
+    _paymentMethodsFuture = widget.orderRepository.getPaymentMethods();
+    _discountTypesFuture = widget.orderRepository.getPosDiscountTypes();
   }
 
-  int get _total {
-    int total = 0;
-    for (final entry in _cart.entries) {
-      final product = _productById(entry.key);
-      if (product != null) {
-        total += product.price * entry.value;
-      }
+  Future<void> _loadShift() async {
+    try {
+      final id = await widget.orderRepository.getOpenShiftId();
+      if (!mounted) return;
+      setState(() {
+        _openShiftId = id;
+        _loadingShift = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingShift = false);
+      _showError(error.toString());
     }
-    return total;
+  }
+
+  Future<void> _startShift() async {
+    if (_startingShift) return;
+    setState(() => _startingShift = true);
+
+    try {
+      final id = await widget.orderRepository.startShift();
+      if (!mounted) return;
+      setState(() => _openShiftId = id);
+      _showMessage('Shift started successfully.');
+    } on PostgrestException catch (error) {
+      if (mounted) _showError(error.message);
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    } finally {
+      if (mounted) setState(() => _startingShift = false);
+    }
+  }
+
+  Future<void> _showEndShiftDialog() async {
+    final shiftId = _openShiftId;
+    if (shiftId == null || _endingShift) return;
+
+    final cashController = TextEditingController();
+    final notesController = TextEditingController();
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    try {
+      final snapshot = await widget.orderRepository.getShiftCashSnapshot(
+        shiftId,
+      );
+
+      if (!mounted) return;
+
+      await showPrototypeDialog(
+        context: context,
+        title: 'End Shift',
+        width: 560,
+        content: StatefulBuilder(
+          builder: (_, setDialogState) {
+            dialogSetState = setDialogState;
+
+            final rawCash = cashController.text.trim();
+            final countedCash = rawCash.isEmpty
+                ? null
+                : double.tryParse(rawCash);
+            final variance = countedCash == null
+                ? null
+                : countedCash - snapshot.expectedCash;
+
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.gray200),
+                    ),
+                    child: Column(
+                      children: [
+                        _paymentInfoRow(
+                          'Opening Cash',
+                          _money(snapshot.openingCash),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Sales',
+                          _money(snapshot.cashSales),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Refunds',
+                          _money(snapshot.cashRefunds),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-ins / Corrections',
+                          _money(snapshot.cashIn),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-outs / Cash Drops',
+                          _money(snapshot.cashOut),
+                        ),
+                        const Divider(),
+                        _paymentInfoRow(
+                          'Expected Closing Cash',
+                          _money(snapshot.expectedCash),
+                          emphasized: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: cashController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) {
+                      setDialogState(() => errorMessage = null);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Counted Closing Cash',
+                      prefixText: '₱',
+                      helperText: 'Optional for now, but entering it records the cash variance.',
+                    ),
+                  ),
+                  if (variance != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: variance.abs() < 0.01
+                            ? const Color(0xFFEAF7EE)
+                            : AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _paymentInfoRow(
+                        'Cash Variance',
+                        _signedMoney(variance),
+                        emphasized: true,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Closing Notes',
+                      hintText: 'Optional explanation for cash differences or handover notes...',
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: _endingShift ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _endingShift
+                ? null
+                : () async {
+                    final rawCash = cashController.text.trim();
+                    final cash = rawCash.isEmpty
+                        ? null
+                        : double.tryParse(rawCash);
+
+                    if (rawCash.isNotEmpty && cash == null) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Enter a valid closing cash amount.';
+                      });
+                      return;
+                    }
+
+                    if (cash != null && cash < 0) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Closing cash cannot be negative.';
+                      });
+                      return;
+                    }
+
+                    setState(() => _endingShift = true);
+
+                    try {
+                      await widget.orderRepository.endShift(
+                        shiftId: shiftId,
+                        closingCashCounted: cash,
+                        notes: notesController.text.trim(),
+                      );
+
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      setState(() {
+                        _openShiftId = null;
+                        _cart.clear();
+                      });
+
+                      if (cash == null) {
+                        _showMessage('Shift ended successfully.');
+                      } else {
+                        final variance = cash - snapshot.expectedCash;
+                        _showMessage(
+                          'Shift ended. Cash variance: ${_signedMoney(variance)}',
+                        );
+                      }
+                    } on PostgrestException catch (error) {
+                      dialogSetState?.call(() {
+                        errorMessage = error.message;
+                      });
+                    } catch (error) {
+                      dialogSetState?.call(() {
+                        errorMessage = error.toString();
+                      });
+                    } finally {
+                      if (mounted) setState(() => _endingShift = false);
+                    }
+                  },
+            child: _endingShift
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('End Shift'),
+          ),
+        ],
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showError(error.message);
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    } finally {
+      cashController.dispose();
+      notesController.dispose();
+    }
+  }
+
+  Future<void> _showCashMovementDialog() async {
+    final shiftId = _openShiftId;
+    if (shiftId == null) return;
+
+    final amountController = TextEditingController();
+    final reasonController = TextEditingController();
+    var movementType = 'PAY_IN';
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    try {
+      final snapshot = await widget.orderRepository.getShiftCashSnapshot(
+        shiftId,
+      );
+
+      if (!mounted) return;
+
+      await showPrototypeDialog(
+        context: context,
+        title: 'Cash Movement',
+        width: 560,
+        content: StatefulBuilder(
+          builder: (_, setDialogState) {
+            dialogSetState = setDialogState;
+
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        _paymentInfoRow(
+                          'Opening Cash',
+                          _money(snapshot.openingCash),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Sales',
+                          _money(snapshot.cashSales),
+                        ),
+                        _paymentInfoRow(
+                          'Cash Refunds',
+                          _money(snapshot.cashRefunds),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-ins / Corrections',
+                          _money(snapshot.cashIn),
+                        ),
+                        _paymentInfoRow(
+                          'Pay-outs / Cash Drops',
+                          _money(snapshot.cashOut),
+                        ),
+                        const Divider(),
+                        _paymentInfoRow(
+                          'Expected Cash',
+                          _money(snapshot.expectedCash),
+                          emphasized: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: movementType,
+                    decoration: const InputDecoration(
+                      labelText: 'Movement Type',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'PAY_IN', child: Text('Pay In')),
+                      DropdownMenuItem(
+                        value: 'PAY_OUT',
+                        child: Text('Pay Out'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CASH_DROP',
+                        child: Text('Cash Drop'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'CORRECTION',
+                        child: Text('Positive Correction'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        movementType = value;
+                        errorMessage = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount *',
+                      prefixText: '₱',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Reason *'),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text.trim());
+              final reason = reasonController.text.trim();
+
+              if (amount == null || amount <= 0 || reason.isEmpty) {
+                dialogSetState?.call(() {
+                  errorMessage =
+                      'Enter an amount greater than zero and a reason.';
+                });
+                return;
+              }
+
+              try {
+                await widget.orderRepository.recordShiftCashMovement(
+                  shiftId: shiftId,
+                  movementType: movementType,
+                  amount: amount,
+                  reason: reason,
+                );
+
+                if (!mounted) return;
+                Navigator.pop(context);
+                _showMessage('Cash movement recorded.');
+              } on PostgrestException catch (error) {
+                dialogSetState?.call(() {
+                  errorMessage = error.message;
+                });
+              } catch (error) {
+                dialogSetState?.call(() {
+                  errorMessage = error.toString();
+                });
+              }
+            },
+            child: const Text('Record Movement'),
+          ),
+        ],
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showError(error.message);
+    } catch (error) {
+      if (mounted) _showError(error.toString());
+    }
+
+    amountController.dispose();
+    reasonController.dispose();
   }
 
   @override
@@ -154,38 +509,68 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.page),
-              child: Column(
-                children: [
-                  Row(
+              padding: EdgeInsets.all(
+                MediaQuery.sizeOf(context).width < 600 ? 16 : AppSpacing.page,
+              ),
+              child: FutureBuilder<List<PosMenuItem>>(
+                future: _menuFuture,
+                builder: (context, snapshot) {
+                  final menu = snapshot.data ?? const <PosMenuItem>[];
+
+                  return Column(
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final title = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.arrow_back),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('New Order', style: AppTextStyles.h1),
+                            ],
+                          );
+
+                          if (constraints.maxWidth < 760) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                title,
+                                const SizedBox(height: 10),
+                                _buildShiftStatus(),
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              title,
+                              const Spacer(),
+                              _buildShiftStatus(),
+                            ],
+                          );
+                        },
                       ),
-                      const SizedBox(width: 8),
-                      const Text('New Order', style: AppTextStyles.h1),
-                      const Spacer(),
-                      Text(
-                        _formatDateTime(_orderCreatedAt),
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.gray700,
-                        ),
-                      ),
+                      const SizedBox(height: 18),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Expanded(
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (snapshot.hasError)
+                        Expanded(child: _buildLoadError(snapshot.error))
+                      else if (menu.isEmpty)
+                        Expanded(
+                          child: _buildLoadError(
+                            'No active menu items are available.',
+                          ),
+                        )
+                      else
+                        Expanded(child: _buildOrderWorkspace(menu)),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 3, child: _buildProductsPanel()),
-                        const SizedBox(width: 20),
-                        SizedBox(width: 410, child: _buildCurrentOrderPanel()),
-                      ],
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -194,8 +579,150 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildProductsPanel() {
-    final products = _filteredProducts;
+  Widget _buildShiftStatus() {
+    if (_loadingShift) {
+      return const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    if (_openShiftId != null) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF7EE),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Shift Active',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.success,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: _showCashMovementDialog,
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('Cash'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _endingShift ? null : _showEndShiftDialog,
+            icon: const Icon(Icons.stop_circle_outlined, size: 18),
+            label: const Text('End Shift'),
+          ),
+        ],
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: _startingShift ? null : _startShift,
+      icon: const Icon(Icons.play_arrow, size: 18),
+      label: Text(_startingShift ? 'Starting...' : 'Start Shift'),
+    );
+  }
+
+  Widget _buildOrderWorkspace(List<PosMenuItem> menu) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 900) {
+          return DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Products'),
+                    Tab(text: 'Current Order'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildProductsPanel(menu),
+                      _buildCurrentOrderPanel(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: _buildProductsPanel(menu)),
+            const SizedBox(width: 20),
+            SizedBox(width: 410, child: _buildCurrentOrderPanel()),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadError(Object? error) {
+    return Center(
+      child: SizedBox(
+        width: 500,
+        child: SectionCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: AppColors.primary,
+                size: 40,
+              ),
+              const SizedBox(height: 12),
+              const Text('Unable to load POS data', style: AppTextStyles.h3),
+              const SizedBox(height: 8),
+              Text(
+                error?.toString() ?? 'Unknown error',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () {
+                  setState(_reloadPosData);
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductsPanel(List<PosMenuItem> menu) {
+    final categories = <String>[
+      'All',
+      ...(menu.map((item) => item.category).toSet().toList()..sort()),
+    ];
+
+    if (!categories.contains(_selectedCategory)) {
+      _selectedCategory = 'All';
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    final products = menu.where((item) {
+      final categoryMatches =
+          _selectedCategory == 'All' || item.category == _selectedCategory;
+      final searchMatches =
+          query.isEmpty ||
+          item.name.toLowerCase().contains(query) ||
+          item.variantName.toLowerCase().contains(query) ||
+          item.sku.toLowerCase().contains(query);
+      return categoryMatches && searchMatches;
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,26 +742,16 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _categories.length,
+            itemCount: categories.length,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) {
-              final category = _categories[index];
-              final selected = category == _selectedCategory;
-
+              final category = categories[index];
               return ChoiceChip(
                 label: Text(category),
-                selected: selected,
+                selected: category == _selectedCategory,
                 onSelected: (_) {
                   setState(() => _selectedCategory = category);
                 },
-                selectedColor: AppColors.primarySoft,
-                side: BorderSide(
-                  color: selected ? AppColors.primary : AppColors.gray300,
-                ),
-                labelStyle: AppTextStyles.caption.copyWith(
-                  color: selected ? AppColors.primary : AppColors.gray700,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
               );
             },
           ),
@@ -243,17 +760,25 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         Expanded(
           child: products.isEmpty
               ? const Center(child: Text('No products found.'))
-              : GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    mainAxisExtent: 190,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (_, index) {
-                    final product = products[index];
-                    return _buildProductCard(product);
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth < 420
+                        ? 1
+                        : constraints.maxWidth < 720
+                        ? 2
+                        : 3;
+
+                    return GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        mainAxisExtent: 200,
+                      ),
+                      itemCount: products.length,
+                      itemBuilder: (_, index) =>
+                          _buildProductCard(products[index]),
+                    );
                   },
                 ),
         ),
@@ -261,7 +786,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  Widget _buildProductCard(_Product product) {
+  Widget _buildProductCard(PosMenuItem product) {
+    final variantLabel = product.variantName.trim().isEmpty
+        ? product.category
+        : '${product.category} • ${product.variantName}';
+
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +802,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(product.icon, color: AppColors.primary, size: 22),
+            child: Icon(
+              _iconForCategory(product.category),
+              color: AppColors.primary,
+              size: 22,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
@@ -282,23 +815,40 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(product.category, style: AppTextStyles.caption),
+          Text(
+            variantLabel,
+            style: AppTextStyles.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (product.tracksInventory) ...[
+            const SizedBox(height: 4),
+            Text(
+              product.isOutOfStock
+                  ? 'Out of stock'
+                  : '${_quantity(product.availableQuantity ?? 0)} available',
+              style: AppTextStyles.caption.copyWith(
+                color: product.isOutOfStock
+                    ? AppColors.primary
+                    : AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           const Spacer(),
           Row(
             children: [
               Text(
-                '₱${product.price}',
+                _money(product.price),
                 style: AppTextStyles.h3.copyWith(color: AppColors.primary),
               ),
               const Spacer(),
-              SizedBox(
-                height: 34,
-                child: OutlinedButton.icon(
-                  onPressed: () => _addItem(product.id),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add'),
-                ),
+              OutlinedButton.icon(
+                onPressed: product.isOutOfStock
+                    ? null
+                    : () => _addProduct(product),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add'),
               ),
             ],
           ),
@@ -308,13 +858,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Widget _buildCurrentOrderPanel() {
+    final total = _cart.fold<double>(0, (sum, line) => sum + line.lineTotal);
+
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Current Order', style: AppTextStyles.h2),
-          const SizedBox(height: 4),
-          Text(_formatDateTime(_orderCreatedAt), style: AppTextStyles.caption),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _orderType,
@@ -325,54 +875,46 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
             ],
             onChanged: (value) {
-              if (value == null) return;
-              setState(() => _orderType = value);
+              if (value != null) setState(() => _orderType = value);
             },
           ),
           const SizedBox(height: 12),
           _buildOrderIdentityFields(),
           const SizedBox(height: 14),
           const Divider(),
-          const SizedBox(height: 4),
           Expanded(
             child: _cart.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 36,
-                          color: AppColors.gray500,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'No items added yet.',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.gray500,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'No items added yet.',
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.gray500,
+                      ),
                     ),
                   )
-                : ListView(
-                    children: _cart.entries.map((entry) {
-                      final product = _productById(entry.key)!;
-                      return _buildCartItem(product, entry.value);
-                    }).toList(),
+                : ListView.builder(
+                    itemCount: _cart.length,
+                    itemBuilder: (_, index) =>
+                        _buildCartItem(_cart[index], index),
                   ),
           ),
           const Divider(),
-          _summaryRow('Subtotal', '₱$_total'),
+          _summaryRow('Subtotal', _money(total)),
           const SizedBox(height: 7),
-          _summaryRow('Total', '₱$_total', emphasized: true),
+          _summaryRow('Total', _money(total), emphasized: true),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _cart.isEmpty ? null : _showPaymentDialog,
+              onPressed: _cart.isEmpty || _openShiftId == null
+                  ? null
+                  : _showPaymentDialog,
               icon: const Icon(Icons.payments_outlined, size: 18),
-              label: const Text('Proceed to Payment'),
+              label: Text(
+                _openShiftId == null
+                    ? 'Start Shift to Continue'
+                    : 'Proceed to Payment',
+              ),
             ),
           ),
         ],
@@ -386,10 +928,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         children: [
           TextField(
             controller: _tableNumberController,
-            decoration: const InputDecoration(
-              labelText: 'Table Number *',
-              hintText: 'e.g. 4',
-            ),
+            decoration: const InputDecoration(labelText: 'Table Number *'),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -410,7 +949,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _customerNameController,
             decoration: const InputDecoration(
               labelText: 'Customer / Recipient Name *',
-              hintText: 'Name for the order',
             ),
           ),
           const SizedBox(height: 10),
@@ -418,7 +956,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             controller: _deliveryReferenceController,
             decoration: const InputDecoration(
               labelText: 'Delivery Reference / Platform',
-              hintText: 'e.g. Phone order, Foodpanda reference',
             ),
           ),
         ],
@@ -427,14 +964,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
     return TextField(
       controller: _customerNameController,
-      decoration: const InputDecoration(
-        labelText: 'Customer Name *',
-        hintText: 'Name to call when the order is ready',
-      ),
+      decoration: const InputDecoration(labelText: 'Customer Name *'),
     );
   }
 
-  Widget _buildCartItem(_Product product, int quantity) {
+  Widget _buildCartItem(_PosCartLine line, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -444,39 +978,51 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         border: Border.all(color: AppColors.gray200),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(product.name, style: AppTextStyles.bodyMedium),
-                const SizedBox(height: 3),
+                Text(line.product.name, style: AppTextStyles.bodyMedium),
                 Text(
-                  '₱${product.price} each  •  ₱${product.price * quantity}',
+                  '${line.product.variantName} • '
+                  '${_money(line.unitPriceWithModifiers)} each • '
+                  '${_money(line.lineTotal)}',
                   style: AppTextStyles.caption,
                 ),
+                if (line.modifiers.isNotEmpty)
+                  Text(
+                    line.modifiers.map((item) => item.name).join(', '),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray700,
+                    ),
+                  ),
+                if (line.specialInstructions.isNotEmpty)
+                  Text(
+                    'Note: ${line.specialInstructions}',
+                    style: AppTextStyles.caption,
+                  ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Decrease quantity',
-            onPressed: () => _decreaseItem(product.id),
+            onPressed: () => _decreaseLine(index),
             icon: const Icon(Icons.remove_circle_outline, size: 20),
           ),
-          Container(
-            constraints: const BoxConstraints(minWidth: 26),
-            alignment: Alignment.center,
-            child: Text('$quantity', style: AppTextStyles.bodyMedium),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${line.quantity}',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium,
+            ),
           ),
           IconButton(
-            tooltip: 'Increase quantity',
-            onPressed: () => _addItem(product.id),
+            onPressed: () => _increaseLine(index),
             icon: const Icon(Icons.add_circle_outline, size: 20),
           ),
           IconButton(
-            tooltip: 'Remove item',
-            onPressed: () => _removeItem(product.id),
+            onPressed: () => _removeLine(index),
             icon: const Icon(
               Icons.delete_outline,
               color: AppColors.primary,
@@ -486,6 +1032,735 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _addProduct(PosMenuItem product) async {
+    if (!_hasStockForAdditional(product, 1)) {
+      _showError(
+        '${product.name} only has '
+        '${_quantity(product.availableQuantity ?? 0)} available.',
+      );
+      return;
+    }
+
+    List<PosModifierGroup> groups;
+    try {
+      groups = await widget.orderRepository.getModifierGroups(
+        product.menuItemId,
+      );
+    } on PostgrestException catch (error) {
+      _showError(error.message);
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (groups.isEmpty) {
+      _addOrMergeLine(
+        _PosCartLine(
+          product: product,
+          quantity: 1,
+          modifiers: const [],
+          specialInstructions: '',
+        ),
+      );
+      return;
+    }
+
+    final configured = await _showModifierDialog(product, groups);
+    if (configured == null || !mounted) return;
+
+    _addOrMergeLine(configured);
+  }
+
+  Future<_PosCartLine?> _showModifierDialog(
+    PosMenuItem product,
+    List<PosModifierGroup> groups,
+  ) async {
+    final selectedIds = <String>{};
+    final instructionsController = TextEditingController();
+    String? errorMessage;
+
+    final result = await showDialog<_PosCartLine>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              '${product.name} — ${product.variantName}',
+              style: AppTextStyles.h2,
+            ),
+            content: SizedBox(
+              width: 620,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final group in groups) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                          ),
+                          Text(
+                            group.isRequired ? 'Required' : 'Optional',
+                            style: AppTextStyles.caption.copyWith(
+                              color: group.isRequired
+                                  ? AppColors.primary
+                                  : AppColors.gray500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(_groupRule(group), style: AppTextStyles.caption),
+                      const SizedBox(height: 6),
+                      for (final option in group.options)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: selectedIds.contains(option.id),
+                          title: Text(option.name),
+                          secondary: Text(
+                            option.priceDelta == 0
+                                ? 'Included'
+                                : '+${_money(option.priceDelta)}',
+                            style: AppTextStyles.caption,
+                          ),
+                          onChanged: (checked) {
+                            setDialogState(() {
+                              errorMessage = null;
+                              if (checked == true) {
+                                final selectedInGroup = group.options
+                                    .where(
+                                      (item) => selectedIds.contains(item.id),
+                                    )
+                                    .length;
+                                final max = group.maxSelections;
+                                if (max != null && selectedInGroup >= max) {
+                                  errorMessage =
+                                      '${group.name} allows up to $max selection(s).';
+                                  return;
+                                }
+                                selectedIds.add(option.id);
+                              } else {
+                                selectedIds.remove(option.id);
+                              }
+                            });
+                          },
+                        ),
+                      const Divider(height: 24),
+                    ],
+                    TextField(
+                      controller: instructionsController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Special Instructions',
+                        hintText: 'Optional',
+                      ),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        errorMessage!,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  for (final group in groups) {
+                    final selectedCount = group.options
+                        .where((item) => selectedIds.contains(item.id))
+                        .length;
+
+                    if (selectedCount < group.minSelections) {
+                      setDialogState(() {
+                        errorMessage =
+                            'Select at least ${group.minSelections} option(s) from ${group.name}.';
+                      });
+                      return;
+                    }
+
+                    final max = group.maxSelections;
+                    if (max != null && selectedCount > max) {
+                      setDialogState(() {
+                        errorMessage =
+                            'Select at most $max option(s) from ${group.name}.';
+                      });
+                      return;
+                    }
+                  }
+
+                  final selected = <PosModifierOption>[];
+                  for (final group in groups) {
+                    selected.addAll(
+                      group.options.where(
+                        (item) => selectedIds.contains(item.id),
+                      ),
+                    );
+                  }
+
+                  Navigator.pop(
+                    dialogContext,
+                    _PosCartLine(
+                      product: product,
+                      quantity: 1,
+                      modifiers: selected,
+                      specialInstructions: instructionsController.text.trim(),
+                    ),
+                  );
+                },
+                child: const Text('Add to Order'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    instructionsController.dispose();
+    return result;
+  }
+
+  void _addOrMergeLine(_PosCartLine incoming) {
+    final existingIndex = _cart.indexWhere(
+      (line) =>
+          line.product.variantId == incoming.product.variantId &&
+          line.modifierSignature == incoming.modifierSignature &&
+          line.specialInstructions == incoming.specialInstructions,
+    );
+
+    setState(() {
+      if (existingIndex == -1) {
+        _cart.add(incoming);
+      } else {
+        final existing = _cart[existingIndex];
+        _cart[existingIndex] = existing.copyWith(
+          quantity: existing.quantity + incoming.quantity,
+        );
+      }
+    });
+  }
+
+  void _increaseLine(int index) {
+    final line = _cart[index];
+
+    if (!_hasStockForAdditional(line.product, 1)) {
+      _showError(
+        '${line.product.name} only has '
+        '${_quantity(line.product.availableQuantity ?? 0)} available.',
+      );
+      return;
+    }
+
+    setState(() {
+      _cart[index] = line.copyWith(quantity: line.quantity + 1);
+    });
+  }
+
+  void _decreaseLine(int index) {
+    final line = _cart[index];
+    setState(() {
+      if (line.quantity <= 1) {
+        _cart.removeAt(index);
+      } else {
+        _cart[index] = line.copyWith(quantity: line.quantity - 1);
+      }
+    });
+  }
+
+  void _removeLine(int index) {
+    setState(() => _cart.removeAt(index));
+  }
+
+  bool _hasStockForAdditional(PosMenuItem product, int additional) {
+    if (!product.tracksInventory || product.availableQuantity == null) {
+      return true;
+    }
+
+    final alreadyInCart = _cart
+        .where((line) => line.product.variantId == product.variantId)
+        .fold<int>(0, (sum, line) => sum + line.quantity);
+
+    return alreadyInCart + additional <= product.availableQuantity!;
+  }
+
+  Future<void> _showPaymentDialog() async {
+    final validation = _validateOrderDetails();
+    if (validation != null) {
+      _showError(validation);
+      return;
+    }
+
+    final results = await Future.wait([
+      _paymentMethodsFuture,
+      _discountTypesFuture,
+    ]);
+
+    if (!mounted) return;
+
+    final methods = results[0] as List<PosPaymentMethod>;
+    final discounts = results[1] as List<PosDiscountType>;
+
+    if (methods.isEmpty) {
+      _showError('No active payment methods are configured.');
+      return;
+    }
+
+    final subtotal = _cart.fold<double>(0, (sum, line) => sum + line.lineTotal);
+
+    var selectedMethod = methods.first;
+    PosDiscountType? selectedDiscount;
+
+    final amountController = TextEditingController(
+      text: subtotal.toStringAsFixed(2),
+    );
+    final referenceController = TextEditingController();
+    final discountValueController = TextEditingController();
+    final discountNotesController = TextEditingController();
+
+    String? errorMessage;
+    StateSetter? dialogSetState;
+
+    double discountValue() {
+      return double.tryParse(discountValueController.text.trim()) ?? 0;
+    }
+
+    double discountAmount() {
+      final discount = selectedDiscount;
+      if (discount == null) return 0;
+      return discount.calculateDiscount(subtotal, discountValue());
+    }
+
+    double finalTotal() {
+      return (subtotal - discountAmount()).clamp(0, double.infinity).toDouble();
+    }
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Proceed to Payment',
+      width: 700,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          dialogSetState = setDialogState;
+
+          final discountedTotal = finalTotal();
+          final received = double.tryParse(amountController.text.trim()) ?? 0;
+          final change = selectedMethod.isCash
+              ? (received - discountedTotal)
+                    .clamp(0, double.infinity)
+                    .toDouble()
+              : 0.0;
+
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _paymentInfoRow('Order Type', _orderType),
+                _paymentInfoRow('Subtotal', _money(subtotal)),
+                if (selectedDiscount != null)
+                  _paymentInfoRow('Discount', '-${_money(discountAmount())}'),
+                _paymentInfoRow(
+                  'Total',
+                  _money(discountedTotal),
+                  emphasized: true,
+                ),
+                if (discounts.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedDiscount?.id ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'Promotional Discount',
+                      helperText: 'Senior/PWD rules are not enabled until the café tax setup is confirmed.',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('No Discount'),
+                      ),
+                      for (final discount in discounts)
+                        DropdownMenuItem(
+                          value: discount.id,
+                          child: Text(discount.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedDiscount = value == null || value.isEmpty
+                            ? null
+                            : discounts.firstWhere((item) => item.id == value);
+
+                        final defaultValue = selectedDiscount?.defaultValue;
+                        discountValueController.text = defaultValue == null
+                            ? ''
+                            : defaultValue.toStringAsFixed(
+                                defaultValue == defaultValue.roundToDouble()
+                                    ? 0
+                                    : 2,
+                              );
+
+                        amountController.text = finalTotal().toStringAsFixed(2);
+                        errorMessage = null;
+                      });
+                    },
+                  ),
+                  if (selectedDiscount != null) ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: discountValueController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText:
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? 'Discount Percentage *'
+                            : 'Discount Amount *',
+                        suffixText:
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? '%'
+                            : null,
+                        prefixText:
+                            selectedDiscount!.calculationMethod == 'PERCENTAGE'
+                            ? null
+                            : '₱',
+                      ),
+                      onChanged: (_) {
+                        setDialogState(() {
+                          errorMessage = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: discountNotesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Discount Notes',
+                        hintText: 'Optional promo/reference notes',
+                      ),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedMethod.id,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Method',
+                  ),
+                  items: methods
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method.id,
+                          child: Text(method.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      selectedMethod = methods.firstWhere(
+                        (method) => method.id == value,
+                      );
+                      errorMessage = null;
+                      if (!selectedMethod.isCash) {
+                        amountController.text = finalTotal().toStringAsFixed(2);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: amountController,
+                  enabled: selectedMethod.isCash,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount Received',
+                    prefixText: '₱',
+                  ),
+                  onChanged: (_) {
+                    dialogSetState?.call(() {
+                      errorMessage = null;
+                    });
+                  },
+                ),
+                if (selectedMethod.requiresReference) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: referenceController,
+                    decoration: InputDecoration(
+                      labelText: '${selectedMethod.name} Reference *',
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _paymentInfoRow('Change', _money(change)),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submittingOrder ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submittingOrder
+              ? null
+              : () async {
+                  final discountedTotal = finalTotal();
+                  final received =
+                      double.tryParse(amountController.text.trim()) ?? 0;
+
+                  final discount = selectedDiscount;
+                  final enteredDiscountValue = discountValue();
+
+                  if (discount != null) {
+                    if (enteredDiscountValue <= 0) {
+                      dialogSetState?.call(() {
+                        errorMessage =
+                            'Enter a discount value greater than zero.';
+                      });
+                      return;
+                    }
+
+                    if (discount.calculationMethod == 'PERCENTAGE' &&
+                        enteredDiscountValue > 100) {
+                      dialogSetState?.call(() {
+                        errorMessage =
+                            'Discount percentage cannot exceed 100%.';
+                      });
+                      return;
+                    }
+
+                    if (discountAmount() <= 0 || discountAmount() > subtotal) {
+                      dialogSetState?.call(() {
+                        errorMessage = 'Invalid discount amount.';
+                      });
+                      return;
+                    }
+                  }
+
+                  if (discountedTotal <= 0) {
+                    dialogSetState?.call(() {
+                      errorMessage =
+                          'The payable total must be greater than zero.';
+                    });
+                    return;
+                  }
+
+                  if (selectedMethod.isCash && received < discountedTotal) {
+                    dialogSetState?.call(() {
+                      errorMessage = 'Amount received cannot be less than the discounted total.';
+                    });
+                    return;
+                  }
+
+                  if (selectedMethod.requiresReference &&
+                      referenceController.text.trim().isEmpty) {
+                    dialogSetState?.call(() {
+                      errorMessage = 'A transaction reference is required.';
+                    });
+                    return;
+                  }
+
+                  setState(() => _submittingOrder = true);
+
+                  try {
+                    final order = await widget.orderRepository.placeOrder(
+                      orderType: _orderType,
+                      items: _cart
+                          .map(
+                            (line) => PosCheckoutItem(
+                              menuVariantId: line.product.variantId,
+                              quantity: line.quantity,
+                              modifierIds: line.modifiers
+                                  .map((modifier) => modifier.id)
+                                  .toList(),
+                              specialInstructions: line.specialInstructions,
+                            ),
+                          )
+                          .toList(),
+                      payments: [
+                        PosPaymentInput(
+                          paymentMethodId: selectedMethod.id,
+                          amount: discountedTotal,
+                          amountTendered: selectedMethod.isCash
+                              ? received
+                              : null,
+                          changeAmount: selectedMethod.isCash
+                              ? received - discountedTotal
+                              : 0,
+                          externalReference: selectedMethod.requiresReference
+                              ? referenceController.text.trim()
+                              : null,
+                        ),
+                      ],
+                      tableNumber: _tableNumberController.text.trim(),
+                      customerName: _customerNameController.text.trim(),
+                      deliveryReference: _deliveryReferenceController.text
+                          .trim(),
+                      discountTypeId: discount?.id ?? '',
+                      discountValue: discount == null
+                          ? null
+                          : enteredDiscountValue,
+                      discountNotes: discountNotesController.text.trim(),
+                    );
+
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    await _showReceiptDialog(order);
+                  } on PostgrestException catch (error) {
+                    dialogSetState?.call(() {
+                      errorMessage = error.message;
+                    });
+                  } catch (error) {
+                    dialogSetState?.call(() {
+                      errorMessage = error.toString();
+                    });
+                  } finally {
+                    if (mounted) {
+                      setState(() => _submittingOrder = false);
+                    }
+                  }
+                },
+          child: _submittingOrder
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Complete Payment'),
+        ),
+      ],
+    );
+
+    amountController.dispose();
+    referenceController.dispose();
+    discountValueController.dispose();
+    discountNotesController.dispose();
+  }
+
+  Future<void> _showReceiptDialog(OrderRecord order) async {
+    await showPrototypeDialog(
+      context: context,
+      title: 'Receipt',
+      width: 560,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(
+              child: Text('Street Bowl Café', style: AppTextStyles.h2),
+            ),
+            const SizedBox(height: 4),
+            Center(child: Text(order.id, style: AppTextStyles.caption)),
+            if (order.invoiceNumber.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Center(
+                child: Text(
+                  'Invoice ${order.invoiceNumber}',
+                  style: AppTextStyles.caption,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            _paymentInfoRow('Customer / Table', order.customerOrTable),
+            _paymentInfoRow('Order Type', order.type),
+            _paymentInfoRow('Handled by', order.employee),
+            const Divider(height: 28),
+            ...order.items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${item.quantity} × ${item.productName}',
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                    Text(
+                      _money(item.lineTotal),
+                      style: AppTextStyles.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 28),
+            _paymentInfoRow('Total', _money(order.amount), emphasized: true),
+            _paymentInfoRow('Payment', order.paymentMethod),
+            _paymentInfoRow('Amount Received', _money(order.amountReceived)),
+            _paymentInfoRow('Change', _money(order.changeAmount)),
+          ],
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            Navigator.pop(context, true);
+          },
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
+
+  String? _validateOrderDetails() {
+    if (_cart.isEmpty) return 'Add at least one item to the order.';
+    if (_openShiftId == null) {
+      return 'Start a shift before creating an order.';
+    }
+
+    if (_orderType == 'Dine In' && _tableNumberController.text.trim().isEmpty) {
+      return 'Enter the table number for this dine-in order.';
+    }
+
+    if ((_orderType == 'Take Out' || _orderType == 'Delivery') &&
+        _customerNameController.text.trim().isEmpty) {
+      return 'Enter the customer name for this order.';
+    }
+
+    return null;
+  }
+
+  String _groupRule(PosModifierGroup group) {
+    if (group.maxSelections == null) {
+      return 'Select at least ${group.minSelections}';
+    }
+    if (group.minSelections == group.maxSelections) {
+      return 'Select exactly ${group.minSelections}';
+    }
+    return 'Select ${group.minSelections}–${group.maxSelections}';
   }
 
   Widget _summaryRow(String label, String value, {bool emphasized = false}) {
@@ -504,362 +1779,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     );
   }
 
-  void _addItem(String productId) {
-    setState(() {
-      _cart.update(productId, (quantity) => quantity + 1, ifAbsent: () => 1);
-    });
-  }
-
-  void _decreaseItem(String productId) {
-    final current = _cart[productId];
-    if (current == null) return;
-
-    setState(() {
-      if (current <= 1) {
-        _cart.remove(productId);
-      } else {
-        _cart[productId] = current - 1;
-      }
-    });
-  }
-
-  void _removeItem(String productId) {
-    setState(() => _cart.remove(productId));
-  }
-
-  _Product? _productById(String productId) {
-    for (final product in _products) {
-      if (product.id == productId) return product;
-    }
-    return null;
-  }
-
-  List<OrderItem> _buildOrderItems() {
-    return _cart.entries.map((entry) {
-      final product = _productById(entry.key)!;
-      return OrderItem(
-        productId: product.id,
-        productName: product.name,
-        unitPrice: product.price,
-        quantity: entry.value,
-      );
-    }).toList();
-  }
-
-  String? _validateOrderDetails() {
-    if (_cart.isEmpty) return 'Add at least one item to the order.';
-
-    if (_orderType == 'Dine In' && _tableNumberController.text.trim().isEmpty) {
-      return 'Enter the table number for a dine-in order.';
-    }
-
-    if ((_orderType == 'Take Out' || _orderType == 'Delivery') &&
-        _customerNameController.text.trim().isEmpty) {
-      return 'Enter the customer name for this order.';
-    }
-
-    return null;
-  }
-
-  Future<void> _showPaymentDialog() async {
-    final validationMessage = _validateOrderDetails();
-    if (validationMessage != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(validationMessage)));
-      return;
-    }
-
-    String paymentMethod = 'Cash';
-    String? errorMessage;
-    StateSetter? updateDialogState;
-    final amountReceivedController = TextEditingController(
-      text: _total.toString(),
-    );
-
-    await showPrototypeDialog(
-      context: context,
-      title: 'Proceed to Payment',
-      width: 650,
-      content: StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          updateDialogState = setDialogState;
-          final received =
-              int.tryParse(amountReceivedController.text.trim()) ?? 0;
-          final change = paymentMethod == 'Cash' ? received - _total : 0;
-
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.gray100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.gray200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Order Summary', style: AppTextStyles.h3),
-                      const SizedBox(height: 8),
-                      _paymentInfoRow(
-                        'Date & Time',
-                        _formatDateTime(_orderCreatedAt),
-                      ),
-                      _paymentInfoRow('Type', _orderType),
-                      _paymentInfoRow(
-                        'Customer / Table',
-                        _currentOrderReference(),
-                      ),
-                      _paymentInfoRow('Handled by', _prototypeEmployeeName),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Items', style: AppTextStyles.h3),
-                const SizedBox(height: 8),
-                ..._buildOrderItems().map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.productName,
-                            style: AppTextStyles.body,
-                          ),
-                        ),
-                        Text(
-                          '${item.quantity} × ₱${item.unitPrice}',
-                          style: AppTextStyles.caption,
-                        ),
-                        const SizedBox(width: 20),
-                        SizedBox(
-                          width: 78,
-                          child: Text(
-                            '₱${item.lineTotal}',
-                            textAlign: TextAlign.right,
-                            style: AppTextStyles.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(height: 26),
-                _paymentInfoRow('Total', '₱$_total', emphasized: true),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: paymentMethod,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Method',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'GCash', child: Text('GCash')),
-                    DropdownMenuItem(value: 'Card', child: Text('Card')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setDialogState(() {
-                      paymentMethod = value;
-                      errorMessage = null;
-                      if (paymentMethod != 'Cash') {
-                        amountReceivedController.text = _total.toString();
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: amountReceivedController,
-                  enabled: paymentMethod == 'Cash',
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setDialogState(() => errorMessage = null),
-                  decoration: InputDecoration(
-                    labelText: 'Amount Received',
-                    prefixText: '₱',
-                    helperText: paymentMethod == 'Cash'
-                        ? 'Enter the cash received from the customer.'
-                        : 'Exact payment is assumed for non-cash methods.',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Change', style: AppTextStyles.bodyMedium),
-                      Text(
-                        '₱${change < 0 ? 0 : change}',
-                        style: AppTextStyles.h2.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    errorMessage!,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            final received =
-                int.tryParse(amountReceivedController.text.trim()) ?? 0;
-
-            if (paymentMethod == 'Cash' && received < _total) {
-              updateDialogState?.call(() {
-                errorMessage = 'Amount received cannot be less than the total.';
-              });
-              return;
-            }
-
-            final order = await _createOrder(
-              paymentMethod: paymentMethod,
-              amountReceived: paymentMethod == 'Cash' ? received : _total,
-            );
-
-            if (!mounted) return;
-            Navigator.pop(context);
-            await _showReceiptDialog(order);
-          },
-          child: const Text('Complete Payment'),
-        ),
-      ],
-    );
-
-    amountReceivedController.dispose();
-  }
-
-  Future<OrderRecord> _createOrder({
-    required String paymentMethod,
-    required int amountReceived,
-  }) async {
-    final orders = await widget.orderRepository.getOrders();
-    int highestOrderNumber = 1000;
-
-    for (final order in orders) {
-      final numeric = int.tryParse(order.id.replaceAll(RegExp(r'[^0-9]'), ''));
-      if (numeric != null && numeric > highestOrderNumber) {
-        highestOrderNumber = numeric;
-      }
-    }
-
-    final order = OrderRecord(
-      id: '#${highestOrderNumber + 1}',
-      createdAt: _orderCreatedAt,
-      employee: _prototypeEmployeeName,
-      employeeId: _prototypeEmployeeId,
-      type: _orderType,
-      amount: _total,
-      status: 'Completed',
-      customerName: _customerNameController.text.trim(),
-      tableNumber: _tableNumberController.text.trim(),
-      deliveryReference: _deliveryReferenceController.text.trim(),
-      items: _buildOrderItems(),
-      paymentMethod: paymentMethod,
-      amountReceived: amountReceived,
-      changeAmount: amountReceived - _total,
-    );
-
-    await widget.orderRepository.createOrder(order);
-    return order;
-  }
-
-  Future<void> _showReceiptDialog(OrderRecord order) async {
-    await showPrototypeDialog(
-      context: context,
-      title: 'Receipt',
-      width: 560,
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Center(
-              child: Text('Street Bowl Café', style: AppTextStyles.h2),
-            ),
-            const SizedBox(height: 4),
-            Center(child: Text(order.id, style: AppTextStyles.caption)),
-            const SizedBox(height: 18),
-            _paymentInfoRow('Date & Time', _formatDateTime(order.createdAt)),
-            _paymentInfoRow('Customer / Table', order.customerOrTable),
-            _paymentInfoRow('Order Type', order.type),
-            _paymentInfoRow('Handled by', order.employee),
-            if (order.deliveryReference.isNotEmpty)
-              _paymentInfoRow('Delivery Reference', order.deliveryReference),
-            const Divider(height: 28),
-            ...order.items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${item.quantity} × ${item.productName}',
-                        style: AppTextStyles.body,
-                      ),
-                    ),
-                    Text('₱${item.lineTotal}', style: AppTextStyles.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-            const Divider(height: 28),
-            _paymentInfoRow('Total', '₱${order.amount}', emphasized: true),
-            _paymentInfoRow('Payment', order.paymentMethod),
-            _paymentInfoRow('Amount Received', '₱${order.amountReceived}'),
-            _paymentInfoRow('Change', '₱${order.changeAmount}'),
-            const SizedBox(height: 18),
-            Center(
-              child: Text(
-                'Thank you!',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            Navigator.pop(context, true);
-          },
-          child: const Text('Done'),
-        ),
-      ],
-    );
-  }
-
   Widget _paymentInfoRow(
     String label,
     String value, {
@@ -868,7 +1787,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Text(
@@ -876,70 +1794,83 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
             ),
           ),
-          const SizedBox(width: 20),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
-            ),
+          const SizedBox(width: 16),
+          Text(
+            value,
+            style: emphasized ? AppTextStyles.h3 : AppTextStyles.bodyMedium,
           ),
         ],
       ),
     );
   }
 
-  String _currentOrderReference() {
-    if (_orderType == 'Dine In') {
-      final table = _tableNumberController.text.trim();
-      return table.isEmpty ? 'Table not set' : 'Table $table';
+  IconData _iconForCategory(String category) {
+    final value = category.toLowerCase();
+    if (value.contains('coffee')) return Icons.coffee_outlined;
+    if (value.contains('baked')) return Icons.cake_outlined;
+    if (value.contains('rice') || value.contains('meal')) {
+      return Icons.rice_bowl_outlined;
     }
-
-    final customer = _customerNameController.text.trim();
-    return customer.isEmpty ? 'Customer not set' : customer;
+    if (value.contains('beverage')) return Icons.local_drink_outlined;
+    if (value.contains('snack')) return Icons.cookie_outlined;
+    return Icons.fastfood_outlined;
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year} • ${_formatTime(dateTime)}';
+  String _signedMoney(double value) {
+    final sign = value > 0 ? '+' : '';
+    return '$sign${_money(value)}';
   }
 
-  String _formatTime(DateTime dateTime) {
-    int hour = dateTime.hour;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    hour %= 12;
-    if (hour == 0) hour = 12;
-    return '$hour:$minute $period';
+  String _money(double value) {
+    final whole = value == value.roundToDouble();
+    return whole ? '₱${value.toInt()}' : '₱${value.toStringAsFixed(2)}';
   }
+
+  String _quantity(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showError(String message) => _showMessage(message);
 }
 
-class _Product {
-  final String id;
-  final String name;
-  final String category;
-  final int price;
-  final IconData icon;
+class _PosCartLine {
+  final PosMenuItem product;
+  final int quantity;
+  final List<PosModifierOption> modifiers;
+  final String specialInstructions;
 
-  const _Product({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.price,
-    required this.icon,
+  const _PosCartLine({
+    required this.product,
+    required this.quantity,
+    required this.modifiers,
+    required this.specialInstructions,
   });
+
+  double get modifierTotal =>
+      modifiers.fold<double>(0, (sum, modifier) => sum + modifier.priceDelta);
+
+  double get unitPriceWithModifiers => product.price + modifierTotal;
+
+  double get lineTotal => unitPriceWithModifiers * quantity;
+
+  String get modifierSignature {
+    final ids = modifiers.map((item) => item.id).toList()..sort();
+    return ids.join('|');
+  }
+
+  _PosCartLine copyWith({int? quantity}) {
+    return _PosCartLine(
+      product: product,
+      quantity: quantity ?? this.quantity,
+      modifiers: modifiers,
+      specialInstructions: specialInstructions,
+    );
+  }
 }

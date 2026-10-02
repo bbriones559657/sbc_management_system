@@ -1,99 +1,177 @@
-import 'batch.dart';
-
 class InventoryItem {
   final String id;
+  final String sku;
   final String name;
-  final String itemType;
   final String category;
-  final String uom;
-  final int reorderPoint;
-  final double costPrice;
-  final double? sellingPrice;
-  final String defaultSupplier;
-  final String defaultSupplierId;
-  final String storageLocation;
-  final bool isPerishable;
-  final bool isActive;
-  final List<Batch> batches;
+  final String categoryId;
+  final String stock;
+  final double currentQuantity;
+  final double usableQuantity;
+  final double expiredQuantity;
+  final double reorderLevel;
+  final String baseUomCode;
+  final String baseUomId;
+  final bool trackExpiry;
+  final DateTime? nextExpirationDate;
+  final String status;
+  final String supplier;
+  final String supplierId;
+  final String expiration;
 
   const InventoryItem({
     this.id = '',
+    this.sku = '',
     required this.name,
-    required this.itemType,
     required this.category,
-    required this.uom,
-    this.reorderPoint = 0,
-    this.costPrice = 0,
-    this.sellingPrice,
-    this.defaultSupplier = '',
-    this.defaultSupplierId = '',
-    this.storageLocation = '',
-    this.isPerishable = false,
-    this.isActive = true,
-    this.batches = const [],
-  });
+    this.categoryId = '',
+    required this.stock,
+    double currentQuantity = 0,
+    double? usableQuantity,
+    this.expiredQuantity = 0,
+    this.reorderLevel = 0,
+    this.baseUomCode = '',
+    this.baseUomId = '',
+    this.trackExpiry = false,
+    this.nextExpirationDate,
+    required this.status,
+    required this.supplier,
+    this.supplierId = '',
+    required this.expiration,
+  }) : currentQuantity = currentQuantity,
+       usableQuantity = usableQuantity ?? currentQuantity;
 
-  int get totalStockQuantity =>
-      batches.fold(0, (sum, batch) => sum + batch.quantity);
+  factory InventoryItem.fromMap(Map<String, dynamic> map) {
+    final quantity = (map['current_quantity'] as num?)?.toDouble() ?? 0;
+    final usableQuantity =
+        (map['usable_quantity'] as num?)?.toDouble() ?? quantity;
+    final expiredQuantity = (map['expired_quantity'] as num?)?.toDouble() ?? 0;
+    final reorder = (map['reorder_level'] as num?)?.toDouble() ?? 0;
+    final uom = map['base_uom_code']?.toString() ?? '';
+    final expiryRaw = map['next_expiration_date']?.toString();
+    final expiry = expiryRaw == null || expiryRaw.isEmpty
+        ? null
+        : DateTime.tryParse(expiryRaw);
 
-  String get stock => uom.isEmpty
-      ? totalStockQuantity.toString()
-      : '$totalStockQuantity $uom';
-
-  String get status {
-    if (!isActive) return 'Discontinued';
-    if (totalStockQuantity == 0) return 'Out of Stock';
-    if (totalStockQuantity <= reorderPoint) return 'Low Stock';
-
-    DateTime? nearestExpiry;
-    for (final batch in batches) {
-      if (batch.expiryDate == null) continue;
-      if (nearestExpiry == null ||
-          batch.expiryDate!.isBefore(nearestExpiry)) {
-        nearestExpiry = batch.expiryDate;
-      }
-    }
-
-    if (nearestExpiry != null) {
-      final days = nearestExpiry.difference(DateTime.now()).inDays;
-      if (days < 0) return 'Expired';
-      if (days <= 3) return 'Expiring Soon';
-    }
-
-    return 'In Stock';
+    return InventoryItem(
+      id: map['inventory_item_id']?.toString() ?? '',
+      sku: map['sku']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      category: map['category_name']?.toString() ?? 'Uncategorized',
+      categoryId: map['category_id']?.toString() ?? '',
+      stock: _formatStock(quantity, uom),
+      currentQuantity: quantity,
+      usableQuantity: usableQuantity,
+      expiredQuantity: expiredQuantity,
+      reorderLevel: reorder,
+      baseUomCode: uom,
+      baseUomId: map['base_uom_id']?.toString() ?? '',
+      trackExpiry: map['track_expiry'] == true,
+      nextExpirationDate: expiry,
+      status: _deriveStatus(
+        usableQuantity: usableQuantity,
+        expiredQuantity: expiredQuantity,
+        reorderLevel: reorder,
+        expiry: expiry,
+      ),
+      supplier: '—',
+      expiration: expiry == null ? '—' : _formatDate(expiry),
+    );
   }
 
   InventoryItem copyWith({
     String? id,
+    String? sku,
     String? name,
-    String? itemType,
     String? category,
-    String? uom,
-    int? reorderPoint,
-    double? costPrice,
-    double? sellingPrice,
-    String? defaultSupplier,
-    String? defaultSupplierId,
-    String? storageLocation,
-    bool? isPerishable,
-    bool? isActive,
-    List<Batch>? batches,
+    String? categoryId,
+    String? stock,
+    double? currentQuantity,
+    double? usableQuantity,
+    double? expiredQuantity,
+    double? reorderLevel,
+    String? baseUomCode,
+    String? baseUomId,
+    bool? trackExpiry,
+    DateTime? nextExpirationDate,
+    String? status,
+    String? supplier,
+    String? supplierId,
+    String? expiration,
   }) {
     return InventoryItem(
       id: id ?? this.id,
+      sku: sku ?? this.sku,
       name: name ?? this.name,
-      itemType: itemType ?? this.itemType,
       category: category ?? this.category,
-      uom: uom ?? this.uom,
-      reorderPoint: reorderPoint ?? this.reorderPoint,
-      costPrice: costPrice ?? this.costPrice,
-      sellingPrice: sellingPrice ?? this.sellingPrice,
-      defaultSupplier: defaultSupplier ?? this.defaultSupplier,
-      defaultSupplierId: defaultSupplierId ?? this.defaultSupplierId,
-      storageLocation: storageLocation ?? this.storageLocation,
-      isPerishable: isPerishable ?? this.isPerishable,
-      isActive: isActive ?? this.isActive,
-      batches: batches ?? this.batches,
+      categoryId: categoryId ?? this.categoryId,
+      stock: stock ?? this.stock,
+      currentQuantity: currentQuantity ?? this.currentQuantity,
+      usableQuantity: usableQuantity ?? this.usableQuantity,
+      expiredQuantity: expiredQuantity ?? this.expiredQuantity,
+      reorderLevel: reorderLevel ?? this.reorderLevel,
+      baseUomCode: baseUomCode ?? this.baseUomCode,
+      baseUomId: baseUomId ?? this.baseUomId,
+      trackExpiry: trackExpiry ?? this.trackExpiry,
+      nextExpirationDate: nextExpirationDate ?? this.nextExpirationDate,
+      status: status ?? this.status,
+      supplier: supplier ?? this.supplier,
+      supplierId: supplierId ?? this.supplierId,
+      expiration: expiration ?? this.expiration,
     );
+  }
+
+  static String _deriveStatus({
+    required double usableQuantity,
+    required double expiredQuantity,
+    required double reorderLevel,
+    required DateTime? expiry,
+  }) {
+    if (expiredQuantity > 0) return 'Expired';
+
+    if (expiry != null) {
+      final today = DateTime.now();
+      final dateOnly = DateTime(today.year, today.month, today.day);
+      final expiryOnly = DateTime(expiry.year, expiry.month, expiry.day);
+      final days = expiryOnly.difference(dateOnly).inDays;
+
+      if (days <= 7 && usableQuantity > 0) return 'Expiring Soon';
+    }
+
+    if (usableQuantity <= reorderLevel) return 'Low Stock';
+    return 'In Stock';
+  }
+
+  String get usableStock => _formatStock(usableQuantity, baseUomCode);
+
+  String get expiredStock => _formatStock(expiredQuantity, baseUomCode);
+
+  static String _formatStock(double quantity, String unit) {
+    final value = quantity == quantity.roundToDouble()
+        ? quantity.toInt().toString()
+        : quantity
+              .toStringAsFixed(2)
+              .replaceFirst(RegExp(r'0+$'), '')
+              .replaceFirst(RegExp(r'\.$'), '');
+
+    return unit.isEmpty ? value : '$value $unit';
+  }
+
+  static String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

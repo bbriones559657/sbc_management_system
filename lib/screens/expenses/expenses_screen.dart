@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -6,13 +7,21 @@ import '../../domain/repositories/expense_repository.dart';
 import '../../models/expense_record.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/app_page.dart';
 
 class ExpensesScreen extends StatefulWidget {
   final ExpenseRepository expenseRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
-  const ExpensesScreen({super.key, required this.expenseRepository});
+  const ExpensesScreen({
+    super.key,
+    required this.expenseRepository,
+    this.refreshListenable,
+    this.onDataChanged,
+  });
 
   @override
   State<ExpensesScreen> createState() => _ExpensesScreenState();
@@ -20,58 +29,106 @@ class ExpensesScreen extends StatefulWidget {
 
 class _ExpensesScreenState extends State<ExpensesScreen> {
   List<ExpenseRecord> _expenses = [];
-  List<ExpenseRecord> _filteredExpenses = [];
+  List<ExpenseCategoryOption> _categories = [];
+  List<ExpenseSupplierOption> _suppliers = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedCategory = 'All Categories';
-
-  final List<String> _categories = [
-    'All Categories',
-    'Ingredients',
-    'Utilities',
-    'Supplies',
-    'Equipment',
-    'Maintenance',
-    'Others',
-  ];
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
     _loadExpenses();
+    widget.refreshListenable?.addListener(_loadExpenses);
+  }
+
+  @override
+  void didUpdateWidget(covariant ExpensesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_loadExpenses);
+      widget.refreshListenable?.addListener(_loadExpenses);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_loadExpenses);
+    super.dispose();
+  }
+
+  void _notifyDataChanged() {
+    final callback = widget.onDataChanged;
+    if (callback == null) {
+      _loadExpenses();
+    } else {
+      callback();
+    }
   }
 
   Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
-    final expenses = await widget.expenseRepository.getExpenses();
     setState(() {
-      _expenses = expenses;
-      _filteredExpenses = expenses;
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+
+    try {
+      final results = await Future.wait([
+        widget.expenseRepository.getExpenses(),
+        widget.expenseRepository.getCategories(),
+        widget.expenseRepository.getSuppliers(),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _expenses = results[0] as List<ExpenseRecord>;
+        _categories = results[1] as List<ExpenseCategoryOption>;
+        _suppliers = results[2] as List<ExpenseSupplierOption>;
+        _isLoading = false;
+
+        if (_selectedCategory != 'All Categories' &&
+            !_categories.any(
+              (category) => category.name == _selectedCategory,
+            )) {
+          _selectedCategory = 'All Categories';
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = error.toString();
+      });
+    }
   }
 
-  void _filterExpenses() {
-    setState(() {
-      _filteredExpenses = _expenses.where((expense) {
-        final matchesSearch =
-            _searchQuery.isEmpty ||
-            expense.description.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
-            expense.category.toLowerCase().contains(_searchQuery.toLowerCase());
+  List<ExpenseRecord> get _filteredExpenses {
+    final query = _searchQuery.trim().toLowerCase();
 
-        final matchesCategory =
-            _selectedCategory == 'All Categories' ||
-            expense.category == _selectedCategory;
+    return _expenses.where((expense) {
+      final matchesSearch =
+          query.isEmpty ||
+          expense.description.toLowerCase().contains(query) ||
+          expense.category.toLowerCase().contains(query) ||
+          expense.supplierName.toLowerCase().contains(query) ||
+          expense.referenceNumber.toLowerCase().contains(query) ||
+          'ex-${expense.expenseNumber}'.contains(query);
 
-        return matchesSearch && matchesCategory;
-      }).toList();
-    });
+      final matchesCategory =
+          _selectedCategory == 'All Categories' ||
+          expense.category == _selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    }).toList();
   }
 
-  int _calculateTotalExpenses() {
-    return _filteredExpenses.fold(0, (sum, expense) => sum + expense.amount);
+  double get _totalExpenses {
+    return _filteredExpenses.fold<double>(
+      0,
+      (sum, expense) => sum + expense.amount,
+    );
   }
 
   @override
@@ -83,487 +140,471 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       );
     }
 
-    final totalExpenses = _calculateTotalExpenses();
-
     return AppPage(
       title: 'Expenses',
+      subtitle: 'Record untracked grocery purchases and operating costs with receipts.',
       action: ElevatedButton.icon(
-        onPressed: () => _showAddExpense(context),
+        onPressed: _categories.isEmpty || _suppliers.isEmpty
+            ? null
+            : _showAddExpense,
         icon: const Icon(Icons.add, size: 18),
         label: const Text('Add Expense'),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search expense...',
+      child: _loadError != null
+          ? Center(
+              child: Text(
+                'Unable to load expenses.\n$_loadError',
+                textAlign: TextAlign.center,
+              ),
+            )
+          : Column(
+              children: [
+                if (_suppliers.isEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Add the grocery store or supplier in Suppliers before '
+                      'recording an expense.',
+                      style: AppTextStyles.body,
+                    ),
                   ),
-                  onChanged: (value) {
-                    setState(() => _searchQuery = value);
-                    _filterExpenses();
+                  const SizedBox(height: 14),
+                ],
+                Builder(
+                  builder: (context) {
+                    final search = TextField(
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Search expense...',
+                      ),
+                    );
+                    final category = DropdownButtonFormField<String>(
+                      initialValue: _selectedCategory,
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(
+                          value: 'All Categories',
+                          child: Text('All Categories'),
+                        ),
+                        for (final category in _categories)
+                          DropdownMenuItem(
+                            value: category.name,
+                            child: Text(category.name),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _selectedCategory = value);
+                      },
+                    );
+
+                    return ResponsiveFilterBar(
+                      primary: search,
+                      filters: [category],
+                      filterWidths: const [230],
+                      breakpoint: 620,
+                    );
                   },
                 ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 180,
-                child: DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                const SizedBox(height: 18),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        if (_filteredExpenses.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text('No expenses found.'),
+                          )
+                        else
+                          DataTableCard(
+                            headers: const [
+                              'Date',
+                              'Purpose',
+                              'Category',
+                              'Supplier / Reference',
+                              'Amount',
+                              'Actions',
+                            ],
+                            flexes: const [2, 4, 3, 3, 2, 2],
+                            rows: _filteredExpenses
+                                .map(
+                                  (expense) => [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          expense.date,
+                                          style: AppTextStyles.bodyMedium,
+                                        ),
+                                        if (expense.expenseNumber > 0)
+                                          Text(
+                                            'EX-${expense.expenseNumber}',
+                                            style: AppTextStyles.caption,
+                                          ),
+                                      ],
+                                    ),
+                                    Text(
+                                      expense.description,
+                                      style: AppTextStyles.body,
+                                    ),
+                                    Text(
+                                      expense.category,
+                                      style: AppTextStyles.body,
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          expense.supplierName.isEmpty
+                                              ? '—'
+                                              : expense.supplierName,
+                                          style: AppTextStyles.body,
+                                        ),
+                                        if (expense.referenceNumber.isNotEmpty)
+                                          Text(
+                                            expense.referenceNumber,
+                                            style: AppTextStyles.caption,
+                                          ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _money(expense.amount),
+                                      style: AppTextStyles.bodyMedium,
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Edit',
+                                          onPressed: () =>
+                                              _showEditExpense(expense),
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Void',
+                                          onPressed: () =>
+                                              _confirmVoidExpense(expense),
+                                          icon: const Icon(
+                                            Icons.block,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                                .toList(),
+                          ),
+                        const SizedBox(height: 18),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            width: 330,
+                            child: SectionCard(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Total Expenses',
+                                    style: AppTextStyles.caption,
+                                  ),
+                                  Text(
+                                    _money(_totalExpenses),
+                                    style: AppTextStyles.h2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Future<void> _showAddExpense() async {
+    await _showExpenseEditor();
+  }
+
+  Future<void> _showEditExpense(ExpenseRecord expense) async {
+    await _showExpenseEditor(existing: expense);
+  }
+
+  Future<void> _showExpenseEditor({ExpenseRecord? existing}) async {
+    if (_categories.isEmpty || _suppliers.isEmpty) return;
+
+    final descriptionController = TextEditingController(
+      text: existing?.description ?? '',
+    );
+    final amountController = TextEditingController(
+      text: existing == null ? '' : existing.amount.toString(),
+    );
+    final referenceController = TextEditingController(
+      text: existing?.referenceNumber ?? '',
+    );
+    final notesController = TextEditingController(text: existing?.notes ?? '');
+
+    String selectedCategory = existing?.category ?? _categories.first.name;
+    String selectedSupplierId = existing?.supplierId ?? _suppliers.first.id;
+    DateTime selectedDate = existing?.expenseDate ?? DateTime.now();
+
+    if (!_categories.any((category) => category.name == selectedCategory)) {
+      selectedCategory = _categories.first.name;
+    }
+    if (!_suppliers.any((supplier) => supplier.id == selectedSupplierId)) {
+      selectedSupplierId = _suppliers.first.id;
+    }
+
+    String? errorMessage;
+    StateSetter? updateDialogState;
+
+    await showPrototypeDialog(
+      context: context,
+      title: existing == null ? 'Add Expense' : 'Edit Expense',
+      width: 540,
+      content: StatefulBuilder(
+        builder: (_, setDialogState) {
+          updateDialogState = setDialogState;
+
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date == null) return;
+                      setDialogState(() => selectedDate = date);
+                    },
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text('Date: ${_formatDate(selectedDate)}'),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Purpose *',
+                    hintText: 'Example: milk and sugar for daily operations',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount *',
+                    prefixText: '₱',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Category *'),
                   items: _categories
                       .map(
                         (category) => DropdownMenuItem(
-                          value: category,
-                          child: Text(category),
+                          value: category.name,
+                          child: Text(category.name),
                         ),
                       )
                       .toList(),
                   onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedCategory = value);
-                      _filterExpenses();
-                    }
+                    if (value == null) return;
+                    setDialogState(() => selectedCategory = value);
                   },
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  DataTableCard(
-                    headers: const [
-                      'Date',
-                      'Description',
-                      'Category',
-                      'Amount',
-                      'Actions',
-                    ],
-                    flexes: const [2, 4, 3, 2, 2],
-                    rows: _filteredExpenses
-                        .map(
-                          (expense) => [
-                            Text(expense.date, style: AppTextStyles.bodyMedium),
-                            Text(
-                              expense.description,
-                              style: AppTextStyles.body,
-                            ),
-                            Text(expense.category, style: AppTextStyles.body),
-                            Text(
-                              '₱${expense.amount}',
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 18),
-                                  onPressed: () =>
-                                      _showEditExpense(context, expense),
-                                  tooltip: 'Edit',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, size: 18),
-                                  onPressed: () =>
-                                      _confirmDeleteExpense(context, expense),
-                                  tooltip: 'Delete',
-                                ),
-                              ],
-                            ),
-                          ],
-                        )
-                        .toList(),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedSupplierId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Supplier / Grocery *',
                   ),
-                  const SizedBox(height: 18),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      width: 330,
-                      child: SectionCard(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Total Expenses',
-                              style: AppTextStyles.caption,
-                            ),
-                            Text('₱$totalExpenses', style: AppTextStyles.h2),
-                          ],
+                  items: _suppliers
+                      .map(
+                        (supplier) => DropdownMenuItem(
+                          value: supplier.id,
+                          child: Text(supplier.name),
                         ),
-                      ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => selectedSupplierId = value);
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: referenceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Receipt / Reference Number *',
+                    hintText: 'Official receipt, invoice, or grocery reference',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Notes'),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Inventory purchases should be recorded through Purchasing, '
+                    'not duplicated as operating expenses.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMessage!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddExpense(BuildContext context) {
-    final descriptionController = TextEditingController();
-    final amountController = TextEditingController();
-    final notesController = TextEditingController();
-    String selectedCategory = 'Ingredients';
-    final customCategoryController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Expense', style: AppTextStyles.h2),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                dialogField(
-                  'Description',
-                  hint: 'Enter description',
-                  controller: descriptionController,
-                ),
-                dialogField(
-                  'Amount',
-                  hint: 'Enter amount',
-                  controller: amountController,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Category',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.gray700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: selectedCategory,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Ingredients',
-                            child: Text('Ingredients'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Utilities',
-                            child: Text('Utilities'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Supplies',
-                            child: Text('Supplies'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Equipment',
-                            child: Text('Equipment'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Maintenance',
-                            child: Text('Maintenance'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Others',
-                            child: Text('Others'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Custom',
-                            child: Text('Custom...'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => selectedCategory = value);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (selectedCategory == 'Custom')
-                  dialogField(
-                    'Custom Category',
-                    hint: 'Enter category name',
-                    controller: customCategoryController,
-                  ),
-                dialogField(
-                  'Notes',
-                  hint: 'Optional notes...',
-                  maxLines: 3,
-                  controller: notesController,
-                ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final description = descriptionController.text.trim();
-                final amountText = amountController.text.trim();
-                final category = selectedCategory == 'Custom'
-                    ? customCategoryController.text.trim()
-                    : selectedCategory;
-
-                if (description.isEmpty ||
-                    amountText.isEmpty ||
-                    category.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in all required fields'),
-                    ),
-                  );
-                  return;
-                }
-
-                final amount = int.tryParse(amountText);
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid amount'),
-                    ),
-                  );
-                  return;
-                }
-
-                final now = DateTime.now();
-                final months = [
-                  'Jan',
-                  'Feb',
-                  'Mar',
-                  'Apr',
-                  'May',
-                  'Jun',
-                  'Jul',
-                  'Aug',
-                  'Sep',
-                  'Oct',
-                  'Nov',
-                  'Dec',
-                ];
-                final dateStr = '${months[now.month - 1]} ${now.day}';
-
-                final newExpense = ExpenseRecord(
-                  id: 'EXP-${DateTime.now().millisecondsSinceEpoch}',
-                  date: dateStr,
-                  description: description,
-                  category: category,
-                  amount: amount,
-                );
-
-                await widget.expenseRepository.createExpense(newExpense);
-                await _loadExpenses();
-
-                if (context.mounted) {
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Expense added successfully')),
-                  );
-                }
-              },
-              child: const Text('Save Expense'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final description = descriptionController.text.trim();
+            final amount = double.tryParse(amountController.text.trim());
+            final referenceNumber = referenceController.text.trim();
 
-  void _showEditExpense(BuildContext context, ExpenseRecord expense) {
-    final descriptionController = TextEditingController(
-      text: expense.description,
-    );
-    final amountController = TextEditingController(
-      text: expense.amount.toString(),
-    );
-    final notesController = TextEditingController();
+            if (description.isEmpty ||
+                amount == null ||
+                amount <= 0 ||
+                selectedSupplierId.isEmpty ||
+                referenceNumber.isEmpty) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'Purpose, amount, supplier/grocery, and receipt/reference '
+                    'are required.';
+              });
+              return;
+            }
 
-    String selectedCategory = _categories.contains(expense.category)
-        ? expense.category
-        : 'Custom';
-    final customCategoryController = TextEditingController(
-      text: _categories.contains(expense.category) ? '' : expense.category,
-    );
+            ExpenseSupplierOption? supplier;
+            for (final entry in _suppliers) {
+              if (entry.id == selectedSupplierId) {
+                supplier = entry;
+                break;
+              }
+            }
 
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Expense', style: AppTextStyles.h2),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                dialogField(
-                  'Description',
-                  hint: 'Enter description',
-                  controller: descriptionController,
-                ),
-                dialogField(
-                  'Amount',
-                  hint: 'Enter amount',
-                  controller: amountController,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Category',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.gray700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: selectedCategory,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Ingredients',
-                            child: Text('Ingredients'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Utilities',
-                            child: Text('Utilities'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Supplies',
-                            child: Text('Supplies'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Equipment',
-                            child: Text('Equipment'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Maintenance',
-                            child: Text('Maintenance'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Others',
-                            child: Text('Others'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Custom',
-                            child: Text('Custom...'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() => selectedCategory = value);
-                          }
-                        },
-                      ),
-                    ],
+            final record = ExpenseRecord(
+              id: existing?.id ?? '',
+              expenseNumber: existing?.expenseNumber ?? 0,
+              expenseType: existing?.expenseType ?? 'OPERATING',
+              date: _formatDate(selectedDate),
+              description: description,
+              category: selectedCategory,
+              amount: amount,
+              expenseDate: selectedDate,
+              supplierId: selectedSupplierId,
+              supplierName: supplier?.name ?? '',
+              referenceNumber: referenceNumber,
+              notes: notesController.text.trim(),
+            );
+
+            try {
+              if (existing == null) {
+                await widget.expenseRepository.createExpense(record);
+              } else {
+                await widget.expenseRepository.updateExpense(record);
+              }
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              _notifyDataChanged();
+
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    existing == null ? 'Expense added.' : 'Expense updated.',
                   ),
                 ),
-                if (selectedCategory == 'Custom')
-                  dialogField(
-                    'Custom Category',
-                    hint: 'Enter category name',
-                    controller: customCategoryController,
-                  ),
-                dialogField(
-                  'Notes',
-                  hint: 'Optional notes...',
-                  maxLines: 3,
-                  controller: notesController,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final description = descriptionController.text.trim();
-                final amountText = amountController.text.trim();
-                final category = selectedCategory == 'Custom'
-                    ? customCategoryController.text.trim()
-                    : selectedCategory;
-
-                if (description.isEmpty ||
-                    amountText.isEmpty ||
-                    category.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in all required fields'),
-                    ),
-                  );
-                  return;
-                }
-
-                final amount = int.tryParse(amountText);
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid amount'),
-                    ),
-                  );
-                  return;
-                }
-
-                final updatedExpense = expense.copyWith(
-                  description: description,
-                  category: category,
-                  amount: amount,
-                );
-
-                await widget.expenseRepository.updateExpense(updatedExpense);
-                await _loadExpenses();
-
-                if (context.mounted) {
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Expense updated successfully'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Update Expense'),
-            ),
-          ],
+              );
+            } on PostgrestException catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.message;
+              });
+            } catch (error) {
+              updateDialogState?.call(() {
+                errorMessage = error.toString();
+              });
+            }
+          },
+          child: Text(existing == null ? 'Save Expense' : 'Save Changes'),
         ),
-      ),
+      ],
     );
+
+    descriptionController.dispose();
+    amountController.dispose();
+    referenceController.dispose();
+    notesController.dispose();
   }
 
-  void _confirmDeleteExpense(BuildContext context, ExpenseRecord expense) {
-    showPrototypeDialog(
+  Future<void> _confirmVoidExpense(ExpenseRecord expense) async {
+    await showPrototypeDialog(
       context: context,
-      title: 'Delete Expense',
+      title: 'Void Expense',
+      width: 480,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Are you sure you want to delete this expense?',
+            'This keeps the expense record for audit history but removes it '
+            'from active expense totals.',
             style: AppTextStyles.body,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Description: ${expense.description}',
-            style: AppTextStyles.bodyMedium,
-          ),
-          Text('Category: ${expense.category}', style: AppTextStyles.body),
-          Text('Amount: ₱${expense.amount}', style: AppTextStyles.body),
+          const SizedBox(height: 14),
+          Text(expense.description, style: AppTextStyles.bodyMedium),
+          Text(_money(expense.amount.toDouble()), style: AppTextStyles.h3),
         ],
       ),
       actions: [
@@ -573,20 +614,42 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         ),
         ElevatedButton(
           onPressed: () async {
-            await widget.expenseRepository.deleteExpense(expense.id);
-            await _loadExpenses();
-
-            if (context.mounted) {
+            try {
+              await widget.expenseRepository.deleteExpense(expense.id);
+              if (!mounted) return;
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Expense deleted successfully')),
-              );
+              _notifyDataChanged();
+            } on PostgrestException catch (error) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(error.message)));
             }
           },
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-          child: const Text('Delete'),
+          child: const Text('Void Expense'),
         ),
       ],
     );
+  }
+
+  String _money(double value) {
+    return '₱${value.toStringAsFixed(2)}';
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

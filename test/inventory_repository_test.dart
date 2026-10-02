@@ -2,140 +2,134 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sbc_management_system/data/repositories/mock_inventory_repository.dart';
 import 'package:sbc_management_system/models/inventory_item.dart';
-import 'package:sbc_management_system/models/movement.dart';
+import 'package:sbc_management_system/models/inventory_reference.dart';
 
 void main() {
-  test('mock inventory repository loads items with batches', () async {
+  test('mock inventory repository updates stock in memory', () async {
     final repository = MockInventoryRepository();
     final items = await repository.getInventoryItems();
 
     expect(items.length, 6);
 
     final water = items.firstWhere((item) => item.id == 'INV-001');
-    expect(water.name, 'Bottled Water');
-    expect(water.stock, '24 pcs');
-    expect(water.status, 'In Stock');
+    expect(water.stock, '24 pc');
+
+    await repository.updateInventoryItem(water.copyWith(stock: '26 pc'));
+
+    final updated = await repository.getInventoryItemById('INV-001');
+    expect(updated?.stock, '26 pc');
+
+    final bowls = await repository.getInventoryItemById('INV-005');
+    expect(bowls?.name, 'Takeout Bowls');
+    expect(bowls?.stock, '75 pc');
   });
 
-  test('mock inventory repository computes status correctly', () async {
-    final repository = MockInventoryRepository();
-    final items = await repository.getInventoryItems();
+  test('inventory movement keeps its item reference for activity feeds', () {
+    final movement = InventoryMovementRecord.fromMap({
+      'inventory_item_id': 'item-123',
+      'movement_type': 'MANUAL_IN',
+      'quantity_delta': 2.5,
+      'reason': 'Opening stock',
+      'source_document_number': 'GR-18',
+      'external_reference_number': 'OR-2219',
+      'created_at': '2026-09-23T08:00:00Z',
+    });
 
-    final water = items.firstWhere((item) => item.id == 'INV-001');
-    expect(water.status, 'In Stock');
-
-    final milk = items.firstWhere((item) => item.id == 'INV-005');
-    expect(milk.status, 'Low Stock');
+    expect(movement.inventoryItemId, 'item-123');
+    expect(movement.quantityDelta, 2.5);
+    expect(movement.sourceDocumentNumber, 'GR-18');
+    expect(movement.externalReferenceNumber, 'OR-2219');
   });
 
-  test('mock inventory repository creates inventory item', () async {
-    final repository = MockInventoryRepository();
-
-    final newItem = InventoryItem(
-      id: 'INV-TEST',
-      name: 'Test Item',
-      itemType: 'Raw Ingredient',
-      category: 'Raw Ingredients',
-      uom: 'pcs',
-      reorderPoint: 5,
-      costPrice: 10.0,
-      sellingPrice: null,
-      defaultSupplier: 'Test Supplier',
-      defaultSupplierId: 'SUP-001',
-      storageLocation: 'Dry Storage',
-      isPerishable: false,
-      isActive: true,
-      batches: const [],
+  test('stock-out line serializes package conversion input', () {
+    const line = StockOutLineInput(
+      inventoryItemId: 'cups',
+      issueUomId: 'box',
+      issueQuantity: 2,
+      baseQuantityPerIssueUnit: 50,
     );
 
-    await repository.createInventoryItem(newItem);
-    final items = await repository.getInventoryItems();
-    final created = items.firstWhere((i) => i.id == 'INV-TEST');
-    expect(created.name, 'Test Item');
+    expect(line.toJson(), {
+      'inventory_item_id': 'cups',
+      'issue_uom_id': 'box',
+      'issue_quantity': 2.0,
+      'base_quantity_per_issue_unit': 50.0,
+      'notes': null,
+    });
   });
 
-  test('mock inventory repository deletes item (soft delete)', () async {
-    final repository = MockInventoryRepository();
+  test('stock count summary parses posted count information', () {
+    final summary = StockCountSummary.fromMap({
+      'id': 'count-1',
+      'count_number': 12,
+      'status': 'POSTED',
+      'counted_at': '2026-09-30T08:30:00Z',
+      'posted_at': '2026-09-30T08:35:00Z',
+      'notes': 'Month-end count',
+      'counted_by_name': 'Test Manager',
+      'item_count': 4,
+      'variance_item_count': 2,
+    });
 
-    await repository.deleteInventoryItem('INV-001');
-
-    await repository.deleteInventoryItem('INV-001');
-    final updatedItems = await repository.getInventoryItems();
-    expect(updatedItems.any((i) => i.id == 'INV-001'), false);
+    expect(summary.number, 12);
+    expect(summary.status, 'POSTED');
+    expect(summary.itemCount, 4);
+    expect(summary.varianceItemCount, 2);
+    expect(summary.countedByName, 'Test Manager');
   });
 
-  test('mock inventory repository retrieves batches for item', () async {
-    final repository = MockInventoryRepository();
-    final batches = await repository.getBatchesForItem('INV-001');
-    expect(batches.length, 2);
-    expect(batches.every((b) => b.itemId == 'INV-001'), true);
-  });
-
-  test('mock inventory repository retrieves movements for item', () async {
-    final repository = MockInventoryRepository();
-    final movements = await repository.getMovementsForItem('INV-001');
-    expect(movements.length, 3);
-  });
-
-  test('mock inventory repository creates movement (Stock Out) with FEFO deduction', () async {
-    final repository = MockInventoryRepository();
-
-    final movement = Movement(
-      id: 'MOV-TEST',
-      itemId: 'INV-001',
-      batchId: null,
-      movementType: 'Stock Out',
-      quantity: 5,
-      performedBy: 'Test User',
-      timestamp: DateTime.now(),
-      reason: 'Test deduction',
+  test('stock count line serializes adjustment details', () {
+    final line = StockCountLineInput(
+      inventoryItemId: 'cake',
+      countedQuantity: 8,
+      notes: 'Two pieces found during recount',
+      adjustmentExpirationDate: DateTime(2026, 10, 15),
+      unitCostBase: 80,
     );
 
-    await repository.createMovement(movement);
-
-    final water = await repository.getInventoryItemById('INV-001');
-    expect(water, isNotNull);
-    expect(water!.stock, '19 pcs');
+    expect(line.toJson(), {
+      'inventory_item_id': 'cake',
+      'counted_quantity': 8.0,
+      'notes': 'Two pieces found during recount',
+      'adjustment_expiration_date': '2026-10-15',
+      'unit_cost_base': 80.0,
+    });
   });
 
-  test('mock inventory repository creates movement (Stock In) for specific batch', () async {
+  test('mock inventory exposes the recent activity contract', () async {
     final repository = MockInventoryRepository();
 
-    final movement = Movement(
-      id: 'MOV-TEST2',
-      itemId: 'INV-002',
-      batchId: 'BAT-003',
-      movementType: 'Stock In',
-      quantity: 5,
-      performedBy: 'Test User',
-      timestamp: DateTime.now(),
-      reason: 'Restock',
-    );
-
-    await repository.createMovement(movement);
-
-    final cocaCola = await repository.getInventoryItemById('INV-002');
-    expect(cocaCola, isNotNull);
-    expect(cocaCola!.stock, '23 pcs');
+    expect(await repository.getAllRecentMovements(), isEmpty);
   });
 
-  test('mock inventory repository retrieves managed lists', () async {
-    final repository = MockInventoryRepository();
-    final categories = await repository.getCategories();
-    final itemTypes = await repository.getItemTypes();
-    final uoms = await repository.getUoms();
-    final storageLocations = await repository.getStorageLocations();
-    final movementTypes = await repository.getMovementTypes();
-    final suppliers = await repository.getSuppliers();
+  test('inventory item separates usable, expired, and on-hand stock', () {
+    final item = InventoryItem.fromMap({
+      'inventory_item_id': 'cake',
+      'name': 'Chocolate Cake',
+      'category_name': 'Finished Goods',
+      'base_uom_code': 'pc',
+      'current_quantity': 6,
+      'usable_quantity': 3,
+      'expired_quantity': 3,
+      'reorder_level': 1,
+      'next_expiration_date': '2026-10-02',
+    });
 
-    expect(categories, contains('Beverage'));
-    expect(categories, contains('Raw Ingredients'));
-    expect(itemTypes, contains('Ready-to-Consume'));
-    expect(uoms, contains('pcs'));
-    expect(uoms, contains('kg'));
-    expect(storageLocations, contains('Cold Storage A'));
-    expect(movementTypes, contains('Stock In'));
-    expect(movementTypes, contains('Stock Out'));
-    expect(suppliers.length, 4);
+    expect(item.stock, '6 pc');
+    expect(item.usableStock, '3 pc');
+    expect(item.expiredStock, '3 pc');
+    expect(item.status, 'Expired');
+  });
+
+  test('inventory units expose standard conversion factors', () {
+    final unit = InventoryUnitOption.fromMap({
+      'id': 'kg',
+      'code': 'kg',
+      'name': 'Kilogram',
+      'dimension': 'MASS',
+      'factor_to_dimension_base': 1000,
+    });
+
+    expect(unit.factorToDimensionBase, 1000);
   });
 }

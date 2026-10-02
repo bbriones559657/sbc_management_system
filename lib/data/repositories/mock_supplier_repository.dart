@@ -3,7 +3,9 @@ import '../../models/supplier_record.dart';
 import '../mock_data.dart';
 
 class MockSupplierRepository implements SupplierRepository {
-  final List<SupplierRecord> _suppliers = List<SupplierRecord>.from(MockData.suppliers);
+  final List<SupplierRecord> _suppliers = List<SupplierRecord>.from(
+    MockData.suppliers,
+  );
 
   @override
   Future<List<SupplierRecord>> getSuppliers() async {
