@@ -13,7 +13,7 @@ This baseline was reviewed on **2 October 2026 (Asia/Manila)** against:
 - **D3 — Team review of 2 October 2026:** manageable categories, usable modifiers and discounts, complete reports, elimination of repeated spreadsheet entry, searchable interfaces, and responsive layouts.
 - **C1 — Source audit:** `brian/inventory-workflow-navigation` at `d55ce33059a8206c035203dc932052cef3424f09`. The review examined Flutter screens, models, repository contracts and implementations, SQL migrations, seeds, tests, and CI definitions. It did not run a live browser, Flutter tests, or database tests during this documentation review.
 
-This README summarizes the business baseline; it does not replace the academic paper or claim café sign-off. Later agreed consultation decisions refine the paper. The paper's Firebase/Firestore and Cloud Run proposal differs from the implemented Supabase stack; reconcile the academic document rather than introduce a second backend. The current PDF includes a Security Plan, role-access table, and System Prototype figures; the earlier claim that these sections were empty no longer applies. Separate Implementation Plan and System Evaluation sections were not found in this version. Its security text still describes temporary demonstration accounts, which needs reconciliation with the integrated Auth implementation. Prototype figures document intended presentation, not proof of live functionality or completed evaluation.
+This README summarizes the business baseline; it does not replace the academic paper or claim café sign-off. Later agreed consultation decisions refine the paper. The team confirmed on 2 October 2026 that Supabase is the chosen backend. The paper's Firebase/Firestore and Cloud Run references are outdated and will be updated; this is pending paper maintenance, not an unresolved backend decision. The current PDF includes a Security Plan, role-access table, and System Prototype figures; the earlier claim that these sections were empty no longer applies. Separate Implementation Plan and System Evaluation sections were not found in this version. Its security text still describes temporary demonstration accounts, which needs reconciliation with the integrated Auth implementation. Prototype figures document intended presentation, not proof of live functionality or completed evaluation.
 
 ## Business background
 
@@ -69,6 +69,8 @@ Internal POS/orders, shifts and cash movements, menu products and variants, modi
 
 ### Roles
 
+The confirmed use-case actors are **Employee/Staff** and **Manager/Admin**. These are business actor groups, not a requirement to collapse database roles. Employee/Staff covers operational staff; the existing `CASHIER` role implements the current POS staff access. Manager/Admin covers the existing `MANAGER` and `ADMIN` roles. This mapping does not grant every staff member every operational permission.
+
 The current seed defines `ADMIN`, `MANAGER`, and `CASHIER`:
 
 | Role | Intended responsibility | Current qualification |
@@ -77,7 +79,7 @@ The current seed defines `ADMIN`, `MANAGER`, and `CASHIER`:
 | Manager | Menu, purchasing, inventory, expenses, reports, and permitted employee administration. | Must not receive administrator privileges implicitly. |
 | Cashier | POS, own shift, and permitted inventory visibility. | Current seed does not grant `discounts.apply`; cashier discount authorization needs an explicit business decision. |
 
-The current paper requires least privilege, application and backend enforcement, no confidential financial summaries for cashiers, no cashier expense/finance/user-administration access, and management authorization for voids/refunds. Staff inventory movements are permitted only when specifically authorized; this is not blanket stock-management permission. The paper groups Manager/Admin together; the implemented ADMIN/MANAGER distinction must be explicitly reconciled, especially employee creation and role assignment.
+The current paper requires least privilege, application and backend enforcement, no confidential financial summaries for cashiers, no cashier expense/finance/user-administration access, and management authorization for voids/refunds. Staff inventory movements are permitted only when specifically authorized; this is not blanket stock-management permission. Use the two confirmed actor labels in use-case documentation, and document the finer ADMIN/MANAGER permission distinction in the access matrix, especially employee creation and role assignment. Grouping actors does not itself authorize broader access.
 
 The seed and database permission checks define implemented backend permissions. The UI currently relies heavily on `isCashier`/`!isCashier`; replacing that broad assumption with explicit capabilities is backlog work. Hidden navigation alone is not authorization.
 
