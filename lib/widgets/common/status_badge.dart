@@ -14,16 +14,12 @@ class StatusBadge extends StatelessWidget {
     Color foreground = AppColors.success;
     Color background = AppColors.success.withValues(alpha: .10);
 
-    if (lower.contains('out of stock')) {
-      foreground = AppColors.error;
-      background = AppColors.error.withValues(alpha: .10);
-    } else if (lower.contains('refund')) {
+    if (lower.contains('refund')) {
       foreground = AppColors.info;
       background = AppColors.info.withValues(alpha: .10);
     } else if (lower.contains('low') ||
         lower.contains('void') ||
-        lower.contains('inactive') ||
-        lower.contains('discontinued')) {
+        lower.contains('inactive')) {
       foreground = AppColors.primary;
       background = AppColors.primarySoft;
     } else if (lower.contains('expir') || lower.contains('open')) {
@@ -39,6 +35,8 @@ class StatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: AppTextStyles.caption.copyWith(
           color: foreground,
           fontWeight: FontWeight.w600,

@@ -59,7 +59,10 @@ class AppTheme {
         filled: true,
         fillColor: AppColors.white,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: border,
         enabledBorder: border,
         focusedBorder: border.copyWith(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../domain/repositories/dashboard_repository.dart';
 import '../../domain/repositories/order_repository.dart';
+import '../../models/dashboard_summary.dart';
 import '../../models/order_record.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
@@ -10,32 +12,93 @@ import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
 import '../orders/new_order_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final DashboardRepository dashboardRepository;
+  final Listenable? refreshListenable;
+  final VoidCallback? onDataChanged;
 
   const DashboardScreen({
     super.key,
     required this.orderRepository,
+    required this.dashboardRepository,
+    this.refreshListenable,
+    this.onDataChanged,
   });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late Future<_DashboardData> _dashboardFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardFuture = _loadDashboard();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _dashboardFuture = _loadDashboard());
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Dashboard',
       action: ElevatedButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => NewOrderScreen(orderRepository: orderRepository),
-          ),
-        ),
+        onPressed: () async {
+          final changed = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) =>
+                  NewOrderScreen(orderRepository: widget.orderRepository),
+            ),
+          );
+          if (changed == true) {
+            widget.onDataChanged?.call();
+            if (widget.onDataChanged == null) _refresh();
+          }
+        },
         icon: const Icon(Icons.add, size: 18),
         label: const Text('New Order'),
       ),
-      child: FutureBuilder<List<OrderRecord>>(
-        future: orderRepository.getOrders(),
+      child: FutureBuilder<_DashboardData>(
+        future: _dashboardFuture,
         builder: (context, snapshot) {
-          final orders = snapshot.data ?? const <OrderRecord>[];
-          final recentOrders = orders.take(3).toList();
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Unable to load dashboard.\n${snapshot.error}',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          final data = snapshot.data!;
+          final summary = data.summary;
+          final recentOrders = data.orders.take(5).toList();
 
           return SingleChildScrollView(
             child: Column(
@@ -43,7 +106,7 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 Container(
                   width: double.infinity,
-                  height: 116,
+                  constraints: const BoxConstraints(minHeight: 116),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
                     vertical: 20,
@@ -59,84 +122,110 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "TODAY'S SALES",
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.white,
-                                fontWeight: FontWeight.w700,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final sales = Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "TODAY'S NET SALES",
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _money(summary.netSales),
+                                maxLines: 1,
+                                style: AppTextStyles.display.copyWith(
+                                  color: AppColors.white,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 5),
-                            Text(
-                              '₱18,450',
-                              style: AppTextStyles.display.copyWith(
-                                color: AppColors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '111 orders  •  ₱166 average order',
+                          ),
+                        ],
+                      );
+                      final contextLabel = Text(
+                        '${summary.completedOrders} completed orders'
+                        '  •  ${_money(summary.averageOrder)} average',
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.white,
                         ),
-                      ),
-                      const SizedBox(width: 120),
-                    ],
+                      );
+
+                      if (constraints.maxWidth < 700) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            sales,
+                            const SizedBox(height: 12),
+                            contextLabel,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: sales),
+                          contextLabel,
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Row(
+                SummaryCardGrid(
                   children: [
-                    Expanded(
-                      child: SummaryCard(
-                        label: 'Orders',
-                        value: '111',
-                        subtitle: 'Completed 104  •  Open 7',
-                        accentColor: AppColors.primary,
-                      ),
+                    SummaryCard(
+                      label: 'Orders',
+                      value: '${summary.completedOrders}',
+                      subtitle: '${summary.openOrders} currently open',
+                      accentColor: AppColors.primary,
                     ),
-                    SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
-                        label: 'Expenses',
-                        value: '₱5,100',
-                        subtitle: 'Ingredients  •  Utilities  •  Supplies',
-                        accentColor: AppColors.orange,
-                      ),
+                    SummaryCard(
+                      label: 'Refunds',
+                      value: _money(summary.refunds),
+                      subtitle: 'Completed refunds today',
+                      accentColor: AppColors.orange,
                     ),
-                    SizedBox(width: 18),
-                    Expanded(
-                      child: SummaryCard(
-                        label: 'Net Profit',
-                        value: '₱13,350',
-                        subtitle: 'Sales less recorded expenses',
-                        accentColor: AppColors.black,
-                      ),
+                    SummaryCard(
+                      label: summary.businessScope ? 'Expenses' : 'Your Sales',
+                      value: summary.businessScope
+                          ? _money(summary.expenses ?? 0)
+                          : _money(summary.netSales),
+                      subtitle: summary.businessScope
+                          ? 'Posted expenses today'
+                          : 'Your completed sales today',
+                      accentColor: AppColors.black,
                     ),
+                    if (summary.businessScope)
+                      SummaryCard(
+                        label: 'Net After Expenses',
+                        value: _money(summary.netAfterExpenses ?? 0),
+                        subtitle: 'Sales less refunds and expenses',
+                        accentColor: AppColors.success,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 26),
-                Text('Recent Orders', style: AppTextStyles.h3),
+                const Text('Recent Orders', style: AppTextStyles.h3),
                 const SizedBox(height: 12),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(),
+                if (recentOrders.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No orders recorded yet.',
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.gray500,
+                      ),
                     ),
-                  )
-                else if (snapshot.hasError)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Unable to load recent orders.'),
                   )
                 else
                   DataTableCard(
@@ -148,7 +237,7 @@ class DashboardScreen extends StatelessWidget {
                       'Amount',
                       'Status',
                     ],
-                    flexes: const [1, 1, 1, 1, 1, 1],
+                    flexes: const [1, 1, 2, 1, 1, 1],
                     rows: recentOrders
                         .map(
                           (order) => [
@@ -156,7 +245,10 @@ class DashboardScreen extends StatelessWidget {
                             Text(order.time, style: AppTextStyles.body),
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
-                            Text('₱${order.amount}', style: AppTextStyles.body),
+                            Text(
+                              _money(order.amount),
+                              style: AppTextStyles.body,
+                            ),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: StatusBadge(order.status),
@@ -172,4 +264,27 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<_DashboardData> _loadDashboard() async {
+    final results = await Future.wait([
+      widget.dashboardRepository.getTodaySummary(),
+      widget.orderRepository.getOrders(),
+    ]);
+
+    return _DashboardData(
+      summary: results[0] as DashboardSummary,
+      orders: results[1] as List<OrderRecord>,
+    );
+  }
+
+  static String _money(double value) {
+    return '₱${value.toStringAsFixed(2)}';
+  }
+}
+
+class _DashboardData {
+  final DashboardSummary summary;
+  final List<OrderRecord> orders;
+
+  const _DashboardData({required this.summary, required this.orders});
 }

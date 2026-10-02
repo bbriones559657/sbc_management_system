@@ -1,7 +1,7 @@
 class OrderItem {
   final String productId;
   final String productName;
-  final int unitPrice;
+  final double unitPrice;
   final int quantity;
 
   const OrderItem({
@@ -11,12 +11,12 @@ class OrderItem {
     required this.quantity,
   });
 
-  int get lineTotal => unitPrice * quantity;
+  double get lineTotal => unitPrice * quantity;
 
   OrderItem copyWith({
     String? productId,
     String? productName,
-    int? unitPrice,
+    double? unitPrice,
     int? quantity,
   }) {
     return OrderItem(

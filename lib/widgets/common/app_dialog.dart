@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -9,21 +11,56 @@ Future<T?> showPrototypeDialog<T>({
   required Widget content,
   List<Widget> actions = const [],
   double width = 520,
+  bool barrierDismissible = true,
 }) {
   return showDialog<T>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(title, style: AppTextStyles.h2),
-      content: SizedBox(width: width, child: content),
-      actions: actions.isEmpty
-          ? [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Close'),
-              ),
-            ]
-          : actions,
-    ),
+    barrierDismissible: barrierDismissible,
+    builder: (dialogContext) {
+      final viewport = MediaQuery.sizeOf(dialogContext);
+      final compact = viewport.width < 600;
+      final horizontalInset = compact ? 16.0 : 40.0;
+      final contentHorizontalPadding = compact ? 18.0 : 24.0;
+      final availableWidth = math.max(
+        0.0,
+        viewport.width - (horizontalInset * 2) - (contentHorizontalPadding * 2),
+      );
+
+      return AlertDialog(
+        scrollable: true,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: horizontalInset,
+          vertical: 24,
+        ),
+        title: Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.h2,
+        ),
+        contentPadding: EdgeInsets.fromLTRB(
+          contentHorizontalPadding,
+          18,
+          contentHorizontalPadding,
+          8,
+        ),
+        content: SizedBox(
+          width: width.clamp(0.0, availableWidth).toDouble(),
+          child: content,
+        ),
+        actionsOverflowDirection: VerticalDirection.down,
+        actionsOverflowAlignment: OverflowBarAlignment.end,
+        actionsOverflowButtonSpacing: 8,
+        actions: actions.isEmpty
+            ? [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+              ]
+            : actions,
+      );
+    },
   );
 }
 
