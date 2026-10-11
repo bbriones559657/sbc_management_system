@@ -291,7 +291,7 @@ class _StockAlertsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alerts = controller.alerts;
-    final today = manilaToday();
+    final today = controller.today;
 
     if (controller.error != null && alerts.isEmpty) {
       return Text(
