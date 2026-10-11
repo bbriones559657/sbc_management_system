@@ -18,11 +18,13 @@ import '../../core/theme/app_spacing.dart';
 
 class PurchasingScreen extends StatefulWidget {
   final PurchasingRepository purchasingRepository;
+  final Listenable? refreshListenable;
   final VoidCallback? onInventoryChanged;
 
   const PurchasingScreen({
     super.key,
     required this.purchasingRepository,
+    this.refreshListenable,
     this.onInventoryChanged,
   });
 
@@ -39,6 +41,22 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant PurchasingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
   }
 
   void _reload() {
