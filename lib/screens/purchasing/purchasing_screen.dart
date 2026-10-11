@@ -1110,7 +1110,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       isExpanded: true,
                       initialValue: purchaseUomId,
                       decoration: const InputDecoration(
-                        labelText: 'Bought in *',
+                        labelText: 'Purchase unit *',
                       ),
                       items: compatible
                           .map(
@@ -1164,7 +1164,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                         ),
                         decoration: InputDecoration(
                           labelText:
-                              '${item.baseUomCode} per ${purchaseUnit.code} *',
+                              '${item.baseUomCode} per ${purchaseUnit.name.toLowerCase()} *',
                           helperText:
                               memory.find(
                                     itemId: item.id,
@@ -1172,8 +1172,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                                     supplierId: supplierId,
                                   ) !=
                                   null
-                              ? 'Filled in from the last delivery. Change it if this pack is different.'
-                              : 'Example: enter 50 when one box contains 50 ${item.baseUomCode}.',
+                              ? 'Filled in from a previous purchase. Change it if this ${purchaseUnit.name.toLowerCase()} is different.'
+                              : 'Example: enter 50 if one ${purchaseUnit.name.toLowerCase()} contains 50 ${item.baseUomCode}.',
                         ),
                       )
                     else
