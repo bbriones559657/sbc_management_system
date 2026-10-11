@@ -55,7 +55,9 @@ class _PreparedAvailabilityScreenState
     super.dispose();
   }
 
-  void _reload() => _variants = widget.menuRepository.getVariants();
+  void _reload() {
+    _variants = widget.menuRepository.getVariants();
+  }
 
   void _refresh() {
     if (mounted) setState(_reload);
