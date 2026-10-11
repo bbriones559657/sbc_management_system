@@ -84,6 +84,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   AppUserProfile? _profile;
   int _unsentSales = 0;
+  bool _wasOffline = false;
+  String? _queueCheckedFor;
   late final ReportingRepository _reportingRepository;
   late final PurchasingRepository _purchasingRepository;
   late final InventoryRepository _inventoryRepository;
@@ -146,8 +148,17 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   /// so open screens reload when the number still on the device drops.
   void _refreshAfterSync() {
     final unsent = _orderRepository.waitingSales.length;
-    if (unsent < _unsentSales) _inventoryRefreshController.refresh();
+    final reconnected = _wasOffline && !_orderRepository.isOffline;
+    if (unsent < _unsentSales || reconnected) {
+      _inventoryRefreshController.refresh();
+    }
     _unsentSales = unsent;
+    _wasOffline = _orderRepository.isOffline;
+  }
+
+  void _refreshAll() {
+    unawaited(_orderRepository.syncPending());
+    _inventoryRefreshController.refresh();
   }
 
   static const _businessProfileKey = 'offline.business_profile.v1';
@@ -240,6 +251,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     }
 
     await Supabase.instance.client.auth.signOut();
+    _queueCheckedFor = null;
   }
 
   @override
@@ -274,6 +286,12 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   Widget _buildAuthenticatedApp(AppUserProfile profile) {
     _profile = profile;
     unawaited(_loadBusinessProfile(profile.id));
+    if (_queueCheckedFor != profile.id) {
+      _queueCheckedFor = profile.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_orderRepository.syncPending());
+      });
+    }
     // Each destination names the permission it needs, so a role sees only
     // what it was granted and a role added later sees nothing by default.
     final can = profile.can;
@@ -479,6 +497,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.assignment_outlined,
               page: PurchasingScreen(
                 purchasingRepository: _purchasingRepository,
+                refreshListenable: _businessRefreshController,
                 onInventoryChanged: _inventoryRefreshController.refresh,
               ),
             ),
@@ -578,6 +597,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       groups: groups,
       pages: pages,
       onSignOut: _signOut,
+      onRefresh: _refreshAll,
       banner: OfflineStatusBanner(queue: _orderRepository),
       navigationController: _navigation,
       noticesBuilder: showStockAlerts
