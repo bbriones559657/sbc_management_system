@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -58,6 +60,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   bool _startingShift = false;
   bool _endingShift = false;
   bool _submittingOrder = false;
+  bool _wasOffline = false;
   final CheckoutAttempt _checkoutAttempt = CheckoutAttempt();
   String? _startShiftRequestId;
 
@@ -66,10 +69,36 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.initState();
     _reloadPosData();
     _loadShift();
+    final queue = _offlineQueue;
+    _wasOffline = queue?.isOffline ?? false;
+    queue?.addListener(_onQueueChanged);
+  }
+
+  OfflineSalesQueue? get _offlineQueue =>
+      widget.orderRepository is OfflineSalesQueue
+          ? widget.orderRepository as OfflineSalesQueue
+          : null;
+
+  void _onQueueChanged() {
+    final offline = _offlineQueue?.isOffline ?? false;
+    if (_wasOffline && !offline && mounted) {
+      setState(_reloadPosData);
+      unawaited(_loadShift());
+    }
+    _wasOffline = offline;
+  }
+
+  Future<void> _refreshPos() async {
+    final queue = _offlineQueue;
+    if (queue != null) await queue.syncPending();
+    if (!mounted) return;
+    setState(_reloadPosData);
+    await _loadShift();
   }
 
   @override
   void dispose() {
+    _offlineQueue?.removeListener(_onQueueChanged);
     _searchController.dispose();
     _customerNameController.dispose();
     _tableNumberController.dispose();
@@ -656,6 +685,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               const Text('New order', style: AppTextStyles.h1),
+                              IconButton(
+                                tooltip: 'Refresh POS data',
+                                onPressed: _refreshPos,
+                                icon: const Icon(Icons.refresh),
+                              ),
                             ],
                           );
 
