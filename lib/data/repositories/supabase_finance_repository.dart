@@ -15,8 +15,8 @@ class SupabaseFinanceRepository implements FinanceRepository {
         .from('v_supplier_balances')
         .select()
         .gt('balance', 0)
-        .order('due_date')
-        .order('invoice_date');
+        .order('due_date', ascending: true)
+        .order('invoice_date', ascending: true);
 
     return (rows as List)
         .map(
@@ -33,7 +33,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
         .from('payment_methods')
         .select('id, code, name, requires_reference')
         .eq('is_active', true)
-        .order('sort_order');
+        .order('sort_order', ascending: true);
 
     return (rows as List)
         .map(
@@ -51,6 +51,7 @@ class SupabaseFinanceRepository implements FinanceRepository {
     required double amount,
     String referenceNumber = '',
     String notes = '',
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'record_supplier_bill_payment',
@@ -62,6 +63,42 @@ class SupabaseFinanceRepository implements FinanceRepository {
             ? null
             : referenceNumber.trim(),
         'p_notes': notes.trim().isEmpty ? null : notes.trim(),
+        'p_client_request_id': clientRequestId,
+      },
+    );
+  }
+
+  @override
+  Future<List<SupplierPaymentRecord>> getSupplierPayments({
+    int limit = 50,
+  }) async {
+    final rows = await _client
+        .from('v_supplier_bill_payments')
+        .select()
+        .order('paid_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map(
+          (raw) => SupplierPaymentRecord.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> voidSupplierPayment({
+    required String paymentId,
+    required String reason,
+    String? clientRequestId,
+  }) async {
+    await _client.rpc(
+      'void_supplier_bill_payment',
+      params: {
+        'p_payment_id': paymentId,
+        'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
       },
     );
   }

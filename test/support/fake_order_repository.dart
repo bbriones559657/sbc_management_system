@@ -1,40 +1,21 @@
-import '../../domain/repositories/order_repository.dart';
-import '../../models/order_record.dart';
-import '../../models/pos_checkout.dart';
-import '../../models/pos_discount.dart';
-import '../../models/pos_menu_item.dart';
-import '../../models/pos_modifier.dart';
-import '../../models/pos_payment_method.dart';
-import '../../models/refund_preview.dart';
-import '../../models/shift_cash_snapshot.dart';
-import '../mock_data.dart';
+import 'package:sbc_management_system/domain/repositories/order_repository.dart';
+import 'package:sbc_management_system/models/order_record.dart';
+import 'package:sbc_management_system/models/pos_checkout.dart';
+import 'package:sbc_management_system/models/pos_discount.dart';
+import 'package:sbc_management_system/models/pos_menu_item.dart';
+import 'package:sbc_management_system/models/pos_modifier.dart';
+import 'package:sbc_management_system/models/pos_payment_method.dart';
+import 'package:sbc_management_system/models/refund_preview.dart';
+import 'package:sbc_management_system/models/shift_cash_snapshot.dart';
+import 'package:sbc_management_system/models/shift_report.dart';
 
-class MockOrderRepository implements OrderRepository {
-  final List<OrderRecord> _orders = List<OrderRecord>.from(MockData.orders);
+/// An in-memory order repository for tests. Tests override what they need.
+class FakeOrderRepository implements OrderRepository {
+  final List<OrderRecord> _orders = [];
 
   @override
   Future<List<OrderRecord>> getOrders() async {
     return List<OrderRecord>.unmodifiable(_orders);
-  }
-
-  @override
-  Future<OrderRecord?> getOrderById(String id) async {
-    for (final order in _orders) {
-      if (order.id == id) return order;
-    }
-    return null;
-  }
-
-  @override
-  Future<void> createOrder(OrderRecord order) async {
-    _orders.insert(0, order);
-  }
-
-  @override
-  Future<void> updateOrder(OrderRecord order) async {
-    final index = _orders.indexWhere((entry) => entry.id == order.id);
-    if (index == -1) return;
-    _orders[index] = order;
   }
 
   @override
@@ -58,6 +39,7 @@ class MockOrderRepository implements OrderRepository {
     String id, {
     String reason = '',
     String authorizedBy = '',
+    String? clientRequestId,
   }) async {
     final index = _orders.indexWhere((entry) => entry.id == id);
     if (index == -1) return;
@@ -71,7 +53,7 @@ class MockOrderRepository implements OrderRepository {
 
   @override
   Future<RefundPreview> getRefundPreview(String id) async {
-    throw UnsupportedError('Mock refund preview is not implemented.');
+    throw UnsupportedError('The fake has no refund preview.');
   }
 
   @override
@@ -80,6 +62,7 @@ class MockOrderRepository implements OrderRepository {
     required Map<String, double> quantities,
     required String reason,
     String externalReference = '',
+    String? clientRequestId,
   }) async {
     await refundOrder(id, reason: reason);
   }
@@ -109,16 +92,20 @@ class MockOrderRepository implements OrderRepository {
       const [];
 
   @override
-  Future<String?> getOpenShiftId() async => 'mock-shift';
+  Future<String?> getOpenShiftId() async => 'test-shift';
 
   @override
-  Future<String> startShift({double? openingCash}) async => 'mock-shift';
+  Future<String> startShift({
+    double? openingCash,
+    String? clientRequestId,
+  }) async => 'test-shift';
 
   @override
   Future<void> endShift({
     required String shiftId,
     double? closingCashCounted,
     String notes = '',
+    String? clientRequestId,
   }) async {}
 
   @override
@@ -136,11 +123,23 @@ class MockOrderRepository implements OrderRepository {
   }
 
   @override
+  Future<ShiftReport> getShiftReport(String shiftId) async {
+    return ShiftReport.fromMap({'shift_id': shiftId, 'status': 'OPEN'});
+  }
+
+  @override
+  Future<List<ShiftSummary>> getShifts({
+    required DateTime from,
+    required DateTime to,
+  }) async => const [];
+
+  @override
   Future<void> recordShiftCashMovement({
     required String shiftId,
     required String movementType,
     required double amount,
     required String reason,
+    String? clientRequestId,
   }) async {}
 
   @override
@@ -155,7 +154,13 @@ class MockOrderRepository implements OrderRepository {
     String discountTypeId = '',
     double? discountValue,
     String discountNotes = '',
+    required String clientRequestId,
   }) {
-    throw UnimplementedError('Mock POS placement is not used by the live app.');
+    throw UnimplementedError('Override placeOrder in the test.');
+  }
+
+  @override
+  Future<OrderRecord?> findOrderByRequestId(String clientRequestId) async {
+    return null;
   }
 }

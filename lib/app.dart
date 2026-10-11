@@ -1,9 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/state/app_navigation_controller.dart';
 import 'core/state/business_refresh_controller.dart';
 import 'core/state/inventory_refresh_controller.dart';
+import 'core/state/stock_alerts_controller.dart';
 import 'core/theme/app_theme.dart';
+import 'data/offline/key_value_store.dart';
+import 'data/offline/offline_order_repository.dart';
+import 'data/repositories/supabase_business_repository.dart';
+import 'domain/repositories/business_repository.dart';
+import 'models/business_profile.dart';
+import 'screens/users/business_details_screen.dart';
+import 'widgets/common/business_profile_scope.dart';
+import 'data/repositories/supabase_catalog_repository.dart';
 import 'data/repositories/supabase_dashboard_repository.dart';
 import 'data/repositories/supabase_expense_repository.dart';
 import 'data/repositories/supabase_finance_repository.dart';
@@ -14,12 +27,12 @@ import 'data/repositories/supabase_purchasing_repository.dart';
 import 'data/repositories/supabase_reporting_repository.dart';
 import 'data/repositories/supabase_supplier_repository.dart';
 import 'data/repositories/supabase_user_repository.dart';
+import 'domain/repositories/catalog_repository.dart';
 import 'domain/repositories/dashboard_repository.dart';
 import 'domain/repositories/expense_repository.dart';
 import 'domain/repositories/finance_repository.dart';
 import 'domain/repositories/inventory_repository.dart';
 import 'domain/repositories/menu_repository.dart';
-import 'domain/repositories/order_repository.dart';
 import 'domain/repositories/purchasing_repository.dart';
 import 'domain/repositories/reporting_repository.dart';
 import 'domain/repositories/supplier_repository.dart';
@@ -32,25 +45,45 @@ import 'screens/expenses/expenses_screen.dart';
 import 'screens/finance/sales_finance_screen.dart';
 import 'screens/inventory/inventory_count_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
+import 'screens/menu/categories_screen.dart';
+import 'screens/menu/discounts_screen.dart';
 import 'screens/menu/menu_management_screen.dart';
 import 'screens/orders/orders_screen.dart';
+import 'screens/orders/shifts_screen.dart';
 import 'screens/purchasing/purchasing_screen.dart';
+import 'screens/reports/audit_log_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/reports/transaction_traceability_screen.dart';
 import 'screens/suppliers/suppliers_screen.dart';
 import 'screens/users/users_screen.dart';
+import 'widgets/common/app_dialog.dart';
+import 'widgets/common/offline_status_banner.dart';
+import 'widgets/common/stock_alerts_view.dart';
 import 'widgets/layout/app_shell.dart';
 
 class StreetBowlApp extends StatefulWidget {
-  const StreetBowlApp({super.key});
+  /// Storage that survives closing the app, for offline sales.
+  final KeyValueStore deviceStore;
+
+  const StreetBowlApp({super.key, required this.deviceStore});
 
   @override
   State<StreetBowlApp> createState() => _StreetBowlAppState();
 }
 
 class _StreetBowlAppState extends State<StreetBowlApp> {
+  /// The stock page's name, which the stock alerts use to find it.
+  static const _stockOnHandLabel = 'Stock on Hand';
+
+  late final BusinessRepository _businessRepository;
+  final _businessProfile = ValueNotifier(BusinessProfile.fallback);
+  String? _businessProfileLoadedFor;
+  late final CatalogRepository _catalogRepository;
   late final DashboardRepository _dashboardRepository;
-  late final OrderRepository _orderRepository;
+  late final OfflineOrderRepository _orderRepository;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  AppUserProfile? _profile;
+  int _unsentSales = 0;
   late final ReportingRepository _reportingRepository;
   late final PurchasingRepository _purchasingRepository;
   late final InventoryRepository _inventoryRepository;
@@ -61,12 +94,24 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   late final UserRepository _userRepository;
   late final BusinessRefreshController _businessRefreshController;
   late final InventoryRefreshController _inventoryRefreshController;
+  late final StockAlertsController _stockAlerts;
+  final _navigation = AppNavigationController();
+  String? _stockAlertsLoadedFor;
 
   @override
   void initState() {
     super.initState();
+    _businessRepository = SupabaseBusinessRepository();
+    _businessProfile.value = _cachedBusinessProfile();
+    _catalogRepository = SupabaseCatalogRepository();
     _dashboardRepository = SupabaseDashboardRepository();
-    _orderRepository = SupabaseOrderRepository();
+    final serverOrders = SupabaseOrderRepository();
+    _orderRepository = OfflineOrderRepository(
+      remote: serverOrders,
+      uploader: serverOrders,
+      store: widget.deviceStore,
+      identity: _offlineIdentity,
+    );
     _reportingRepository = SupabaseReportingRepository();
     _purchasingRepository = SupabasePurchasingRepository();
     _inventoryRepository = SupabaseInventoryRepository();
@@ -79,10 +124,130 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     _inventoryRefreshController = InventoryRefreshController(
       onRefresh: _businessRefreshController.refresh,
     );
+    _stockAlerts = StockAlertsController(
+      _inventoryRepository,
+      refreshListenable: _inventoryRefreshController,
+    );
+    _orderRepository.addListener(_refreshAfterSync);
+  }
+
+  /// Checks stock once for each person who signs in; inventory changes in
+  /// this app reload it after that. Runs after the frame, because loading
+  /// notifies listeners that may be building.
+  void _loadStockAlerts(String userId) {
+    if (_stockAlertsLoadedFor == userId) return;
+    _stockAlertsLoadedFor = userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_stockAlerts.load());
+    });
+  }
+
+  /// Sales that reach the server change stock, orders and the dashboard,
+  /// so open screens reload when the number still on the device drops.
+  void _refreshAfterSync() {
+    final unsent = _orderRepository.waitingSales.length;
+    if (unsent < _unsentSales) _inventoryRefreshController.refresh();
+    _unsentSales = unsent;
+  }
+
+  static const _businessProfileKey = 'offline.business_profile.v1';
+
+  /// The details last loaded on this device, so receipts printed offline
+  /// carry the right name and address.
+  BusinessProfile _cachedBusinessProfile() {
+    final raw = widget.deviceStore.read(_businessProfileKey);
+    if (raw == null) return BusinessProfile.fallback;
+
+    try {
+      return BusinessProfile.fromMap(
+        Map<String, dynamic>.from(jsonDecode(raw) as Map),
+      );
+    } catch (_) {
+      return BusinessProfile.fallback;
+    }
+  }
+
+  void _setBusinessProfile(BusinessProfile profile) {
+    _businessProfile.value = profile;
+    unawaited(
+      widget.deviceStore.write(
+        _businessProfileKey,
+        jsonEncode(profile.toMap()),
+      ),
+    );
+  }
+
+  /// Loads the business details once for each person who signs in.
+  Future<void> _loadBusinessProfile(String userId) async {
+    if (_businessProfileLoadedFor == userId) return;
+    _businessProfileLoadedFor = userId;
+
+    try {
+      _setBusinessProfile(await _businessRepository.getBusinessProfile());
+    } catch (_) {
+      // Offline or unavailable: the cached details stay in use, and the
+      // next sign-in tries again.
+      _businessProfileLoadedFor = null;
+    }
+  }
+
+  OfflineIdentity? _offlineIdentity() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+
+    final profile = _profile;
+    return OfflineIdentity(
+      userId: user.id,
+      displayName: profile != null && profile.id == user.id
+          ? profile.displayName
+          : user.email ?? '',
+    );
+  }
+
+  /// Signing out with unsent sales leaves them on this device until the
+  /// same person signs in again, so the user is told before it happens.
+  Future<void> _signOut() async {
+    await _orderRepository.syncPending();
+
+    final unsent =
+        _orderRepository.waitingSales.length +
+        _orderRepository.rejectedSales.length;
+    final context = _navigatorKey.currentContext;
+
+    if (unsent > 0 && context != null && context.mounted) {
+      final confirmed = await showSettledDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Sales not sent yet'),
+          content: Text(
+            '$unsent offline ${unsent == 1 ? 'sale is' : 'sales are'} still '
+            'on this device. They stay here and are sent the next time you '
+            'sign in on this device with a connection. Sign out anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Stay signed in'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Sign out'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    await Supabase.instance.client.auth.signOut();
   }
 
   @override
   void dispose() {
+    _businessProfile.dispose();
+    _orderRepository.dispose();
+    _stockAlerts.dispose();
+    _navigation.dispose();
     _inventoryRefreshController.dispose();
     _businessRefreshController.dispose();
     super.dispose();
@@ -94,13 +259,33 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       debugShowCheckedModeBanner: false,
       title: 'Street Bowl Café Management System',
       theme: AppTheme.light,
-      home: AuthGate(authenticatedBuilder: _buildAuthenticatedApp),
+      navigatorKey: _navigatorKey,
+      builder: (context, child) => BusinessProfileScope(
+        notifier: _businessProfile,
+        child: child ?? const SizedBox.shrink(),
+      ),
+      home: AuthGate(
+        profileCache: widget.deviceStore,
+        authenticatedBuilder: _buildAuthenticatedApp,
+      ),
     );
   }
 
   Widget _buildAuthenticatedApp(AppUserProfile profile) {
-    final isCashier = profile.isCashier;
+    _profile = profile;
+    unawaited(_loadBusinessProfile(profile.id));
+    // Each destination names the permission it needs, so a role sees only
+    // what it was granted and a role added later sees nothing by default.
+    final can = profile.can;
     final pages = <Widget>[];
+    final showStockAlerts = can('inventory.view');
+    if (showStockAlerts) _loadStockAlerts(profile.id);
+    // Set once the stock-on-hand destination exists, below.
+    int? stockOverviewIndex;
+    void openStockOverview() {
+      final index = stockOverviewIndex;
+      if (index != null) _navigation.show(index);
+    }
 
     AppNavigationItem destination({
       required String label,
@@ -118,7 +303,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
 
     final groups = <AppNavigationGroup>[
       AppNavigationGroup(
-        label: 'MAIN',
+        label: 'Main',
         icon: Icons.home_outlined,
         collapsible: false,
         items: [
@@ -128,43 +313,64 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             page: DashboardScreen(
               orderRepository: _orderRepository,
               dashboardRepository: _dashboardRepository,
+              notice: showStockAlerts
+                  ? StockAlertsBanner(
+                      controller: _stockAlerts,
+                      onOpenStockOverview: openStockOverview,
+                    )
+                  : null,
               refreshListenable: _businessRefreshController,
               onDataChanged: _inventoryRefreshController.refresh,
             ),
           ),
         ],
       ),
-      AppNavigationGroup(
-        label: 'SALES & FINANCE',
-        icon: Icons.point_of_sale_outlined,
-        initiallyExpanded: true,
-        items: [
-          destination(
-            label: 'Orders / POS',
-            icon: Icons.receipt_long_outlined,
-            page: OrdersScreen(
-              orderRepository: _orderRepository,
-              canManageOrders: !isCashier,
-              refreshListenable: _businessRefreshController,
-              onDataChanged: _inventoryRefreshController.refresh,
-            ),
-          ),
-          if (!isCashier)
-            destination(
-              label: 'Finance Overview',
-              icon: Icons.account_balance_wallet_outlined,
-              page: SalesFinanceScreen(
-                reportingRepository: _reportingRepository,
-                financeRepository: _financeRepository,
-                refreshListenable: _businessRefreshController,
-                onDataChanged: _businessRefreshController.refresh,
-              ),
-            ),
-        ],
-      ),
-      if (!isCashier)
+      if (can('orders.create') ||
+          can('orders.manage_all') ||
+          can('shift.start') ||
+          can('shift.manage') ||
+          can('finance.view'))
         AppNavigationGroup(
-          label: 'MENU & PRODUCTS',
+          label: 'Sales and Finance',
+          icon: Icons.point_of_sale_outlined,
+          initiallyExpanded: true,
+          items: [
+            if (can('orders.create') || can('orders.manage_all'))
+              destination(
+                label: 'Orders',
+                icon: Icons.receipt_long_outlined,
+                page: OrdersScreen(
+                  orderRepository: _orderRepository,
+                  canManageOrders: can('orders.refund') || can('orders.void'),
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _inventoryRefreshController.refresh,
+                ),
+              ),
+            if (can('shift.start') || can('shift.manage'))
+              destination(
+                label: 'Shifts',
+                icon: Icons.schedule_outlined,
+                page: ShiftsScreen(
+                  orderRepository: _orderRepository,
+                  refreshListenable: _businessRefreshController,
+                ),
+              ),
+            if (can('finance.view'))
+              destination(
+                label: 'Sales and Finance',
+                icon: Icons.account_balance_wallet_outlined,
+                page: SalesFinanceScreen(
+                  reportingRepository: _reportingRepository,
+                  financeRepository: _financeRepository,
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
+              ),
+          ],
+        ),
+      if (can('menu.manage'))
+        AppNavigationGroup(
+          label: 'Menu',
           icon: Icons.restaurant_menu_outlined,
           items: [
             destination(
@@ -176,78 +382,96 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
                 onDataChanged: _businessRefreshController.refresh,
               ),
             ),
+            destination(
+              label: 'Categories',
+              icon: Icons.category_outlined,
+              page: CategoriesScreen(
+                catalogRepository: _catalogRepository,
+                // Menu, inventory and expense screens all show categories.
+                onDataChanged: _inventoryRefreshController.refresh,
+              ),
+            ),
+            destination(
+              label: 'Discounts',
+              icon: Icons.local_offer_outlined,
+              page: DiscountsScreen(
+                catalogRepository: _catalogRepository,
+                onDataChanged: _businessRefreshController.refresh,
+              ),
+            ),
           ],
         ),
-      AppNavigationGroup(
-        label: 'INVENTORY',
-        icon: Icons.inventory_2_outlined,
-        initiallyExpanded: true,
-        items: [
-          destination(
-            label: 'Stock Overview',
-            icon: Icons.view_list_outlined,
-            page: InventoryScreen(
-              inventoryRepository: _inventoryRepository,
-              refreshController: _inventoryRefreshController,
-              canManageInventory: !isCashier,
-              view: InventoryView.overview,
-            ),
-          ),
-          if (!isCashier) ...[
-            destination(
-              label: 'Release Supplies',
-              icon: Icons.output_outlined,
-              page: InventoryScreen(
-                inventoryRepository: _inventoryRepository,
-                refreshController: _inventoryRefreshController,
-                canManageInventory: true,
-                view: InventoryView.release,
-              ),
-            ),
-            destination(
-              label: 'Dispose Stock',
-              icon: Icons.delete_sweep_outlined,
-              page: InventoryScreen(
-                inventoryRepository: _inventoryRepository,
-                refreshController: _inventoryRefreshController,
-                canManageInventory: true,
-                view: InventoryView.disposal,
-              ),
-            ),
-            destination(
-              label: 'Inventory Count',
-              icon: Icons.fact_check_outlined,
-              page: InventoryCountScreen(
-                inventoryRepository: _inventoryRepository,
-                refreshController: _inventoryRefreshController,
-              ),
-            ),
-            destination(
-              label: 'Stock Adjustment',
-              icon: Icons.tune,
-              page: InventoryScreen(
-                inventoryRepository: _inventoryRepository,
-                refreshController: _inventoryRefreshController,
-                canManageInventory: true,
-                view: InventoryView.adjustment,
-              ),
-            ),
-            destination(
-              label: 'Inventory History',
-              icon: Icons.history,
-              page: InventoryScreen(
-                inventoryRepository: _inventoryRepository,
-                refreshController: _inventoryRefreshController,
-                canManageInventory: true,
-                view: InventoryView.history,
-              ),
-            ),
-          ],
-        ],
-      ),
-      if (!isCashier) ...[
+      if (can('inventory.view'))
         AppNavigationGroup(
-          label: 'PURCHASING',
+          label: 'Inventory',
+          icon: Icons.inventory_2_outlined,
+          initiallyExpanded: true,
+          items: [
+            destination(
+              label: _stockOnHandLabel,
+              icon: Icons.view_list_outlined,
+              page: InventoryScreen(
+                inventoryRepository: _inventoryRepository,
+                refreshController: _inventoryRefreshController,
+                canManageInventory: can('inventory.manage'),
+                view: InventoryView.overview,
+              ),
+            ),
+            if (can('inventory.adjust')) ...[
+              destination(
+                label: 'Take Stock Out',
+                icon: Icons.output_outlined,
+                page: InventoryScreen(
+                  inventoryRepository: _inventoryRepository,
+                  refreshController: _inventoryRefreshController,
+                  canManageInventory: true,
+                  view: InventoryView.release,
+                ),
+              ),
+              destination(
+                label: 'Throw Away Stock',
+                icon: Icons.delete_sweep_outlined,
+                page: InventoryScreen(
+                  inventoryRepository: _inventoryRepository,
+                  refreshController: _inventoryRefreshController,
+                  canManageInventory: true,
+                  view: InventoryView.disposal,
+                ),
+              ),
+              destination(
+                label: 'Count Stock',
+                icon: Icons.fact_check_outlined,
+                page: InventoryCountScreen(
+                  inventoryRepository: _inventoryRepository,
+                  refreshController: _inventoryRefreshController,
+                ),
+              ),
+              destination(
+                label: 'Correct Stock',
+                icon: Icons.tune,
+                page: InventoryScreen(
+                  inventoryRepository: _inventoryRepository,
+                  refreshController: _inventoryRefreshController,
+                  canManageInventory: true,
+                  view: InventoryView.adjustment,
+                ),
+              ),
+              destination(
+                label: 'Inventory History',
+                icon: Icons.history,
+                page: InventoryScreen(
+                  inventoryRepository: _inventoryRepository,
+                  refreshController: _inventoryRefreshController,
+                  canManageInventory: true,
+                  view: InventoryView.history,
+                ),
+              ),
+            ],
+          ],
+        ),
+      if (can('purchases.view'))
+        AppNavigationGroup(
+          label: 'Purchasing',
           icon: Icons.shopping_cart_checkout_outlined,
           items: [
             destination(
@@ -258,22 +482,24 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
                 onInventoryChanged: _inventoryRefreshController.refresh,
               ),
             ),
-            destination(
-              label: 'Suppliers',
-              icon: Icons.local_shipping_outlined,
-              page: SuppliersScreen(
-                supplierRepository: _supplierRepository,
-                onDataChanged: _businessRefreshController.refresh,
+            if (can('suppliers.view'))
+              destination(
+                label: 'Suppliers',
+                icon: Icons.local_shipping_outlined,
+                page: SuppliersScreen(
+                  supplierRepository: _supplierRepository,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
               ),
-            ),
           ],
         ),
+      if (can('expenses.view'))
         AppNavigationGroup(
-          label: 'EXPENSES',
+          label: 'Expenses',
           icon: Icons.payments_outlined,
           items: [
             destination(
-              label: 'Expense Records',
+              label: 'Expenses',
               icon: Icons.receipt_outlined,
               page: ExpensesScreen(
                 expenseRepository: _expenseRepository,
@@ -283,12 +509,13 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             ),
           ],
         ),
+      if (can('reports.view'))
         AppNavigationGroup(
-          label: 'REPORTS',
+          label: 'Reports',
           icon: Icons.bar_chart_outlined,
           items: [
             destination(
-              label: 'Reports Overview',
+              label: 'Reports',
               icon: Icons.analytics_outlined,
               page: ReportsScreen(
                 reportingRepository: _reportingRepository,
@@ -296,7 +523,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               ),
             ),
             destination(
-              label: 'Transaction Traceability',
+              label: 'Find a Transaction',
               icon: Icons.manage_search_outlined,
               page: TransactionTraceabilityScreen(
                 reportingRepository: _reportingRepository,
@@ -305,28 +532,61 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
             ),
           ],
         ),
+      if (can('users.view'))
         AppNavigationGroup(
-          label: 'ADMINISTRATION',
+          label: 'Admin',
           icon: Icons.admin_panel_settings_outlined,
           items: [
             destination(
-              label: 'User Management',
+              label: 'Staff Accounts',
               icon: Icons.people_outline,
               page: UsersScreen(
                 userRepository: _userRepository,
-                canManageRoles: profile.roleCode.toUpperCase() == 'ADMIN',
+                canManageRoles: can('roles.manage'),
               ),
             ),
+            if (can('settings.manage'))
+              destination(
+                label: 'Business Details',
+                icon: Icons.storefront_outlined,
+                page: BusinessDetailsScreen(
+                  businessRepository: _businessRepository,
+                  onSaved: _setBusinessProfile,
+                ),
+              ),
+            if (can('audit.view'))
+              destination(
+                label: 'Change History',
+                icon: Icons.fact_check_outlined,
+                page: AuditLogScreen(
+                  reportingRepository: _reportingRepository,
+                  refreshListenable: _businessRefreshController,
+                ),
+              ),
           ],
         ),
-      ],
     ];
+
+    for (final item in groups.expand((group) => group.items)) {
+      if (item.label == _stockOnHandLabel) {
+        stockOverviewIndex = item.destinationIndex;
+      }
+    }
 
     return AppShell(
       profile: profile,
       groups: groups,
       pages: pages,
-      onSignOut: () => Supabase.instance.client.auth.signOut(),
+      onSignOut: _signOut,
+      banner: OfflineStatusBanner(queue: _orderRepository),
+      navigationController: _navigation,
+      noticesBuilder: showStockAlerts
+          ? (compact) => StockAlertsButton(
+              controller: _stockAlerts,
+              compact: compact,
+              onOpenStockOverview: openStockOverview,
+            )
+          : null,
     );
   }
 }

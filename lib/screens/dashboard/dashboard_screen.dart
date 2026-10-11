@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../models/reporting.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -11,6 +13,8 @@ import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
 import '../orders/new_order_screen.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class DashboardScreen extends StatefulWidget {
   final OrderRepository orderRepository;
@@ -18,12 +22,16 @@ class DashboardScreen extends StatefulWidget {
   final Listenable? refreshListenable;
   final VoidCallback? onDataChanged;
 
+  /// Shown above the sales summary, such as stock alerts.
+  final Widget? notice;
+
   const DashboardScreen({
     super.key,
     required this.orderRepository,
     required this.dashboardRepository,
     this.refreshListenable,
     this.onDataChanged,
+    this.notice,
   });
 
   @override
@@ -57,7 +65,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _refresh() {
     if (!mounted) return;
-    setState(() => _dashboardFuture = _loadDashboard());
+    // A block body: an arrow would return the Future, which setState rejects
+    // in debug builds before it marks the screen for rebuild.
+    setState(() {
+      _dashboardFuture = _loadDashboard();
+    });
   }
 
   @override
@@ -78,7 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         },
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('New Order'),
+        label: const Text('New order'),
       ),
       child: FutureBuilder<_DashboardData>(
         future: _dashboardFuture,
@@ -90,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Unable to load dashboard.\n${snapshot.error}',
+                'Unable to load dashboard.\n${errorText(snapshot.error)}',
                 textAlign: TextAlign.center,
               ),
             );
@@ -104,23 +116,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ?widget.notice,
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(minHeight: 116),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 20,
+                    horizontal: AppSpacing.xl,
+                    vertical: AppSpacing.lg,
                   ),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: .12),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    borderRadius: AppRadius.all,
                   ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -129,13 +135,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "TODAY'S NET SALES",
+                            'Net sales today',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.white,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: AppSpacing.xs),
                           SizedBox(
                             width: double.infinity,
                             child: FittedBox(
@@ -165,7 +171,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             sales,
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.md),
                             contextLabel,
                           ],
                         );
@@ -180,7 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.md),
                 SummaryCardGrid(
                   children: [
                     SummaryCard(
@@ -193,33 +199,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       label: 'Refunds',
                       value: _money(summary.refunds),
                       subtitle: 'Completed refunds today',
-                      accentColor: AppColors.orange,
+                      accentColor: AppColors.info,
                     ),
                     SummaryCard(
-                      label: summary.businessScope ? 'Expenses' : 'Your Sales',
+                      label: summary.businessScope ? 'Expenses' : 'Your sales',
                       value: summary.businessScope
                           ? _money(summary.expenses ?? 0)
                           : _money(summary.netSales),
                       subtitle: summary.businessScope
                           ? 'Posted expenses today'
                           : 'Your completed sales today',
-                      accentColor: AppColors.black,
+                      accentColor: AppColors.warning,
                     ),
                     if (summary.businessScope)
                       SummaryCard(
-                        label: 'Net After Expenses',
+                        label: 'Net after expenses',
                         value: _money(summary.netAfterExpenses ?? 0),
                         subtitle: 'Sales less refunds and expenses',
                         accentColor: AppColors.success,
                       ),
                   ],
                 ),
-                const SizedBox(height: 26),
-                const Text('Recent Orders', style: AppTextStyles.h3),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.lg),
+                const Text('Recent orders', style: AppTextStyles.h3),
+                const SizedBox(height: AppSpacing.md),
                 if (recentOrders.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
                     child: Text(
                       'No orders recorded yet.',
                       style: AppTextStyles.body.copyWith(
@@ -237,12 +243,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       'Amount',
                       'Status',
                     ],
-                    flexes: const [1, 1, 2, 1, 1, 1],
+                    flexes: const [2, 3, 3, 2, 2, 3],
                     rows: recentOrders
                         .map(
                           (order) => [
                             Text(order.id, style: AppTextStyles.bodyMedium),
-                            Text(order.time, style: AppTextStyles.body),
+                            Text(
+                              order.timeLabelAt(DateTime.now()),
+                              style: AppTextStyles.body,
+                            ),
                             Text(order.employee, style: AppTextStyles.body),
                             Text(order.type, style: AppTextStyles.body),
                             Text(
@@ -277,9 +286,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  static String _money(double value) {
-    return '₱${value.toStringAsFixed(2)}';
-  }
+  static String _money(double value) => formatReportMoney(value);
 }
 
 class _DashboardData {

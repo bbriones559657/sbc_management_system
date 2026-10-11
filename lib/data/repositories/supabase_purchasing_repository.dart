@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/repositories/purchasing_repository.dart';
+import 'package_memory_query.dart';
+import '../../models/package_memory.dart';
 import '../../models/purchasing.dart';
 
 class SupabasePurchasingRepository implements PurchasingRepository {
@@ -10,12 +12,15 @@ class SupabasePurchasingRepository implements PurchasingRepository {
     : _client = client ?? Supabase.instance.client;
 
   @override
+  Future<PackageMemory> getPackageMemory() => loadPackageMemory(_client);
+
+  @override
   Future<List<PurchasingSupplierOption>> getSuppliers() async {
     final rows = await _client
         .from('suppliers')
         .select('id, name')
         .eq('is_active', true)
-        .order('name');
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -33,7 +38,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         .select(
           'inventory_item_id, name, base_uom_id, base_uom_code, track_expiry',
         )
-        .order('name');
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -50,8 +55,8 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         .from('units_of_measure')
         .select('id, code, name, dimension, factor_to_dimension_base')
         .eq('is_active', true)
-        .order('dimension')
-        .order('factor_to_dimension_base');
+        .order('dimension', ascending: true)
+        .order('factor_to_dimension_base', ascending: true);
 
     return (rows as List)
         .map(
@@ -85,7 +90,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         .from('v_purchase_order_lines_remaining')
         .select()
         .eq('purchase_order_id', purchaseOrderId)
-        .order('id');
+        .order('id', ascending: true);
 
     return (rows as List).map((raw) {
       final row = Map<String, dynamic>.from(raw as Map);
@@ -132,7 +137,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         .from('v_goods_receipt_line_details')
         .select()
         .eq('goods_receipt_id', goodsReceiptId)
-        .order('inventory_item_name');
+        .order('inventory_item_name', ascending: true);
 
     return (rows as List)
         .map(
@@ -172,6 +177,22 @@ class SupabasePurchasingRepository implements PurchasingRepository {
   }
 
   @override
+  Future<void> voidGoodsReceipt({
+    required String goodsReceiptId,
+    required String reason,
+    String? clientRequestId,
+  }) async {
+    await _client.rpc(
+      'void_goods_receipt',
+      params: {
+        'p_goods_receipt_id': goodsReceiptId,
+        'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
+      },
+    );
+  }
+
+  @override
   Future<void> receiveStock({
     required String supplierId,
     required List<PurchaseLineInput> items,
@@ -181,6 +202,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
     String notes = '',
     bool createSupplierBill = true,
     DateTime? dueDate,
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'create_and_post_goods_receipt',
@@ -193,6 +215,7 @@ class SupabasePurchasingRepository implements PurchasingRepository {
         'p_notes': _nullable(notes),
         'p_create_supplier_bill': createSupplierBill,
         'p_due_date': dueDate == null ? null : _dateOnly(dueDate),
+        'p_client_request_id': clientRequestId,
       },
     );
   }

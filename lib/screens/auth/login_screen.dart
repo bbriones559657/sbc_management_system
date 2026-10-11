@@ -1,8 +1,12 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -56,125 +60,243 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.gray100,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              width: 430,
-              padding: EdgeInsets.all(
-                MediaQuery.sizeOf(context).width < 400 ? 20 : 32,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.gray200),
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Street Bowl Café', style: AppTextStyles.h1),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'MANAGEMENT SYSTEM',
-                      style: AppTextStyles.overline,
-                    ),
-                    const SizedBox(height: 28),
-                    const Text('Sign in', style: AppTextStyles.h2),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Use the employee account provided by management.',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.gray700,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: (value) {
-                        final email = value?.trim() ?? '';
-                        if (email.isEmpty) return 'Email is required.';
-                        if (!email.contains('@')) return 'Enter a valid email.';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      autofillHints: const [AutofillHints.password],
-                      onFieldSubmitted: (_) => _loading ? null : _signIn(),
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          tooltip: _obscurePassword
-                              ? 'Show password'
-                              : 'Hide password',
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _LoginBackground()),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Container(
+                  width: 430,
+                  padding: EdgeInsets.all(
+                    MediaQuery.sizeOf(context).width < 400
+                        ? AppSpacing.lg
+                        : AppSpacing.xl,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: AppRadius.all,
+                    border: Border.all(color: AppColors.gray200),
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('Street Bowl Café', style: AppTextStyles.h1),
+                        const SizedBox(height: AppSpacing.xs),
+                        const Text(
+                          'MANAGEMENT SYSTEM',
+                          style: AppTextStyles.overline,
                         ),
-                      ),
-                      validator: (value) {
-                        if ((value ?? '').isEmpty) {
-                          return 'Password is required.';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _error!,
+                        const SizedBox(height: AppSpacing.xl),
+                        const Text('Sign in', style: AppTextStyles.h2),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Use the employee account provided by management.',
                           style: AppTextStyles.body.copyWith(
-                            color: AppColors.primaryDark,
+                            color: AppColors.gray700,
                           ),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      height: 46,
-                      child: FilledButton(
-                        onPressed: _loading ? null : _signIn,
-                        child: _loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Sign in'),
-                      ),
+                        const SizedBox(height: AppSpacing.lg),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                          validator: (value) {
+                            final email = value?.trim() ?? '';
+                            if (email.isEmpty) return 'Email is required.';
+                            if (!email.contains('@'))
+                              return 'Enter a valid email.';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          autofillHints: const [AutofillHints.password],
+                          onFieldSubmitted: (_) => _loading ? null : _signIn(),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').isEmpty) {
+                              return 'Password is required.';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: AppRadius.all,
+                            ),
+                            child: Text(
+                              _error!,
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        SizedBox(
+                          height: 46,
+                          child: FilledButton(
+                            onPressed: _loading ? null : _signIn,
+                            child: _loading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Sign in'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginBackground extends StatelessWidget {
+  const _LoginBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: width * 0.38,
+              child: const _FadedBackgroundImage(
+                assetPath:
+                    'assets/images/login_backgrounds/login_storefront.webp',
+                fadeLeading: false,
+                fadeTrailing: true,
+              ),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: width * 0.31,
+              width: width * 0.38,
+              child: const _FadedBackgroundImage(
+                assetPath:
+                    'assets/images/login_backgrounds/login_interior.webp',
+                fadeLeading: true,
+                fadeTrailing: true,
+              ),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: width * 0.62,
+              right: 0,
+              child: const _FadedBackgroundImage(
+                assetPath:
+                    'assets/images/login_backgrounds/login_exterior.webp',
+                fadeLeading: true,
+                fadeTrailing: false,
+              ),
+            ),
+            const Positioned.fill(child: ColoredBox(color: Color(0x55FFFFFF))),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FadedBackgroundImage extends StatelessWidget {
+  const _FadedBackgroundImage({
+    required this.assetPath,
+    required this.fadeLeading,
+    required this.fadeTrailing,
+  });
+
+  final String assetPath;
+  final bool fadeLeading;
+  final bool fadeTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<double> stops;
+    final List<Color> colors;
+
+    if (fadeLeading && fadeTrailing) {
+      stops = const [0, 0.16, 0.84, 1];
+      colors = const [
+        Colors.transparent,
+        Colors.black,
+        Colors.black,
+        Colors.transparent,
+      ];
+    } else if (fadeLeading) {
+      stops = const [0, 0.22, 1];
+      colors = const [Colors.transparent, Colors.black, Colors.black];
+    } else if (fadeTrailing) {
+      stops = const [0, 0.78, 1];
+      colors = const [Colors.black, Colors.black, Colors.transparent];
+    } else {
+      stops = const [0, 1];
+      colors = const [Colors.black, Colors.black];
+    }
+
+    return ClipRect(
+      child: ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) => LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          stops: stops,
+          colors: colors,
+        ).createShader(bounds),
+        child: ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 2.0, sigmaY: 2.0),
+          child: Image.asset(assetPath, fit: BoxFit.cover),
         ),
       ),
     );

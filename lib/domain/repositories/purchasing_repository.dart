@@ -1,6 +1,10 @@
+import '../../models/package_memory.dart';
 import '../../models/purchasing.dart';
 
 abstract class PurchasingRepository {
+  /// Package sizes and costs remembered from earlier receipts.
+  Future<PackageMemory> getPackageMemory();
+
   Future<List<PurchasingSupplierOption>> getSuppliers();
 
   Future<List<PurchaseInventoryOption>> getInventoryItems();
@@ -28,6 +32,13 @@ abstract class PurchasingRepository {
 
   Future<void> approvePurchaseOrder(String purchaseOrderId);
 
+  /// Reverses a posted receipt's stock and voids its unpaid supplier bill.
+  Future<void> voidGoodsReceipt({
+    required String goodsReceiptId,
+    required String reason,
+    String? clientRequestId,
+  });
+
   Future<void> receiveStock({
     required String supplierId,
     required List<PurchaseLineInput> items,
@@ -37,5 +48,6 @@ abstract class PurchasingRepository {
     String notes = '',
     bool createSupplierBill = true,
     DateTime? dueDate,
+    String? clientRequestId,
   });
 }

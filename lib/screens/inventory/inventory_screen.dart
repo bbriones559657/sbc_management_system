@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/error_text.dart';
 import '../../core/state/inventory_refresh_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/inventory_repository.dart';
+import '../../models/package_memory.dart';
 import '../../models/inventory_item.dart';
 import '../../models/inventory_reference.dart';
+import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 enum InventoryView { overview, release, disposal, adjustment, history }
 
@@ -37,6 +42,7 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   late Future<List<InventoryItem>> _itemsFuture;
   late Future<List<InventoryMovementRecord>> _movementsFuture;
+  PackageMemory _packageMemory = PackageMemory.empty;
   late Future<List<InventoryMovementRecord>> _recentMovementsFuture;
   late Future<List<StockOutSummary>> _stockOutsFuture;
 
@@ -71,6 +77,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _reload() {
     _itemsFuture = widget.inventoryRepository.getInventoryItems();
+    if (widget.view == InventoryView.release) _loadPackageMemory();
     _recentMovementsFuture = widget.view == InventoryView.overview
         ? widget.inventoryRepository.getAllRecentMovements()
         : Future.value(const <InventoryMovementRecord>[]);
@@ -80,6 +87,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _stockOutsFuture = widget.view == InventoryView.release
         ? widget.inventoryRepository.getStockOuts(limit: 100)
         : Future.value(const <StockOutSummary>[]);
+  }
+
+  /// Package sizes are a convenience for the release form, so a failure to
+  /// load them is not shown: the size is typed in as before.
+  Future<void> _loadPackageMemory() async {
+    try {
+      final memory = await widget.inventoryRepository.getPackageMemory();
+      if (mounted) setState(() => _packageMemory = memory);
+    } catch (_) {}
   }
 
   void _refresh() {
@@ -108,13 +124,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _buildOverviewPage() {
     return AppPage(
-      title: 'Stock Overview',
+      title: 'Stock on hand',
       subtitle: 'Monitor usable, expired, and total on-hand quantities.',
       action: widget.canManageInventory
           ? ElevatedButton.icon(
               onPressed: _showAddItemDialog,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Item'),
+              label: const Text('Add item'),
             )
           : null,
       child: FutureBuilder<List<InventoryItem>>(
@@ -139,7 +155,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           return Column(
             children: [
               _buildFilters(categories),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: snapshot.connectionState == ConnectionState.waiting
                     ? const Center(child: CircularProgressIndicator())
@@ -167,13 +183,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _buildReleasePage() {
     return AppPage(
-      title: 'Release Supplies',
+      title: 'Take stock out for use',
       subtitle:
           'Post one traceable stock-out transaction for multiple supplies.',
       action: ElevatedButton.icon(
         onPressed: _showStockOutDialog,
         icon: const Icon(Icons.output_outlined, size: 18),
-        label: const Text('New Release'),
+        label: const Text('Take out stock'),
       ),
       child: FutureBuilder<List<StockOutSummary>>(
         future: _stockOutsFuture,
@@ -203,8 +219,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 'Items',
                 'Recorded By',
                 'Status',
+                'Action',
               ],
-              flexes: const [2, 2, 3, 2, 1, 2, 1],
+              flexes: const [2, 2, 3, 2, 1, 2, 2, 2],
               rows: releases
                   .map(
                     (release) => [
@@ -230,7 +247,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             : release.recordedByName,
                         style: AppTextStyles.body,
                       ),
-                      StatusBadge(release.status),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: StatusBadge(release.status),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child:
+                            release.status == 'POSTED' &&
+                                widget.canManageInventory
+                            ? OutlinedButton(
+                                onPressed: () => _voidStockOut(release),
+                                child: const Text('Void stock-out'),
+                              )
+                            : const Text('—', style: AppTextStyles.body),
+                      ),
                     ],
                   )
                   .toList(),
@@ -243,7 +274,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _buildDisposalPage() {
     return AppPage(
-      title: 'Dispose Stock',
+      title: 'Throw away stock',
       subtitle:
           'Record expired, damaged, or spoiled stock against its exact lot.',
       child: FutureBuilder<List<InventoryItem>>(
@@ -284,7 +315,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   'affected batch. Expired quantities remain on hand until '
                   'this disposal is posted.',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 DataTableCard(
                   headers: const [
                     'Item',
@@ -314,7 +345,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             alignment: Alignment.centerLeft,
                             child: OutlinedButton(
                               onPressed: () => _showLots(item),
-                              child: const Text('Review Lots'),
+                              child: const Text('See batches'),
                             ),
                           ),
                         ],
@@ -331,7 +362,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _buildAdjustmentPage() {
     return AppPage(
-      title: 'Stock Adjustment',
+      title: 'Correct stock',
       subtitle: 'Correct a verified physical-count difference with a required reason.',
       child: FutureBuilder<List<InventoryItem>>(
         future: _itemsFuture,
@@ -359,7 +390,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   'recording error. Disposal and normal supply releases must '
                   'use their dedicated workflows.',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 DataTableCard(
                   headers: const [
                     'Item',
@@ -397,7 +428,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _buildHistoryPage() {
     return AppPage(
-      title: 'Inventory History',
+      title: 'Inventory history',
       subtitle:
           'Trace stock movements by item, movement type, date, or reference.',
       child: FutureBuilder<List<InventoryItem>>(
@@ -427,7 +458,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               return Column(
                 children: [
                   _buildHistoryFilters(items),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   Expanded(
                     child: filtered.isEmpty
                         ? _buildEmptyState(
@@ -444,8 +475,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 'Quantity',
                                 'Source / Reference',
                                 'Reason',
+                                '',
                               ],
-                              flexes: const [2, 3, 2, 2, 3, 3],
+                              flexes: const [3, 3, 2, 2, 3, 4, 3],
                               rows: filtered
                                   .map(
                                     (movement) => [
@@ -489,6 +521,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             : movement.reason,
                                         style: AppTextStyles.body,
                                       ),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: movement.isReversed
+                                            ? const StatusBadge('Reversed')
+                                            : movement.canBeReversed &&
+                                                  widget.canManageInventory
+                                            ? OutlinedButton(
+                                                onPressed: () => _voidLotDisposal(
+                                                  movement,
+                                                  itemById[movement
+                                                              .inventoryItemId]
+                                                          ?.name ??
+                                                      'this item',
+                                                ),
+                                                child: const Text(
+                                                  'Undo throw-away',
+                                                ),
+                                              )
+                                            : const SizedBox.shrink(),
+                                      ),
                                     ],
                                   )
                                   .toList(),
@@ -531,7 +583,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       isExpanded: true,
       decoration: const InputDecoration(labelText: 'Item'),
       items: [
-        const DropdownMenuItem(value: '', child: Text('All Items')),
+        const DropdownMenuItem(value: '', child: Text('All items')),
         for (final item in items)
           DropdownMenuItem(
             value: item.id,
@@ -548,7 +600,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       isExpanded: true,
       decoration: const InputDecoration(labelText: 'Movement'),
       items: [
-        const DropdownMenuItem(value: '', child: Text('All Movements')),
+        const DropdownMenuItem(value: '', child: Text('All movements')),
         for (final type in movementTypes)
           DropdownMenuItem(value: type, child: Text(_movementLabel(type))),
       ],
@@ -632,7 +684,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
@@ -654,9 +706,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: AppColors.gray500, size: 40),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Text(title, style: AppTextStyles.h3),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -681,7 +733,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       items: [
         const DropdownMenuItem(
           value: 'All Categories',
-          child: Text('All Categories'),
+          child: Text('All categories'),
         ),
         for (final category in categories)
           DropdownMenuItem(value: category, child: Text(category)),
@@ -695,11 +747,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
       initialValue: _stockFilter,
       isExpanded: true,
       items: const [
-        DropdownMenuItem(value: 'All Stock', child: Text('All Stock')),
-        DropdownMenuItem(value: 'Low Stock', child: Text('Low Stock')),
-        DropdownMenuItem(value: 'Expiring Soon', child: Text('Expiring Soon')),
+        DropdownMenuItem(value: 'All Stock', child: Text('All stock')),
+        DropdownMenuItem(value: 'Low Stock', child: Text('Low stock')),
+        DropdownMenuItem(value: 'Expiring Soon', child: Text('Expiring soon')),
         DropdownMenuItem(value: 'Expired', child: Text('Expired')),
-        DropdownMenuItem(value: 'In Stock', child: Text('In Stock')),
+        DropdownMenuItem(value: 'In Stock', child: Text('In stock')),
       ],
       onChanged: (value) {
         if (value == null) return;
@@ -792,7 +844,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: SingleChildScrollView(child: table)),
-              const SizedBox(width: 18),
+              const SizedBox(width: AppSpacing.md),
               SizedBox(
                 width: 330,
                 child: SingleChildScrollView(child: activity),
@@ -803,7 +855,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
         return SingleChildScrollView(
           child: Column(
-            children: [table, const SizedBox(height: 18), activity],
+            children: [
+              table,
+              const SizedBox(height: AppSpacing.md),
+              activity,
+            ],
           ),
         );
       },
@@ -822,13 +878,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Recent Activity', style: AppTextStyles.h3),
-              const SizedBox(height: 4),
+              const Text('Recent activity', style: AppTextStyles.h3),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 'Latest inventory ledger entries',
                 style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Center(child: CircularProgressIndicator())
               else if (snapshot.hasError)
@@ -869,7 +925,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           height: 34,
           decoration: BoxDecoration(
             color: positive ? AppColors.gray100 : AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: AppRadius.all,
           ),
           child: Icon(
             positive ? Icons.south_west : Icons.north_east,
@@ -877,7 +933,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             color: positive ? AppColors.success : AppColors.primary,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -905,7 +961,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.sm),
         Text(
           _signedQuantity(movement.quantityDelta, item?.baseUomCode ?? ''),
           style: AppTextStyles.bodyMedium.copyWith(
@@ -944,20 +1000,86 @@ class _InventoryScreenState extends State<InventoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline, color: AppColors.primary, size: 40),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             const Text('Unable to load inventory', style: AppTextStyles.h3),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              error?.toString() ?? 'Unknown error',
+              errorText(error),
               textAlign: TextAlign.center,
               style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: _refresh, child: const Text('Retry')),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(onPressed: _refresh, child: const Text('Try again')),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _voidLotDisposal(
+    InventoryMovementRecord movement,
+    String itemName,
+  ) async {
+    final requestId = newRequestId();
+
+    final reversed = await showReasonDialog(
+      context: context,
+      title: 'Undo throw-away',
+      message:
+          'This returns the written-off quantity of $itemName to the stock '
+          'it came from. The write-off stays in the history, marked as '
+          'reversed.',
+      confirmLabel: 'Undo throw-away',
+      onConfirm: (reason) async {
+        try {
+          await widget.inventoryRepository.voidLotDisposal(
+            stockMovementId: movement.id,
+            reason: reason,
+            clientRequestId: requestId,
+          );
+          return null;
+        } on PostgrestException catch (error) {
+          return error.message;
+        } catch (error) {
+          return errorText(error);
+        }
+      },
+    );
+
+    if (!reversed || !mounted) return;
+    _refresh();
+    _showMessage('Write-off reversed. The stock is back on hand.');
+  }
+
+  Future<void> _voidStockOut(StockOutSummary release) async {
+    final requestId = newRequestId();
+
+    final voided = await showReasonDialog(
+      context: context,
+      title: 'Void stock-out SO-${release.number}',
+      message:
+          'This returns every quantity on this release to the stock it came '
+          'from. The release stays on record as voided.',
+      confirmLabel: 'Void stock-out',
+      onConfirm: (reason) async {
+        try {
+          await widget.inventoryRepository.voidStockOut(
+            stockOutId: release.id,
+            reason: reason,
+            clientRequestId: requestId,
+          );
+          return null;
+        } on PostgrestException catch (error) {
+          return error.message;
+        } catch (error) {
+          return errorText(error);
+        }
+      },
+    );
+
+    if (!voided || !mounted) return;
+    _refresh();
+    _showMessage('Supply release SO-${release.number} voided.');
   }
 
   Future<void> _showItemDetails(InventoryItem item) async {
@@ -980,14 +1102,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
           children: [
             Row(
               children: [
-                StatusBadge(latest.status),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: StatusBadge(latest.status),
+                ),
                 if (latest.sku.isNotEmpty) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Text(latest.sku, style: AppTextStyles.caption),
                 ],
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _detailRow('Category', latest.category),
             _detailRow('Usable Stock', latest.usableStock),
             _detailRow('Expired Stock', latest.expiredStock),
@@ -1002,8 +1127,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             _detailRow('Next Usable Expiration', latest.expiration),
             const Divider(height: 28),
-            const Text('Recent Stock Movements', style: AppTextStyles.h3),
-            const SizedBox(height: 10),
+            const Text('Recent stock movements', style: AppTextStyles.h3),
+            const SizedBox(height: AppSpacing.sm),
             if (movements.isEmpty)
               Text(
                 'No stock movements recorded yet.',
@@ -1012,7 +1137,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             else
               for (final movement in movements)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   child: Row(
                     children: [
                       Expanded(
@@ -1044,7 +1169,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               : AppColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 18),
+                      const SizedBox(width: AppSpacing.md),
                       SizedBox(
                         width: 120,
                         child: Text(
@@ -1070,7 +1195,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               Navigator.pop(context);
               _showLots(latest);
             },
-            child: const Text('Manage Lots'),
+            child: const Text('See batches'),
           ),
         if (widget.canManageInventory && latest.currentQuantity <= 0)
           OutlinedButton.icon(
@@ -1088,7 +1213,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _confirmArchiveItem(InventoryItem item) async {
     await showPrototypeDialog(
       context: context,
-      title: 'Archive Inventory Item',
+      title: 'Archive inventory item',
       width: 460,
       content: Text(
         'Archive ${item.name}? It will be removed from active inventory, '
@@ -1112,11 +1237,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
             } on PostgrestException catch (error) {
               if (mounted) _showMessage(error.message);
             } catch (error) {
-              if (mounted) _showMessage(error.toString());
+              if (mounted) _showMessage(errorText(error));
             }
           },
           icon: const Icon(Icons.archive_outlined, size: 17),
-          label: const Text('Archive Item'),
+          label: const Text('Archive item'),
         ),
       ],
     );
@@ -1131,7 +1256,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (mounted) _showMessage(error.message);
       return;
     } catch (error) {
-      if (mounted) _showMessage(error.toString());
+      if (mounted) _showMessage(errorText(error));
       return;
     }
 
@@ -1139,7 +1264,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Inventory Lots — ${item.name}',
+      title: 'Batches — ${item.name}',
       width: 720,
       content: SizedBox(
         height: 390,
@@ -1164,7 +1289,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           children: [
                             Text(
                               lot.lotCode.isEmpty
-                                  ? 'Unlabeled Lot'
+                                  ? 'Unlabeled batch'
                                   : lot.lotCode,
                               style: AppTextStyles.bodyMedium,
                             ),
@@ -1218,6 +1343,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     InventoryItem item,
     InventoryLotRecord lot,
   ) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final quantityController = TextEditingController();
     final reasonController = TextEditingController();
     final now = DateTime.now();
@@ -1231,7 +1360,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Dispose Lot — ${item.name}',
+      title: 'Throw away stock — ${item.name}',
       width: 540,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -1241,7 +1370,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             children: [
               _detailRow(
                 'Lot',
-                lot.lotCode.isEmpty ? 'Unlabeled Lot' : lot.lotCode,
+                lot.lotCode.isEmpty ? 'Unlabeled batch' : lot.lotCode,
               ),
               _detailRow(
                 'Available',
@@ -1253,14 +1382,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ? '—'
                     : _formatDate(lot.expirationDate!),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: movementType,
-                decoration: const InputDecoration(labelText: 'Reason Type'),
+                decoration: const InputDecoration(labelText: 'Reason type'),
                 items: const [
                   DropdownMenuItem(
                     value: 'WASTE',
-                    child: Text('Waste / Spoilage'),
+                    child: Text('Waste / spoilage'),
                   ),
                   DropdownMenuItem(value: 'DAMAGED', child: Text('Damaged')),
                   DropdownMenuItem(value: 'EXPIRED', child: Text('Expired')),
@@ -1270,7 +1400,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   setDialogState(() => movementType = value);
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: quantityController,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -1280,17 +1410,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   labelText: 'Quantity (${lot.unitCode})',
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: reasonController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: 'Reason / Notes *',
+                  labelText: 'Reason / notes *',
                   hintText: 'Explain why this exact lot is being disposed',
                 ),
               ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -1329,6 +1459,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
             try {
               await widget.inventoryRepository.disposeLot(
+                clientRequestId: requestId,
                 inventoryLotId: lot.id,
                 movementType: movementType,
                 quantity: quantity,
@@ -1345,11 +1476,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               });
             } catch (error) {
               dialogSetState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Record Disposal'),
+          child: const Text('Record thrown-away stock'),
         ),
       ],
     );
@@ -1359,6 +1490,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _showAdjustmentDialog(InventoryItem item) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final quantityController = TextEditingController();
     final reasonController = TextEditingController();
     final unitCostController = TextEditingController(text: '0');
@@ -1383,20 +1518,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
               children: [
                 _detailRow('Current Usable', item.usableStock),
                 _detailRow('Current On Hand', item.stock),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: movementType,
                   decoration: const InputDecoration(
-                    labelText: 'Adjustment Direction *',
+                    labelText: 'Adjustment direction *',
                   ),
                   items: const [
                     DropdownMenuItem(
                       value: 'STOCK_COUNT_ADJUSTMENT',
-                      child: Text('Decrease to match physical count'),
+                      child: Text('Remove stock'),
                     ),
                     DropdownMenuItem(
                       value: 'MANUAL_IN',
-                      child: Text('Increase to match physical count'),
+                      child: Text('Add stock'),
                     ),
                   ],
                   onChanged: (value) {
@@ -1408,7 +1544,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     });
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: quantityController,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -1421,19 +1557,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ),
                 if (isIncrease) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: unitCostController,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
                     decoration: const InputDecoration(
-                      labelText: 'Unit Cost',
+                      labelText: 'Cost per unit (₱)',
                       prefixText: '₱',
                     ),
                   ),
                   if (item.trackExpiry) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
@@ -1452,24 +1588,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         icon: const Icon(Icons.calendar_month_outlined),
                         label: Text(
                           expirationDate == null
-                              ? 'Select Expiration Date *'
+                              ? 'Select expiration date *'
                               : 'Expiration: ${_formatDate(expirationDate!)}',
                         ),
                       ),
                     ),
                   ],
                 ],
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: reasonController,
                   maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'Adjustment Reason *',
+                    labelText: 'Adjustment reason *',
                     hintText: 'Example: Physical count variance on closing',
                   ),
                 ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -1478,7 +1614,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ],
                 if (isSaving) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   const LinearProgressIndicator(),
                 ],
               ],
@@ -1537,6 +1673,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
             try {
               await widget.inventoryRepository.adjustStock(
+                clientRequestId: requestId,
                 inventoryItemId: item.id,
                 movementType: movementType,
                 quantity: quantity,
@@ -1557,12 +1694,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
             } catch (error) {
               updateDialogState?.call(() {
                 isSaving = false;
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
           icon: const Icon(Icons.check, size: 18),
-          label: const Text('Record Adjustment'),
+          label: const Text('Save correction'),
         ),
       ],
     );
@@ -1573,6 +1710,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _showStockOutDialog() async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final results = await Future.wait([
       widget.inventoryRepository.getInventoryItems(),
       widget.inventoryRepository.getUnits(),
@@ -1613,7 +1754,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Release Multiple Supplies',
+      title: 'Take stock out for use',
       width: 820,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -1633,13 +1774,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       color: AppColors.gray700,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: selectedPurpose,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Purpose / Destination *',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Used for *'),
                     items: purposeOptions
                         .map(
                           (purpose) => DropdownMenuItem(
@@ -1657,11 +1796,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     },
                   ),
                   if (selectedPurpose == 'Other') ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: otherPurposeController,
                       decoration: const InputDecoration(
-                        labelText: 'Other Purpose / Destination *',
+                        labelText: 'Used for (other) *',
                         hintText:
                             'Describe where or why supplies were released',
                       ),
@@ -1670,15 +1809,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       }),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: referenceController,
                     decoration: const InputDecoration(
-                      labelText: 'Reference Number',
+                      labelText: 'Reference number',
                       hintText: 'Optional request, log, or handover reference',
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
                       const Expanded(
@@ -1695,11 +1834,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           });
                         },
                         icon: const Icon(Icons.add, size: 17),
-                        label: const Text('Add Supply'),
+                        label: const Text('Add supply'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   for (int index = 0; index < lines.length; index++) ...[
                     _buildStockOutLine(
                       line: lines[index],
@@ -1718,17 +1857,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               });
                             },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                   ],
                   TextField(
                     controller: notesController,
                     maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Transaction Notes',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Notes'),
                   ),
                   if (errorMessage != null) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       errorMessage!,
                       style: AppTextStyles.caption.copyWith(
@@ -1737,7 +1874,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ],
                   if (isSaving) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     const LinearProgressIndicator(),
                   ],
                 ],
@@ -1817,6 +1954,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
             try {
               await widget.inventoryRepository.createStockOut(
+                clientRequestId: requestId,
                 purpose: purpose,
                 items: inputs,
                 referenceNumber: referenceController.text,
@@ -1835,12 +1973,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
             } catch (error) {
               updateDialogState?.call(() {
                 isSaving = false;
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
           icon: const Icon(Icons.check, size: 18),
-          label: const Text('Post Stock Out'),
+          label: const Text('Take out stock'),
         ),
       ],
     );
@@ -1886,10 +2024,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final baseDeduction = issueQuantity * basePerUnit;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.all,
         border: Border.all(color: AppColors.gray200),
       ),
       child: Column(
@@ -1925,7 +2063,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
               ),
               if (onRemove != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 IconButton(
                   tooltip: 'Remove supply',
                   onPressed: onRemove,
@@ -1934,14 +2072,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ],
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           LayoutBuilder(
             builder: (context, constraints) {
               final unit = DropdownButtonFormField<String>(
                 key: ValueKey('${line.itemId}-${line.unitId}'),
                 initialValue: line.unitId,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Release Unit *'),
+                decoration: const InputDecoration(labelText: 'Taken out in *'),
                 items: compatibleUnits
                     .map(
                       (unit) => DropdownMenuItem(
@@ -1959,7 +2097,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   if (value == baseUnit.id) {
                     line.conversionController.text = '1';
                   } else if (_isVariablePackageUnit(issueUnit)) {
-                    line.conversionController.clear();
+                    // A pack size learned at receiving is offered first.
+                    final remembered = _packageMemory.find(
+                      itemId: line.itemId,
+                      unitId: value,
+                    );
+                    if (remembered == null) {
+                      line.conversionController.clear();
+                    } else {
+                      line.conversionController.text = _plainNumber(
+                        remembered.baseQuantity,
+                      );
+                    }
                   } else {
                     line.conversionController.text = _plainNumber(
                       issueUnit.factorToDimensionBase /
@@ -2002,10 +2151,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 return Column(
                   children: [
                     unit,
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     quantity,
                     if (conversion != null) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.sm),
                       conversion,
                     ],
                   ],
@@ -2016,17 +2165,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(child: unit),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(child: quantity),
                   if (conversion != null) ...[
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(child: conversion),
                   ],
                 ],
               );
             },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -2035,11 +2184,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               style: AppTextStyles.caption.copyWith(color: AppColors.gray700),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: line.notesController,
             decoration: const InputDecoration(
-              labelText: 'Line Notes',
+              labelText: 'Notes',
               hintText: 'Optional condition or handover note',
             ),
           ),
@@ -2074,7 +2223,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Add Inventory Item',
+      title: 'Add inventory item',
       width: 620,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -2087,20 +2236,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Item Name *',
+                    labelText: 'Item name *',
                     hintText: 'e.g. Fresh Milk',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: skuController,
                   decoration: const InputDecoration(
-                    labelText: 'SKU',
+                    labelText: 'Item code (SKU)',
                     hintText: 'Optional internal code',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: categoryId,
                   decoration: const InputDecoration(labelText: 'Category *'),
                   items: categories
@@ -2116,10 +2266,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     setDialogState(() => categoryId = value);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: unitId,
-                  decoration: const InputDecoration(labelText: 'Base Unit *'),
+                  decoration: const InputDecoration(labelText: 'Counted in *'),
                   items: units
                       .map(
                         (unit) => DropdownMenuItem(
@@ -2133,39 +2284,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     setDialogState(() => unitId = value);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: reorderController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Low Stock / Reorder Level',
+                    labelText: 'Reorder when usable stock falls to',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: initialStockController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: 'Initial Stock'),
+                  decoration: const InputDecoration(labelText: 'Initial stock'),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: unitCostController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Initial Unit Cost',
+                    labelText: 'Cost per unit (₱)',
                     prefixText: '₱',
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Track Expiration'),
+                  title: const Text('Track expiration'),
                   subtitle: const Text(
                     'Use this for perishable ingredients and products.',
                   ),
@@ -2199,13 +2350,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       icon: const Icon(Icons.calendar_month_outlined),
                       label: Text(
                         expirationDate == null
-                            ? 'Select Initial Expiration Date'
+                            ? 'Select initial expiration date'
                             : 'Expiration: ${_formatDate(expirationDate!)}',
                       ),
                     ),
                   ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -2283,11 +2434,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               });
             } catch (error) {
               updateDialogState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Save Item'),
+          child: const Text('Save item'),
         ),
       ],
     );
@@ -2301,7 +2452,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _detailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Expanded(
@@ -2310,7 +2461,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: AppSpacing.lg),
           Flexible(
             child: Text(
               value,

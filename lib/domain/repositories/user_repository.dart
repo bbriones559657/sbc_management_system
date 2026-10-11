@@ -20,10 +20,4 @@ abstract class UserRepository {
     required String status,
     required String roleId,
   });
-
-  Future<void> createUser(UserRecord user);
-
-  Future<void> updateUser(UserRecord user);
-
-  Future<void> deleteUser(String id);
 }

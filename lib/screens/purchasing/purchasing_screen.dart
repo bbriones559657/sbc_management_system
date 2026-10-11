@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/reporting.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/purchasing_repository.dart';
+import '../../models/package_memory.dart';
 import '../../models/purchasing.dart';
+import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class PurchasingScreen extends StatefulWidget {
   final PurchasingRepository purchasingRepository;
@@ -47,34 +53,34 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Purchasing',
+      title: 'Purchase orders',
       subtitle: 'Create purchase orders and receive several traceable stock items at once.',
       action: ElevatedButton.icon(
         onPressed: _tab == 0
             ? _showCreatePurchaseOrder
             : () => _showReceiveStock(),
         icon: const Icon(Icons.add, size: 18),
-        label: Text(_tab == 0 ? 'New Purchase Order' : 'Receive Stock'),
+        label: Text(_tab == 0 ? 'New purchase order' : 'Receive delivery'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(
-            spacing: 8,
+            spacing: AppSpacing.sm,
             children: [
               ChoiceChip(
-                label: const Text('Purchase Orders'),
+                label: const Text('Purchase orders'),
                 selected: _tab == 0,
                 onSelected: (_) => setState(() => _tab = 0),
               ),
               ChoiceChip(
-                label: const Text('Goods Receipts'),
+                label: const Text('Deliveries'),
                 selected: _tab == 1,
                 onSelected: (_) => setState(() => _tab = 1),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: _tab == 0 ? _buildPurchaseOrders() : _buildGoodsReceipts(),
           ),
@@ -134,7 +140,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       child: StatusBadge(_statusLabel(order.status)),
                     ),
                     Wrap(
-                      spacing: 6,
+                      spacing: AppSpacing.xs,
                       children: [
                         if (order.status == 'DRAFT')
                           TextButton(
@@ -146,7 +152,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                             order.status == 'PARTIALLY_RECEIVED')
                           TextButton(
                             onPressed: () => _showReceiveStock(order: order),
-                            child: const Text('Receive'),
+                            child: const Text('Receive delivery'),
                           ),
                       ],
                     ),
@@ -190,7 +196,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               'Status',
               'Actions',
             ],
-            flexes: const [1, 3, 1, 2, 2, 1, 2, 2, 1],
+            flexes: const [2, 3, 2, 2, 2, 1, 2, 2, 2],
             rows: receipts
                 .map(
                   (receipt) => [
@@ -247,7 +253,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       if (mounted) _showMessage(error.message);
       return;
     } catch (error) {
-      if (mounted) _showMessage(error.toString());
+      if (mounted) _showMessage(errorText(error));
       return;
     }
 
@@ -255,7 +261,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Goods Receipt GR-${receipt.number}',
+      title: 'Delivery GR-${receipt.number}',
       width: 820,
       content: SizedBox(
         height: 520,
@@ -264,8 +270,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Wrap(
-                spacing: 24,
-                runSpacing: 10,
+                spacing: AppSpacing.lg,
+                runSpacing: AppSpacing.sm,
                 children: [
                   _receiptDetail('Supplier', receipt.supplierName),
                   _receiptDetail(
@@ -281,7 +287,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   _receiptDetail(
                     'Purchase Order',
                     receipt.purchaseOrderNumber == null
-                        ? 'Direct Receipt'
+                        ? 'Direct receipt'
                         : 'PO-${receipt.purchaseOrderNumber}',
                   ),
                   _receiptDetail('Posted', _formatDate(receipt.receivedAt)),
@@ -294,20 +300,20 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   _receiptDetail('Total', _money(receipt.total)),
                 ],
               ),
-              const SizedBox(height: 20),
-              const Text('Received Items', style: AppTextStyles.h3),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.lg),
+              const Text('Received items', style: AppTextStyles.h3),
+              const SizedBox(height: AppSpacing.sm),
               if (lines.isEmpty)
                 _emptyLines()
               else
                 for (final line in lines) ...[
                   Container(
                     width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       color: AppColors.gray100,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppRadius.all,
                       border: Border.all(color: AppColors.gray200),
                     ),
                     child: Column(
@@ -327,7 +333,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
                           '${_qty(line.purchaseQuantity)} ${line.purchaseUomCode} '
                           '× ${_money(line.unitCost)} each',
@@ -354,7 +360,55 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
           ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        if (receipt.status == 'POSTED')
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _voidReceipt(receipt);
+            },
+            child: const Text('Void delivery'),
+          ),
+      ],
     );
+  }
+
+  Future<void> _voidReceipt(GoodsReceiptSummary receipt) async {
+    final requestId = newRequestId();
+
+    final voided = await showReasonDialog(
+      context: context,
+      title: 'Void delivery GR-${receipt.number}',
+      message:
+          'This removes the stock this receipt added and voids its supplier '
+          'bill. The receipt stays on record as cancelled. It is only '
+          'possible while none of that stock has been used and the bill is '
+          'unpaid.',
+      confirmLabel: 'Void delivery',
+      onConfirm: (reason) async {
+        try {
+          await widget.purchasingRepository.voidGoodsReceipt(
+            goodsReceiptId: receipt.id,
+            reason: reason,
+            clientRequestId: requestId,
+          );
+          return null;
+        } on PostgrestException catch (error) {
+          return error.message;
+        } catch (error) {
+          return errorText(error);
+        }
+      },
+    );
+
+    if (!voided || !mounted) return;
+    widget.onInventoryChanged?.call();
+    _refresh();
+    _showMessage('Goods receipt GR-${receipt.number} voided.');
   }
 
   Widget _receiptDetail(String label, String value) {
@@ -367,7 +421,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             label,
             style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppSpacing.xs),
           Text(value, style: AppTextStyles.bodyMedium),
         ],
       ),
@@ -407,7 +461,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'New Purchase Order',
+      title: 'New purchase order',
       width: 760,
       barrierDismissible: false,
       content: StatefulBuilder(
@@ -419,6 +473,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: supplierId,
                   decoration: const InputDecoration(labelText: 'Supplier *'),
                   items: suppliers
@@ -434,7 +489,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     setDialogState(() => supplierId = value);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: OutlinedButton.icon(
@@ -455,12 +510,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     icon: const Icon(Icons.calendar_month_outlined),
                     label: Text(
                       expectedDate == null
-                          ? 'Set Expected Date'
+                          ? 'Set expected date'
                           : 'Expected: ${_formatDate(expectedDate!)}',
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     const Expanded(
@@ -473,17 +528,18 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           inventory,
                           units,
                           receiptMode: false,
+                          supplierId: supplierId,
                         );
 
                         if (line == null) return;
                         setDialogState(() => lines.add(line));
                       },
                       icon: const Icon(Icons.add, size: 17),
-                      label: const Text('Add Item'),
+                      label: const Text('Add item'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 _buildLineList(
                   lines: lines,
                   inventory: inventory,
@@ -491,14 +547,14 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     setDialogState(() => lines.removeAt(index));
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: notesController,
                   maxLines: 3,
                   decoration: const InputDecoration(labelText: 'Notes'),
                 ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -507,7 +563,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   ),
                 ],
                 if (isSaving) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   const LinearProgressIndicator(),
                 ],
               ],
@@ -554,11 +610,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             } catch (error) {
               updateDialogState?.call(() {
                 isSaving = false;
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Create Purchase Order'),
+          child: const Text('Create purchase order'),
         ),
       ],
     );
@@ -579,6 +635,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   }
 
   Future<void> _showReceiveStock({PurchaseOrderSummary? order}) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final refs = await Future.wait([
       widget.purchasingRepository.getSuppliers(),
       widget.purchasingRepository.getInventoryItems(),
@@ -627,7 +687,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: order == null ? 'Receive Stock' : 'Receive PO-${order.number}',
+      title: order == null ? 'Receive delivery' : 'Receive PO-${order.number}',
       width: 780,
       barrierDismissible: false,
       content: StatefulBuilder(
@@ -639,6 +699,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: supplierId,
                   decoration: const InputDecoration(labelText: 'Supplier *'),
                   items: suppliers
@@ -656,15 +717,15 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           setDialogState(() => supplierId = value);
                         },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: invoiceController,
                   decoration: const InputDecoration(
-                    labelText: 'Supplier Invoice / Grocery Receipt Number *',
+                    labelText: 'Receipt or invoice number *',
                     hintText: 'Required external reference',
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final invoiceDateButton = OutlinedButton.icon(
@@ -685,7 +746,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       icon: const Icon(Icons.calendar_month_outlined),
                       label: Text(
                         invoiceDate == null
-                            ? 'Invoice / Receipt Date *'
+                            ? 'Invoice / receipt date *'
                             : 'Reference: ${_formatDate(invoiceDate!)}',
                       ),
                     );
@@ -709,7 +770,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       icon: const Icon(Icons.event_outlined),
                       label: Text(
                         dueDate == null
-                            ? 'Bill Due Date'
+                            ? 'Bill due date'
                             : 'Due: ${_formatDate(dueDate!)}',
                       ),
                     );
@@ -719,7 +780,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           invoiceDateButton,
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppSpacing.sm),
                           dueDateButton,
                         ],
                       );
@@ -728,17 +789,17 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     return Row(
                       children: [
                         Expanded(child: invoiceDateButton),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: AppSpacing.sm),
                         Expanded(child: dueDateButton),
                       ],
                     );
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     const Expanded(
-                      child: Text('Received Items', style: AppTextStyles.h3),
+                      child: Text('Received items', style: AppTextStyles.h3),
                     ),
                     if (order == null)
                       OutlinedButton.icon(
@@ -748,16 +809,17 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                             inventory,
                             units,
                             receiptMode: true,
+                            supplierId: supplierId,
                           );
                           if (line == null) return;
                           setDialogState(() => lines.add(line));
                         },
                         icon: const Icon(Icons.add, size: 17),
-                        label: const Text('Add Item'),
+                        label: const Text('Add item'),
                       ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 if (lines.isEmpty)
                   _emptyLines()
                 else
@@ -772,6 +834,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           inventory,
                           units,
                           receiptMode: true,
+                          supplierId: supplierId,
                           initial: lines[index],
                         );
                         if (edited == null) return;
@@ -782,10 +845,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           ? null
                           : () => setDialogState(() => lines.removeAt(index)),
                     ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Create Supplier Bill'),
+                  title: const Text('Create supplier bill'),
                   subtitle: const Text(
                     'Records the amount as payable to the supplier.',
                   ),
@@ -801,11 +864,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   controller: notesController,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                    labelText: 'Receiving Notes',
+                    labelText: 'Receiving notes',
                   ),
                 ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -814,7 +877,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   ),
                 ],
                 if (isSaving) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   const LinearProgressIndicator(),
                 ],
               ],
@@ -872,6 +935,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             updateDialogState?.call(() => isSaving = true);
             try {
               await widget.purchasingRepository.receiveStock(
+                clientRequestId: requestId,
                 supplierId: supplierId,
                 items: lines,
                 purchaseOrderId: order?.id ?? '',
@@ -895,11 +959,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
             } catch (error) {
               updateDialogState?.call(() {
                 isSaving = false;
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Post Receipt'),
+          child: const Text('Save delivery'),
         ),
       ],
     );
@@ -914,8 +978,17 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     List<PurchaseUnitOption> units, {
     required bool receiptMode,
     PurchaseLineInput? initial,
+    String supplierId = '',
   }) async {
     if (inventory.isEmpty || units.isEmpty) return null;
+
+    // What earlier receipts taught about package sizes. Without it the form
+    // still works; the size is simply typed in.
+    var memory = PackageMemory.empty;
+    try {
+      memory = await widget.purchasingRepository.getPackageMemory();
+    } catch (_) {}
+    if (!context.mounted) return null;
 
     String inventoryId = initial?.inventoryItemId ?? inventory.first.id;
     String purchaseUomId = initial?.purchaseUomId ?? inventory.first.baseUomId;
@@ -946,7 +1019,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     DateTime? expirationDate = initial?.expirationDate;
     String? errorMessage;
 
-    final result = await showDialog<PurchaseLineInput>(
+    final result = await showSettledDialog<PurchaseLineInput>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) {
@@ -975,7 +1048,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
 
           return AlertDialog(
             title: Text(
-              receiptMode ? 'Received Item' : 'Purchase Item',
+              receiptMode ? 'Received item' : 'Purchase item',
               style: AppTextStyles.h2,
             ),
             content: SizedBox(
@@ -985,9 +1058,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: inventoryId,
                       decoration: const InputDecoration(
-                        labelText: 'Inventory Item *',
+                        labelText: 'Inventory item *',
                       ),
                       items: inventory
                           .map(
@@ -1012,11 +1086,12 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                               });
                             },
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: purchaseUomId,
                       decoration: const InputDecoration(
-                        labelText: 'Purchase Unit *',
+                        labelText: 'Bought in *',
                       ),
                       items: compatible
                           .map(
@@ -1038,16 +1113,30 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                                 final requiresManual =
                                     nextUnit.dimension == 'COUNT' &&
                                     nextUnit.id != item.baseUomId;
+                                final remembered = memory.find(
+                                  itemId: item.id,
+                                  unitId: nextUnit.id,
+                                  supplierId: supplierId,
+                                );
                                 conversionController.text = requiresManual
-                                    ? ''
+                                    ? remembered == null
+                                          ? ''
+                                          : _qty(remembered.baseQuantity)
                                     : _qty(
                                         nextUnit.factorToBase /
                                             baseUnit.factorToBase,
                                       );
+                                final lastCost = remembered?.lastUnitCost;
+                                if (costController.text.trim().isEmpty &&
+                                    lastCost != null &&
+                                    lastCost > 0) {
+                                  costController.text = lastCost
+                                      .toStringAsFixed(2);
+                                }
                               });
                             },
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.sm),
                     if (needsPackageConversion && !lockedToPurchaseOrder)
                       TextField(
                         controller: conversionController,
@@ -1058,7 +1147,14 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           labelText:
                               '${item.baseUomCode} per ${purchaseUnit.code} *',
                           helperText:
-                              'Example: enter 50 when one box contains 50 ${item.baseUomCode}.',
+                              memory.find(
+                                    itemId: item.id,
+                                    unitId: purchaseUnit.id,
+                                    supplierId: supplierId,
+                                  ) !=
+                                  null
+                              ? 'Filled in from the last delivery. Change it if this pack is different.'
+                              : 'Example: enter 50 when one box contains 50 ${item.baseUomCode}.',
                         ),
                       )
                     else
@@ -1073,7 +1169,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           ),
                         ),
                       ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: quantityController,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -1081,11 +1177,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       ),
                       decoration: InputDecoration(
                         labelText: receiptMode
-                            ? 'Quantity Received *'
-                            : 'Quantity Ordered *',
+                            ? 'Quantity received *'
+                            : 'Quantity ordered *',
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: costController,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -1097,7 +1193,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       ),
                     ),
                     if (receiptMode && item.trackExpiry) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.md),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
@@ -1118,23 +1214,23 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                           icon: const Icon(Icons.calendar_month_outlined),
                           label: Text(
                             expirationDate == null
-                                ? 'Expiration Date *'
+                                ? 'Expiration date *'
                                 : 'Expires: ${_formatDate(expirationDate!)}',
                           ),
                         ),
                       ),
                     ],
                     if (receiptMode) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.md),
                       TextField(
                         controller: lotController,
                         decoration: const InputDecoration(
-                          labelText: 'Lot / Batch Code',
+                          labelText: 'Batch code (optional)',
                         ),
                       ),
                     ],
                     if (errorMessage != null) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.sm),
                       Text(
                         errorMessage!,
                         style: AppTextStyles.caption.copyWith(
@@ -1197,7 +1293,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     ),
                   );
                 },
-                child: const Text('Save Item'),
+                child: const Text('Save item'),
               ),
             ],
           );
@@ -1223,11 +1319,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
       children: [
         for (int index = 0; index < lines.length; index++)
           Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               color: AppColors.gray100,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.all,
               border: Border.all(color: AppColors.gray200),
             ),
             child: LayoutBuilder(
@@ -1268,7 +1364,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       details,
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xs),
                       Align(alignment: Alignment.centerRight, child: actions),
                     ],
                   );
@@ -1302,11 +1398,11 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
     );
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.all,
         border: Border.all(color: AppColors.gray200),
       ),
       child: LayoutBuilder(
@@ -1350,7 +1446,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 details,
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.xs),
                 Align(alignment: Alignment.centerRight, child: actions),
               ],
             );
@@ -1370,10 +1466,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   Widget _emptyLines() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.gray100,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.all,
       ),
       child: Text(
         'No items added yet.',
@@ -1385,7 +1481,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   Widget _error(Object? error) {
     return Center(
       child: Text(
-        'Unable to load purchasing data.\n${error ?? ''}',
+        'Unable to load purchasing data.\n${errorText(error)}',
         textAlign: TextAlign.center,
       ),
     );
@@ -1402,9 +1498,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
         .join(' ');
   }
 
-  static String _money(double value) {
-    return '₱${value.toStringAsFixed(2)}';
-  }
+  static String _money(double value) => formatReportMoney(value);
 
   static String _qty(double value) {
     return value == value.roundToDouble()

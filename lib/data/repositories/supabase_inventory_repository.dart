@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/repositories/inventory_repository.dart';
+import 'package_memory_query.dart';
+import '../../models/package_memory.dart';
 import '../../models/inventory_item.dart';
 import '../../models/inventory_reference.dart';
 
@@ -11,11 +13,14 @@ class SupabaseInventoryRepository implements InventoryRepository {
     : _client = client ?? Supabase.instance.client;
 
   @override
+  Future<PackageMemory> getPackageMemory() => loadPackageMemory(_client);
+
+  @override
   Future<List<InventoryItem>> getInventoryItems() async {
     final rows = await _client
         .from('v_inventory_catalog')
         .select()
-        .order('name');
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -43,7 +48,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
         .from('inventory_categories')
         .select('id, name')
         .eq('is_active', true)
-        .order('name');
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -60,8 +66,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
         .from('units_of_measure')
         .select('id, code, name, dimension, factor_to_dimension_base')
         .eq('is_active', true)
-        .order('dimension')
-        .order('factor_to_dimension_base');
+        .order('dimension', ascending: true)
+        .order('factor_to_dimension_base', ascending: true);
 
     return (rows as List)
         .map(
@@ -118,8 +124,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
         .from('v_inventory_lots')
         .select()
         .eq('inventory_item_id', inventoryItemId)
-        .order('expiration_date')
-        .order('received_at');
+        .order('expiration_date', ascending: true)
+        .order('received_at', ascending: true);
 
     return (rows as List)
         .map(
@@ -168,6 +174,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
     String referenceNumber = '',
     String notes = '',
     DateTime? occurredAt,
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'create_and_post_stock_out',
@@ -179,6 +186,39 @@ class SupabaseInventoryRepository implements InventoryRepository {
         'p_occurred_at': (occurredAt ?? DateTime.now())
             .toUtc()
             .toIso8601String(),
+        'p_client_request_id': clientRequestId,
+      },
+    );
+  }
+
+  @override
+  Future<void> voidStockOut({
+    required String stockOutId,
+    required String reason,
+    String? clientRequestId,
+  }) async {
+    await _client.rpc(
+      'void_stock_out',
+      params: {
+        'p_stock_out_id': stockOutId,
+        'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
+      },
+    );
+  }
+
+  @override
+  Future<void> voidStockCount({
+    required String stockCountId,
+    required String reason,
+    String? clientRequestId,
+  }) async {
+    await _client.rpc(
+      'void_stock_count',
+      params: {
+        'p_stock_count_id': stockCountId,
+        'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
       },
     );
   }
@@ -188,6 +228,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
     required List<StockCountLineInput> items,
     String notes = '',
     DateTime? countedAt,
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'create_and_post_stock_count',
@@ -195,6 +236,23 @@ class SupabaseInventoryRepository implements InventoryRepository {
         'p_items': items.map((item) => item.toJson()).toList(),
         'p_notes': _nullableText(notes),
         'p_counted_at': (countedAt ?? DateTime.now()).toUtc().toIso8601String(),
+        'p_client_request_id': clientRequestId,
+      },
+    );
+  }
+
+  @override
+  Future<void> voidLotDisposal({
+    required String stockMovementId,
+    required String reason,
+    String? clientRequestId,
+  }) async {
+    await _client.rpc(
+      'void_lot_disposal',
+      params: {
+        'p_stock_movement_id': stockMovementId,
+        'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
       },
     );
   }
@@ -205,6 +263,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
     required String movementType,
     required double quantity,
     required String reason,
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'dispose_inventory_lot',
@@ -213,6 +272,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
         'p_movement_type': movementType,
         'p_quantity': quantity,
         'p_reason': reason.trim(),
+        'p_client_request_id': clientRequestId,
       },
     );
   }
@@ -255,6 +315,7 @@ class SupabaseInventoryRepository implements InventoryRepository {
     required String reason,
     DateTime? expirationDate,
     double unitCostBase = 0,
+    String? clientRequestId,
   }) async {
     await _client.rpc(
       'adjust_inventory_stock',
@@ -267,21 +328,8 @@ class SupabaseInventoryRepository implements InventoryRepository {
             ? null
             : _dateOnly(expirationDate),
         'p_unit_cost_base': unitCostBase,
+        'p_client_request_id': clientRequestId,
       },
-    );
-  }
-
-  @override
-  Future<void> createInventoryItem(InventoryItem item) async {
-    throw UnsupportedError(
-      'Use createInventoryItemWithInitialStock() for live inventory items.',
-    );
-  }
-
-  @override
-  Future<void> updateInventoryItem(InventoryItem item) async {
-    throw UnsupportedError(
-      'Inventory quantity changes must use adjustStock().',
     );
   }
 

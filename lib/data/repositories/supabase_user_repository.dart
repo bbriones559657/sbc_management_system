@@ -14,7 +14,7 @@ class SupabaseUserRepository implements UserRepository {
     final rows = await _client
         .from('v_user_management')
         .select()
-        .order('display_name');
+        .order('display_name', ascending: true);
 
     return (rows as List)
         .map((raw) => UserRecord.fromMap(Map<String, dynamic>.from(raw as Map)))
@@ -39,7 +39,7 @@ class SupabaseUserRepository implements UserRepository {
     final rows = await _client
         .from('roles')
         .select('id, code, name')
-        .order('name');
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -90,36 +90,6 @@ class SupabaseUserRepository implements UserRepository {
         'p_status': status.toUpperCase(),
         'p_role_id': roleId.isEmpty ? null : roleId,
       },
-    );
-  }
-
-  @override
-  Future<void> createUser(UserRecord user) {
-    throw UnsupportedError(
-      'Use createEmployee() to create an authenticated employee.',
-    );
-  }
-
-  @override
-  Future<void> updateUser(UserRecord user) async {
-    await updateEmployee(
-      userId: user.id,
-      displayName: user.name,
-      status: user.status,
-      roleId: user.roleId,
-    );
-  }
-
-  @override
-  Future<void> deleteUser(String id) async {
-    final user = await getUserById(id);
-    if (user == null) return;
-
-    await updateEmployee(
-      userId: id,
-      displayName: user.name,
-      status: 'INACTIVE',
-      roleId: user.roleId,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/supplier_repository.dart';
@@ -9,6 +10,7 @@ import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_spacing.dart';
 
 class SuppliersScreen extends StatefulWidget {
   final SupplierRepository supplierRepository;
@@ -54,7 +56,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       action: ElevatedButton.icon(
         onPressed: _showAddSupplier,
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add Supplier'),
+        label: const Text('Add supplier'),
       ),
       child: Column(
         children: [
@@ -65,7 +67,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               hintText: 'Search supplier...',
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: FutureBuilder<List<SupplierRecord>>(
               future: _suppliersFuture,
@@ -77,7 +79,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 if (snapshot.hasError) {
                   return Center(
                     child: Text(
-                      'Unable to load suppliers.\n${snapshot.error}',
+                      'Unable to load suppliers.\n${errorText(snapshot.error)}',
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -155,9 +157,22 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          StatusBadge(latest.status),
-          const SizedBox(height: 16),
-          _row('Contact', latest.contact),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: StatusBadge(latest.status),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _row('Contact Person', _orDash(latest.contactPerson)),
+          _row('Phone', _orDash(latest.phone)),
+          _row('Email', _orDash(latest.email)),
+          _row('Address', _orDash(latest.address)),
+          _row(
+            'Payment Terms',
+            latest.paymentTermsDays == 0
+                ? 'Pay on delivery'
+                : '${latest.paymentTermsDays} days',
+          ),
+          _row('Notes', _orDash(latest.notes)),
           _row('Items Supplied', latest.itemsSupplied),
         ],
       ),
@@ -171,21 +186,43 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             Navigator.pop(context);
             _showEditSupplier(latest);
           },
-          child: const Text('Edit Supplier'),
+          child: const Text('Edit supplier'),
         ),
       ],
     );
   }
 
-  Future<void> _showAddSupplier() async {
-    final nameController = TextEditingController();
-    final contactController = TextEditingController();
+  Future<void> _showAddSupplier() => _showSupplierEditor();
+
+  Future<void> _showEditSupplier(SupplierRecord supplier) =>
+      _showSupplierEditor(existing: supplier);
+
+  String _orDash(String value) => value.trim().isEmpty ? '—' : value.trim();
+
+  /// One form for adding and editing. Each stored detail has its own field,
+  /// so saving sends back what was loaded for anything the user left alone.
+  Future<void> _showSupplierEditor({SupplierRecord? existing}) async {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final contactPersonController = TextEditingController(
+      text: existing?.contactPerson ?? '',
+    );
+    final phoneController = TextEditingController(text: existing?.phone ?? '');
+    final emailController = TextEditingController(text: existing?.email ?? '');
+    final addressController = TextEditingController(
+      text: existing?.address ?? '',
+    );
+    final termsController = TextEditingController(
+      text: (existing?.paymentTermsDays ?? 0).toString(),
+    );
+    final notesController = TextEditingController(text: existing?.notes ?? '');
+    bool active = (existing?.status ?? 'Active').toLowerCase() == 'active';
+    bool saving = false;
     String? errorMessage;
     StateSetter? updateDialogState;
 
     await showPrototypeDialog(
       context: context,
-      title: 'Add Supplier',
+      title: existing == null ? 'Add supplier' : 'Edit supplier',
       width: 520,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -195,15 +232,57 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Supplier Name *'),
+                decoration: const InputDecoration(labelText: 'Supplier name *'),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               TextField(
-                controller: contactController,
-                decoration: const InputDecoration(labelText: 'Phone / Contact'),
+                controller: contactPersonController,
+                decoration: const InputDecoration(labelText: 'Contact person'),
               ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Phone'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: termsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Payment Terms (days)',
+                  helperText:
+                      'Days allowed to pay a bill. 0 = pay on delivery.',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Notes'),
+              ),
+              if (existing != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Active supplier'),
+                  value: active,
+                  onChanged: (value) => setDialogState(() => active = value),
+                ),
+              ],
               if (errorMessage != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -220,6 +299,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         ),
         ElevatedButton(
           onPressed: () async {
+            if (saving) return;
+
             if (nameController.text.trim().isEmpty) {
               updateDialogState?.call(() {
                 errorMessage = 'Supplier name is required.';
@@ -227,111 +308,68 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               return;
             }
 
+            final terms = int.tryParse(termsController.text.trim());
+            if (terms == null || terms < 0) {
+              updateDialogState?.call(() {
+                errorMessage =
+                    'Payment terms must be a whole number of days, 0 or more.';
+              });
+              return;
+            }
+
+            final record =
+                (existing ??
+                        const SupplierRecord(
+                          name: '',
+                          contact: '',
+                          itemsSupplied: '',
+                          status: 'Active',
+                        ))
+                    .copyWith(
+                      name: nameController.text.trim(),
+                      contactPerson: contactPersonController.text.trim(),
+                      phone: phoneController.text.trim(),
+                      email: emailController.text.trim(),
+                      address: addressController.text.trim(),
+                      paymentTermsDays: terms,
+                      notes: notesController.text.trim(),
+                      status: active ? 'Active' : 'Inactive',
+                    );
+
+            saving = true;
             try {
-              await widget.supplierRepository.createSupplier(
-                SupplierRecord(
-                  name: nameController.text.trim(),
-                  contact: contactController.text.trim(),
-                  itemsSupplied: '',
-                  status: 'Active',
-                ),
-              );
+              if (existing == null) {
+                await widget.supplierRepository.createSupplier(record);
+              } else {
+                await widget.supplierRepository.updateSupplier(record);
+              }
 
               if (!mounted) return;
               Navigator.pop(context);
               _notifyDataChanged();
             } on PostgrestException catch (error) {
               updateDialogState?.call(() => errorMessage = error.message);
+            } finally {
+              saving = false;
             }
           },
-          child: const Text('Save Supplier'),
+          child: Text(existing == null ? 'Save supplier' : 'Save changes'),
         ),
       ],
     );
 
     nameController.dispose();
-    contactController.dispose();
-  }
-
-  Future<void> _showEditSupplier(SupplierRecord supplier) async {
-    final nameController = TextEditingController(text: supplier.name);
-    final contactController = TextEditingController(text: supplier.contact);
-    bool active = supplier.status.toLowerCase() == 'active';
-    String? errorMessage;
-    StateSetter? updateDialogState;
-
-    await showPrototypeDialog(
-      context: context,
-      title: 'Edit Supplier',
-      width: 520,
-      content: StatefulBuilder(
-        builder: (_, setDialogState) {
-          updateDialogState = setDialogState;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Supplier Name *'),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: contactController,
-                decoration: const InputDecoration(labelText: 'Phone / Contact'),
-              ),
-              const SizedBox(height: 6),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active Supplier'),
-                value: active,
-                onChanged: (value) => setDialogState(() => active = value),
-              ),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  errorMessage!,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            try {
-              await widget.supplierRepository.updateSupplier(
-                supplier.copyWith(
-                  name: nameController.text.trim(),
-                  contact: contactController.text.trim(),
-                  status: active ? 'Active' : 'Inactive',
-                ),
-              );
-
-              if (!mounted) return;
-              Navigator.pop(context);
-              _notifyDataChanged();
-            } on PostgrestException catch (error) {
-              updateDialogState?.call(() => errorMessage = error.message);
-            }
-          },
-          child: const Text('Save Changes'),
-        ),
-      ],
-    );
-
-    nameController.dispose();
-    contactController.dispose();
+    contactPersonController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    addressController.dispose();
+    termsController.dispose();
+    notesController.dispose();
   }
 
   Widget _row(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Expanded(
@@ -340,7 +378,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.md),
           Flexible(
             child: Text(
               value,

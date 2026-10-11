@@ -14,8 +14,8 @@ class SupabaseMenuRepository implements MenuRepository {
     final rows = await _client
         .from('v_menu_management')
         .select()
-        .order('item_name')
-        .order('variant_name');
+        .order('item_name', ascending: true)
+        .order('variant_name', ascending: true);
 
     return (rows as List)
         .map(
@@ -31,8 +31,8 @@ class SupabaseMenuRepository implements MenuRepository {
         .from('menu_categories')
         .select('id, name')
         .eq('is_active', true)
-        .order('sort_order')
-        .order('name');
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -47,7 +47,7 @@ class SupabaseMenuRepository implements MenuRepository {
     final rows = await _client
         .from('v_inventory_catalog')
         .select('inventory_item_id, name, base_uom_code, usable_quantity')
-        .order('name');
+        .order('name', ascending: true);
 
     return (rows as List)
         .map(
@@ -143,8 +143,8 @@ class SupabaseMenuRepository implements MenuRepository {
         .from('v_menu_modifier_management')
         .select()
         .eq('menu_item_id', menuItemId)
-        .order('group_sort_order')
-        .order('modifier_sort_order');
+        .order('group_sort_order', ascending: true)
+        .order('modifier_sort_order', ascending: true);
 
     final groups = <String, _MutableMenuModifierGroup>{};
 
@@ -162,6 +162,7 @@ class SupabaseMenuRepository implements MenuRepository {
           maxSelections: (row['max_selections'] as num?)?.toInt(),
           isRequired: row['is_required'] == true,
           isActive: row['group_active'] == true,
+          productCount: (row['group_product_count'] as num?)?.toInt() ?? 1,
         ),
       );
 
@@ -179,6 +180,55 @@ class SupabaseMenuRepository implements MenuRepository {
     }
 
     return groups.values.map((group) => group.toRecord()).toList();
+  }
+
+  @override
+  Future<List<ModifierGroupLibraryRecord>> getModifierGroupLibrary() async {
+    final rows = await _client
+        .from('v_modifier_group_library')
+        .select()
+        .order('group_name', ascending: true);
+
+    return (rows as List)
+        .map(
+          (raw) => ModifierGroupLibraryRecord.fromMap(
+            Map<String, dynamic>.from(raw as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> attachModifierGroup({
+    required String menuItemId,
+    required String groupId,
+  }) async {
+    await _client.rpc(
+      'attach_modifier_group',
+      params: {'p_menu_item_id': menuItemId, 'p_modifier_group_id': groupId},
+    );
+  }
+
+  @override
+  Future<void> detachModifierGroup({
+    required String menuItemId,
+    required String groupId,
+  }) async {
+    await _client.rpc(
+      'detach_modifier_group',
+      params: {'p_menu_item_id': menuItemId, 'p_modifier_group_id': groupId},
+    );
+  }
+
+  @override
+  Future<void> reorderModifiers({
+    required String groupId,
+    required List<String> modifierIds,
+  }) async {
+    await _client.rpc(
+      'reorder_modifiers',
+      params: {'p_modifier_group_id': groupId, 'p_modifier_ids': modifierIds},
+    );
   }
 
   @override
@@ -277,6 +327,7 @@ class _MutableMenuModifierGroup {
   final int? maxSelections;
   final bool isRequired;
   final bool isActive;
+  final int productCount;
   final List<MenuModifierRecord> modifiers = [];
 
   _MutableMenuModifierGroup({
@@ -287,6 +338,7 @@ class _MutableMenuModifierGroup {
     required this.maxSelections,
     required this.isRequired,
     required this.isActive,
+    this.productCount = 1,
   });
 
   MenuModifierGroupRecord toRecord() {
@@ -299,6 +351,7 @@ class _MutableMenuModifierGroup {
       isRequired: isRequired,
       isActive: isActive,
       modifiers: List<MenuModifierRecord>.unmodifiable(modifiers),
+      productCount: productCount,
     );
   }
 }
