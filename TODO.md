@@ -123,7 +123,7 @@ The inventory screen offers add/archive, but routine master editing is not a com
 
 **P1 · Workflow gap · R01/R02/R08 · E14/E02**
 
-Prepared items are treated as untracked in the POS view. Product/variant active state exists, but the normal daily availability task is not clearly separated from catalog activation.
+Implementation added in `20261011231000_prepared_item_availability.sql`, `PreparedAvailabilityScreen`, and POS reads: temporary product-level availability with reason, actor audit, CASHIER/MANAGER/ADMIN permission, and live checkout checks for stale carts and open orders. Confirm the migration and tests in CI and rehearse across devices before checking this item off. An offline till uses its cached menu and cannot learn about another device's change until reconnecting; an already-taken offline sale still syncs.
 
 **Acceptance:** decide which staff may mark a prepared item unavailable and restore it, with clear reason/status. Expose a simple action; unavailable items cannot be checked out from a stale cart. Keep temporary availability distinct from permanently archiving a product in the user flow. Finished goods use usable stock and expiry rules. No measured milk/rice deduction or recipe disclosure. Record the agreed responsibility in README.
 

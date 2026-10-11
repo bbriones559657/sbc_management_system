@@ -9,6 +9,7 @@ class PosMenuItem {
   final bool isDefault;
   final String inventoryTrackingMode;
   final double? availableQuantity;
+  final bool isAvailable;
 
   const PosMenuItem({
     required this.variantId,
@@ -21,6 +22,7 @@ class PosMenuItem {
     required this.isDefault,
     required this.inventoryTrackingMode,
     required this.availableQuantity,
+    this.isAvailable = true,
   });
 
   bool get tracksInventory => inventoryTrackingMode == 'FINISHED_GOOD';
@@ -32,6 +34,8 @@ class PosMenuItem {
       tracksInventory && availableQuantity != null && availableQuantity! <= 0;
 
   bool get hasUnknownStock => tracksInventory && availableQuantity == null;
+
+  bool get isUnavailable => !isAvailable;
 
   /// The same keys [PosMenuItem.fromMap] reads, for the device cache.
   Map<String, dynamic> toMap() => {
@@ -45,6 +49,7 @@ class PosMenuItem {
     'is_default': isDefault,
     'inventory_tracking_mode': inventoryTrackingMode,
     'available_quantity': availableQuantity,
+    'is_available': isAvailable,
   };
 
   PosMenuItem withAvailableQuantity(double? quantity) {
@@ -59,6 +64,7 @@ class PosMenuItem {
       isDefault: isDefault,
       inventoryTrackingMode: inventoryTrackingMode,
       availableQuantity: quantity,
+      isAvailable: isAvailable,
     );
   }
 
@@ -75,6 +81,7 @@ class PosMenuItem {
       inventoryTrackingMode:
           map['inventory_tracking_mode']?.toString() ?? 'UNTRACKED',
       availableQuantity: (map['available_quantity'] as num?)?.toDouble(),
+      isAvailable: map['is_available'] != false,
     );
   }
 }

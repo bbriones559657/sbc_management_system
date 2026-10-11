@@ -9,6 +9,10 @@ class MenuVariantRecord {
   final double price;
   final bool isDefault;
   final bool isActive;
+  final bool itemActive;
+  final bool isAvailable;
+  final String availabilityReason;
+  final DateTime? availabilityChangedAt;
   final String inventoryTrackingMode;
   final String finishedInventoryItemId;
   final String finishedInventoryName;
@@ -24,6 +28,10 @@ class MenuVariantRecord {
     required this.price,
     required this.isDefault,
     required this.isActive,
+    this.itemActive = true,
+    this.isAvailable = true,
+    this.availabilityReason = '',
+    this.availabilityChangedAt,
     required this.inventoryTrackingMode,
     required this.finishedInventoryItemId,
     required this.finishedInventoryName,
@@ -41,6 +49,12 @@ class MenuVariantRecord {
       price: (map['price'] as num?)?.toDouble() ?? 0,
       isDefault: map['is_default'] == true,
       isActive: map['variant_active'] == true,
+      itemActive: map['item_active'] == true,
+      isAvailable: map['is_available'] != false,
+      availabilityReason: map['availability_reason']?.toString() ?? '',
+      availabilityChangedAt: DateTime.tryParse(
+        map['availability_changed_at']?.toString() ?? '',
+      ),
       inventoryTrackingMode:
           map['inventory_tracking_mode']?.toString() ?? 'UNTRACKED',
       finishedInventoryItemId:

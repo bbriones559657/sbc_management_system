@@ -99,6 +99,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   NewOrderScreen(
                     orderRepository: widget.orderRepository,
                     onRefreshAll: widget.onDataChanged,
+                    refreshListenable: widget.refreshListenable,
                   ),
             ),
           );

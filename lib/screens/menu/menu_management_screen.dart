@@ -220,7 +220,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: StatusBadge(
-                                      variant.isActive ? 'Active' : 'Inactive',
+                                      !variant.isActive
+                                          ? 'Inactive'
+                                          : variant.isAvailable
+                                          ? 'Active'
+                                          : 'Unavailable',
                                     ),
                                   ),
                                   Align(
@@ -510,9 +514,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Variant active'),
+                    title: const Text('Variant active in catalog'),
                     subtitle: const Text(
-                      'Inactive variants are hidden from the POS.',
+                      'Use Item Availability for a temporary kitchen shortage.',
                     ),
                     value: isActive,
                     onChanged: (value) =>

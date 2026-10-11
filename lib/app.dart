@@ -48,6 +48,7 @@ import 'screens/inventory/inventory_screen.dart';
 import 'screens/menu/categories_screen.dart';
 import 'screens/menu/discounts_screen.dart';
 import 'screens/menu/menu_management_screen.dart';
+import 'screens/menu/prepared_availability_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/orders/shifts_screen.dart';
 import 'screens/purchasing/purchasing_screen.dart';
@@ -386,37 +387,49 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               ),
           ],
         ),
-      if (can('menu.manage'))
+      if (can('menu.manage') || can('menu.availability'))
         AppNavigationGroup(
           label: 'Menu',
           icon: Icons.restaurant_menu_outlined,
           items: [
-            destination(
-              label: 'Menu Management',
-              icon: Icons.fastfood_outlined,
-              page: MenuManagementScreen(
-                menuRepository: _menuRepository,
-                refreshListenable: _businessRefreshController,
-                onDataChanged: _businessRefreshController.refresh,
+            if (can('menu.availability'))
+              destination(
+                label: 'Item Availability',
+                icon: Icons.event_available_outlined,
+                page: PreparedAvailabilityScreen(
+                  menuRepository: _menuRepository,
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
               ),
-            ),
-            destination(
-              label: 'Categories',
-              icon: Icons.category_outlined,
-              page: CategoriesScreen(
-                catalogRepository: _catalogRepository,
-                // Menu, inventory and expense screens all show categories.
-                onDataChanged: _inventoryRefreshController.refresh,
+            if (can('menu.manage')) ...[
+              destination(
+                label: 'Menu Management',
+                icon: Icons.fastfood_outlined,
+                page: MenuManagementScreen(
+                  menuRepository: _menuRepository,
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
               ),
-            ),
-            destination(
-              label: 'Discounts',
-              icon: Icons.local_offer_outlined,
-              page: DiscountsScreen(
-                catalogRepository: _catalogRepository,
-                onDataChanged: _businessRefreshController.refresh,
+              destination(
+                label: 'Categories',
+                icon: Icons.category_outlined,
+                page: CategoriesScreen(
+                  catalogRepository: _catalogRepository,
+                  // Menu, inventory and expense screens all show categories.
+                  onDataChanged: _inventoryRefreshController.refresh,
+                ),
               ),
-            ),
+              destination(
+                label: 'Discounts',
+                icon: Icons.local_offer_outlined,
+                page: DiscountsScreen(
+                  catalogRepository: _catalogRepository,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
+              ),
+            ],
           ],
         ),
       if (can('inventory.view'))

@@ -36,6 +36,7 @@ class StatusBadge extends StatelessWidget {
         lower.contains('void') ||
         lower.contains('reversed') ||
         lower.contains('attention') ||
+        lower.contains('unavailable') ||
         lower.contains('inactive')) {
       foreground = AppColors.primary;
       background = AppColors.primarySoft;

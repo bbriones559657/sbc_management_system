@@ -26,6 +26,22 @@ class SupabaseMenuRepository implements MenuRepository {
   }
 
   @override
+  Future<void> setPreparedItemAvailability({
+    required String menuItemId,
+    required bool isAvailable,
+    required String reason,
+  }) async {
+    await _client.rpc(
+      'set_prepared_item_availability',
+      params: {
+        'p_menu_item_id': menuItemId,
+        'p_is_available': isAvailable,
+        'p_reason': reason.trim(),
+      },
+    );
+  }
+
+  @override
   Future<List<MenuCategoryOption>> getCategories() async {
     final rows = await _client
         .from('menu_categories')

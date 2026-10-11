@@ -35,11 +35,13 @@ import '../../core/theme/app_radius.dart';
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
   final VoidCallback? onRefreshAll;
+  final Listenable? refreshListenable;
 
   const NewOrderScreen({
     super.key,
     required this.orderRepository,
     this.onRefreshAll,
+    this.refreshListenable,
   });
 
   @override
@@ -78,6 +80,20 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     final queue = _offlineQueue;
     _wasOffline = queue?.isOffline ?? false;
     queue?.addListener(_onQueueChanged);
+    widget.refreshListenable?.addListener(_onBusinessRefresh);
+  }
+
+  void _onBusinessRefresh() {
+    if (mounted) setState(_reloadPosData);
+  }
+
+  @override
+  void didUpdateWidget(covariant NewOrderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_onBusinessRefresh);
+      widget.refreshListenable?.addListener(_onBusinessRefresh);
+    }
   }
 
   OfflineSalesQueue? get _offlineQueue =>
@@ -106,6 +122,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   @override
   void dispose() {
     _offlineQueue?.removeListener(_onQueueChanged);
+    widget.refreshListenable?.removeListener(_onBusinessRefresh);
     _searchController.dispose();
     _customerNameController.dispose();
     _tableNumberController.dispose();
@@ -971,12 +988,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   String _stockLabel(PosMenuItem product) {
+    if (product.isUnavailable) return 'Unavailable';
     if (product.isOutOfStock) return 'Out of stock';
     if (product.hasUnknownStock) return 'Stock not checked offline';
     return '${_quantity(product.availableQuantity ?? 0)} available';
   }
 
   Color _stockColor(PosMenuItem product) {
+    if (product.isUnavailable) return AppColors.primary;
     if (product.isOutOfStock) return AppColors.primary;
     if (product.hasUnknownStock) return AppColors.gray700;
     return AppColors.success;
@@ -1014,7 +1033,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (product.tracksInventory)
+                  if (product.tracksInventory || product.isUnavailable)
                     Text(
                       _stockLabel(product),
                       style: AppTextStyles.caption.copyWith(
@@ -1029,7 +1048,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             Text(
               _money(product.price),
               style: AppTextStyles.bodyMedium.copyWith(
-                color: product.isOutOfStock
+                color: product.isOutOfStock || product.isUnavailable
                     ? AppColors.gray700
                     : AppColors.primary,
               ),
@@ -1099,13 +1118,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   _money(product.price),
                   style: AppTextStyles.h3.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: product.isOutOfStock
+                    color: product.isOutOfStock || product.isUnavailable
                         ? AppColors.gray700
                         : AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                if (product.tracksInventory)
+                if (product.tracksInventory || product.isUnavailable)
                   Expanded(
                     child: Text(
                       _stockLabel(product),
@@ -1594,6 +1613,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Future<void> _addProduct(PosMenuItem product) async {
+    if (product.isUnavailable) {
+      _showError('${product.name} is temporarily unavailable.');
+      return;
+    }
     if (!_hasStockForAdditional(product, 1)) {
       _showError(
         '${product.name} only has '
@@ -1820,6 +1843,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   void _increaseLine(int index) {
     final line = _cart[index];
+
+    if (line.product.isUnavailable) {
+      _showError('${line.product.name} is temporarily unavailable.');
+      return;
+    }
 
     if (!_hasStockForAdditional(line.product, 1)) {
       _showError(
@@ -2610,7 +2638,7 @@ class _ProductTapTarget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final out = product.isOutOfStock;
+    final out = product.isOutOfStock || product.isUnavailable;
     final selected = inCart > 0 && !out;
     final price = formatReportMoney(product.price);
     final name = orderLineName(product.name, product.variantName);
@@ -2619,7 +2647,7 @@ class _ProductTapTarget extends StatelessWidget {
       button: true,
       enabled: !out,
       label: out
-          ? '$name, $price, out of stock'
+          ? '$name, $price, ${product.isUnavailable ? 'unavailable' : 'out of stock'}'
           : inCart > 0
           ? 'Add another $name, $price. $inCart in the order'
           : 'Add $name, $price',

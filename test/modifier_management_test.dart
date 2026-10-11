@@ -8,6 +8,13 @@ class _FakeMenuRepository implements MenuRepository {
   final List<String> calls = [];
 
   @override
+  Future<void> setPreparedItemAvailability({
+    required String menuItemId,
+    required bool isAvailable,
+    required String reason,
+  }) async => calls.add('availability $menuItemId $isAvailable $reason');
+
+  @override
   Future<List<MenuVariantRecord>> getVariants() async => const [
     MenuVariantRecord(
       menuItemId: 'item-iced',

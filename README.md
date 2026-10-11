@@ -64,6 +64,7 @@ Internal POS/orders, shifts and cash movements, menu products and variants, modi
 5. Allocate usable perishable lots by earliest expiry (FEFO); use a deterministic receiving order when expiry does not distinguish lots. Expired stock is not usable stock. Disposal is a separate recorded action.
 6. Prepared-to-order food and drinks do not require recipes or measured ingredient consumption. Record difficult-to-track grocery/ingredient purchases as expenses.
 7. Linked countable finished goods may deduct automatically on sale. Prepared-item availability must be maintained operationally; removing recipe tracking does not remove the need to mark an item unavailable.
+   The Item Availability page gives CASHIER, MANAGER, and ADMIN a narrow permission to mark an active prepared product unavailable or restore it with a required reason. The change applies to all its sizes, records the actor/time in the audit trail, shows the item as disabled in the POS, and is checked again at live checkout. Catalog Active remains a separate management setting; countable finished goods continue to use usable inventory. A device that is offline only knows its last cached menu, so it may take an order after another device marks a product unavailable; a sale already taken offline is still reconciled on sync. Staff must coordinate during an outage.
 8. Keep receiving, releases, disposal, counts, and adjustments traceable to their documents and users. Correct posted transactions through an auditable correction flow.
 9. Keep tracked purchases in Purchasing. Supplier payment, purchase, inventory consumption, and operating expense represent different events and must not be added together as if they were the same expense.
 
@@ -77,7 +78,7 @@ The current seed defines `ADMIN`, `MANAGER`, and `CASHIER`:
 | --- | --- | --- |
 | Admin | Account administration, role assignment, and business administration. | Employee creation uses the administrator-only `create-employee` Edge Function. |
 | Manager | Menu, purchasing, inventory, expenses, reports, and permitted employee administration. | Must not receive administrator privileges implicitly. |
-| Cashier | POS, own shift, and permitted inventory visibility. | Current seed does not grant `discounts.apply`; cashier discount authorization needs an explicit business decision. |
+| Cashier | POS, own shift, prepared-item availability, and permitted inventory visibility. | The narrow `menu.availability` permission does not allow editing prices/catalog. Current seed does not grant `discounts.apply`; cashier discount authorization needs an explicit business decision. |
 
 The current paper requires least privilege, application and backend enforcement, no confidential financial summaries for cashiers, no cashier expense/finance/user-administration access, and management authorization for voids/refunds. Staff inventory movements are permitted only when specifically authorized; this is not blanket stock-management permission. Use the two confirmed actor labels in use-case documentation, and document the finer ADMIN/MANAGER permission distinction in the access matrix, especially employee creation and role assignment. Grouping actors does not itself authorize broader access.
 
@@ -96,7 +97,7 @@ Google Sheets **importable export** is the minimum proposed reporting deliverabl
 | Area | Present in source | Missing or incomplete |
 | --- | --- | --- |
 | Categories | Database-backed menu, inventory, and expense category reads. | No category maintenance UI/contracts for create, rename, reorder, and archive. Filtering existing categories is not category management. |
-| Menu and availability | Product/variant editing; prepared vs. finished-stock modes. | A clear daily availability workflow, better category sorting, and actual café setup validation. |
+| Menu and availability | Product/variant editing; prepared vs. finished-stock modes; a separate prepared-product availability action with reason and live checkout guard. | Multi-device offline availability cannot be immediate; café setup and staff/device validation remain. |
 | Modifiers | Menu row's **Modifiers** action opens group and option create/edit; POS supports selections. | Discoverability, shared-group assignment/reuse workflow, and complete receipt presentation. |
 | Discounts | Promotional discount selection during payment and database application logic. | Definition management UI, cashier approval policy, discount reporting, and statutory validation. POS RPC currently allows specific seeded codes. |
 | Orders and receipts | Checkout, shifts, receipt dialogs, refunds, and finished-goods restock approval. | Persisted variant/modifier/discount detail presentation, printable output, and retry-safe checkout. |
