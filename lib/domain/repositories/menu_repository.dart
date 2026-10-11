@@ -3,6 +3,13 @@ import '../../models/menu_management.dart';
 abstract class MenuRepository {
   Future<List<MenuVariantRecord>> getVariants();
 
+  /// A temporary kitchen decision for all variants of a prepared product.
+  Future<void> setPreparedItemAvailability({
+    required String menuItemId,
+    required bool isAvailable,
+    required String reason,
+  });
+
   Future<List<MenuCategoryOption>> getCategories();
 
   Future<List<MenuInventoryOption>> getInventoryOptions();

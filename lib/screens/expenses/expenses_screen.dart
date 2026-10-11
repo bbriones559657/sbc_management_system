@@ -10,6 +10,7 @@ import '../../models/expense_record.dart';
 import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/app_page.dart';
@@ -156,11 +157,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         label: const Text('Add expense'),
       ),
       child: _loadError != null
-          ? Center(
-              child: Text(
-                'Unable to load expenses.\n$_loadError',
-                textAlign: TextAlign.center,
-              ),
+          ? AppRetryPanel(
+              message: 'Unable to load expenses.\n$_loadError',
+              fallback: _loadExpenses,
             )
           : Column(
               children: [

@@ -33,4 +33,16 @@ void main() {
     expect(finishedGood.tracksInventory, isTrue);
     expect(finishedGood.isOutOfStock, isTrue);
   });
+
+  test('a prepared item can be temporarily unavailable without a stock count', () {
+    final prepared = PosMenuItem.fromMap({
+      ...item(mode: 'UNTRACKED').toMap(),
+      'is_available': false,
+    });
+
+    expect(prepared.isUnavailable, isTrue);
+    expect(prepared.isOutOfStock, isFalse);
+    expect(prepared.withAvailableQuantity(null).isUnavailable, isTrue);
+    expect(PosMenuItem.fromMap(prepared.toMap()).isUnavailable, isTrue);
+  });
 }

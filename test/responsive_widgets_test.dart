@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sbc_management_system/core/state/business_refresh_controller.dart';
 import 'package:sbc_management_system/widgets/common/app_dialog.dart';
+import 'package:sbc_management_system/widgets/common/app_retry.dart';
 import 'package:sbc_management_system/widgets/common/data_table_card.dart';
 import 'package:sbc_management_system/widgets/common/responsive_filter_bar.dart';
 import 'package:sbc_management_system/widgets/common/summary_card.dart';
 import 'package:sbc_management_system/widgets/layout/app_page.dart';
+import 'package:sbc_management_system/widgets/layout/app_header_scope.dart';
 
 void main() {
+  testWidgets('retry reloads both subscribed modules through the shell', (
+    tester,
+  ) async {
+    final refresh = BusinessRefreshController();
+    addTearDown(refresh.dispose);
+    var dashboardLoads = 0;
+    var ordersLoads = 0;
+    refresh.addListener(() => dashboardLoads++);
+    refresh.addListener(() => ordersLoads++);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppHeaderScope(
+          onRefresh: refresh.refresh,
+          child: const Scaffold(body: AppRetryButton()),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Try again'));
+    expect(dashboardLoads, 1);
+    expect(ordersLoads, 1);
+  });
+
   testWidgets('a wide table stacks on a phone so its action is on screen', (
     tester,
   ) async {
@@ -51,7 +77,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('filter bar stacks controls on narrow screens', (tester) async {
+  testWidgets('search keeps filters in one scrollable row on a phone', (tester) async {
     _setViewport(tester, const Size(360, 700));
     await tester.pumpWidget(
       const MaterialApp(
@@ -77,7 +103,18 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.byKey(const Key('filter-two'))).dy,
-      greaterThan(tester.getTopLeft(find.byKey(const Key('filter-one'))).dy),
+      tester.getTopLeft(find.byKey(const Key('filter-one'))).dy,
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('filter-two'))).right,
+      greaterThan(360),
+    );
+
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(-100, 0));
+    await tester.pump();
+    expect(
+      tester.getRect(find.byKey(const Key('filter-two'))).right,
+      lessThanOrEqualTo(360),
     );
 
     tester.view.physicalSize = const Size(1000, 700);

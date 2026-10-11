@@ -48,6 +48,7 @@ import 'screens/inventory/inventory_screen.dart';
 import 'screens/menu/categories_screen.dart';
 import 'screens/menu/discounts_screen.dart';
 import 'screens/menu/menu_management_screen.dart';
+import 'screens/menu/prepared_availability_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/orders/shifts_screen.dart';
 import 'screens/purchasing/purchasing_screen.dart';
@@ -84,6 +85,8 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   AppUserProfile? _profile;
   int _unsentSales = 0;
+  bool _wasOffline = false;
+  String? _queueCheckedFor;
   late final ReportingRepository _reportingRepository;
   late final PurchasingRepository _purchasingRepository;
   late final InventoryRepository _inventoryRepository;
@@ -146,8 +149,17 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   /// so open screens reload when the number still on the device drops.
   void _refreshAfterSync() {
     final unsent = _orderRepository.waitingSales.length;
-    if (unsent < _unsentSales) _inventoryRefreshController.refresh();
+    final reconnected = _wasOffline && !_orderRepository.isOffline;
+    if (unsent < _unsentSales || reconnected) {
+      _inventoryRefreshController.refresh();
+    }
     _unsentSales = unsent;
+    _wasOffline = _orderRepository.isOffline;
+  }
+
+  void _refreshAll() {
+    unawaited(_orderRepository.syncPending());
+    _inventoryRefreshController.refresh();
   }
 
   static const _businessProfileKey = 'offline.business_profile.v1';
@@ -240,6 +252,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
     }
 
     await Supabase.instance.client.auth.signOut();
+    _queueCheckedFor = null;
   }
 
   @override
@@ -274,6 +287,12 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
   Widget _buildAuthenticatedApp(AppUserProfile profile) {
     _profile = profile;
     unawaited(_loadBusinessProfile(profile.id));
+    if (_queueCheckedFor != profile.id) {
+      _queueCheckedFor = profile.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_orderRepository.syncPending());
+      });
+    }
     // Each destination names the permission it needs, so a role sees only
     // what it was granted and a role added later sees nothing by default.
     final can = profile.can;
@@ -368,37 +387,49 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               ),
           ],
         ),
-      if (can('menu.manage'))
+      if (can('menu.manage') || can('menu.availability'))
         AppNavigationGroup(
           label: 'Menu',
           icon: Icons.restaurant_menu_outlined,
           items: [
-            destination(
-              label: 'Menu Management',
-              icon: Icons.fastfood_outlined,
-              page: MenuManagementScreen(
-                menuRepository: _menuRepository,
-                refreshListenable: _businessRefreshController,
-                onDataChanged: _businessRefreshController.refresh,
+            if (can('menu.availability'))
+              destination(
+                label: 'Item Availability',
+                icon: Icons.event_available_outlined,
+                page: PreparedAvailabilityScreen(
+                  menuRepository: _menuRepository,
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
               ),
-            ),
-            destination(
-              label: 'Categories',
-              icon: Icons.category_outlined,
-              page: CategoriesScreen(
-                catalogRepository: _catalogRepository,
-                // Menu, inventory and expense screens all show categories.
-                onDataChanged: _inventoryRefreshController.refresh,
+            if (can('menu.manage')) ...[
+              destination(
+                label: 'Menu Management',
+                icon: Icons.fastfood_outlined,
+                page: MenuManagementScreen(
+                  menuRepository: _menuRepository,
+                  refreshListenable: _businessRefreshController,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
               ),
-            ),
-            destination(
-              label: 'Discounts',
-              icon: Icons.local_offer_outlined,
-              page: DiscountsScreen(
-                catalogRepository: _catalogRepository,
-                onDataChanged: _businessRefreshController.refresh,
+              destination(
+                label: 'Categories',
+                icon: Icons.category_outlined,
+                page: CategoriesScreen(
+                  catalogRepository: _catalogRepository,
+                  // Menu, inventory and expense screens all show categories.
+                  onDataChanged: _inventoryRefreshController.refresh,
+                ),
               ),
-            ),
+              destination(
+                label: 'Discounts',
+                icon: Icons.local_offer_outlined,
+                page: DiscountsScreen(
+                  catalogRepository: _catalogRepository,
+                  onDataChanged: _businessRefreshController.refresh,
+                ),
+              ),
+            ],
           ],
         ),
       if (can('inventory.view'))
@@ -479,6 +510,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
               icon: Icons.assignment_outlined,
               page: PurchasingScreen(
                 purchasingRepository: _purchasingRepository,
+                refreshListenable: _businessRefreshController,
                 onInventoryChanged: _inventoryRefreshController.refresh,
               ),
             ),
@@ -578,6 +610,7 @@ class _StreetBowlAppState extends State<StreetBowlApp> {
       groups: groups,
       pages: pages,
       onSignOut: _signOut,
+      onRefresh: _refreshAll,
       banner: OfflineStatusBanner(queue: _orderRepository),
       navigationController: _navigation,
       noticesBuilder: showStockAlerts

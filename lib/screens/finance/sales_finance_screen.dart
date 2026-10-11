@@ -12,6 +12,7 @@ import '../../models/request_id.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
@@ -122,11 +123,10 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Unable to load finance data.\n${errorText(snapshot.error)}',
-                textAlign: TextAlign.center,
-              ),
+            return AppRetryPanel(
+              message: 'Unable to load finance data.',
+              error: snapshot.error,
+              fallback: _refresh,
             );
           }
 
@@ -270,9 +270,10 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
                     if (balancesSnapshot.hasError) {
                       return SectionCard(
-                        child: Text(
-                          'Unable to load supplier payables. '
-                          '${errorText(balancesSnapshot.error)}',
+                        child: AppRetryPanel(
+                          message: 'Unable to load supplier payables.',
+                          error: balancesSnapshot.error,
+                          fallback: _refresh,
                         ),
                       );
                     }
@@ -376,9 +377,10 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
                     if (paymentsSnapshot.hasError) {
                       return SectionCard(
-                        child: Text(
-                          'Unable to load supplier payments. '
-                          '${errorText(paymentsSnapshot.error)}',
+                        child: AppRetryPanel(
+                          message: 'Unable to load supplier payments.',
+                          error: paymentsSnapshot.error,
+                          fallback: _refresh,
                         ),
                       );
                     }

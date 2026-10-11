@@ -11,6 +11,7 @@ import '../../models/purchasing.dart';
 import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 import '../../core/theme/app_radius.dart';
@@ -18,11 +19,13 @@ import '../../core/theme/app_spacing.dart';
 
 class PurchasingScreen extends StatefulWidget {
   final PurchasingRepository purchasingRepository;
+  final Listenable? refreshListenable;
   final VoidCallback? onInventoryChanged;
 
   const PurchasingScreen({
     super.key,
     required this.purchasingRepository,
+    this.refreshListenable,
     this.onInventoryChanged,
   });
 
@@ -39,6 +42,22 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   void initState() {
     super.initState();
     _reload();
+    widget.refreshListenable?.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant PurchasingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_refresh);
+      widget.refreshListenable?.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshListenable?.removeListener(_refresh);
+    super.dispose();
   }
 
   void _reload() {
@@ -1091,7 +1110,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                       isExpanded: true,
                       initialValue: purchaseUomId,
                       decoration: const InputDecoration(
-                        labelText: 'Bought in *',
+                        labelText: 'Purchase unit *',
                       ),
                       items: compatible
                           .map(
@@ -1145,7 +1164,7 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                         ),
                         decoration: InputDecoration(
                           labelText:
-                              '${item.baseUomCode} per ${purchaseUnit.code} *',
+                              '${item.baseUomCode} per ${purchaseUnit.name.toLowerCase()} *',
                           helperText:
                               memory.find(
                                     itemId: item.id,
@@ -1153,8 +1172,8 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
                                     supplierId: supplierId,
                                   ) !=
                                   null
-                              ? 'Filled in from the last delivery. Change it if this pack is different.'
-                              : 'Example: enter 50 when one box contains 50 ${item.baseUomCode}.',
+                              ? 'Filled in from a previous purchase. Change it if this ${purchaseUnit.name.toLowerCase()} is different.'
+                              : 'Example: enter 50 if one ${purchaseUnit.name.toLowerCase()} contains 50 ${item.baseUomCode}.',
                         ),
                       )
                     else
@@ -1479,11 +1498,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   }
 
   Widget _error(Object? error) {
-    return Center(
-      child: Text(
-        'Unable to load purchasing data.\n${errorText(error)}',
-        textAlign: TextAlign.center,
-      ),
+    return AppRetryPanel(
+      message: 'Unable to load purchasing data.',
+      error: error,
+      fallback: _refresh,
     );
   }
 

@@ -55,6 +55,7 @@ insert into public.permissions(code,name,description) values
   ('shift.cash_movement','Shift Cash Movement','Record pay-in/pay-out/cash-drop movements'),
   ('menu.view','View Menu','View menu setup'),
   ('menu.manage','Manage Menu','Manage menu, variants, modifiers and recipes'),
+  ('menu.availability','Set Prepared Item Availability','Temporarily mark prepared products unavailable and restore them'),
   ('orders.create','Create Orders','Create POS orders'),
   ('orders.checkout','Checkout Orders','Complete payment and checkout'),
   ('orders.manage_all','Manage All Orders','View/manage all staff orders'),
@@ -93,7 +94,7 @@ from public.roles r
 join public.permissions p on p.code in (
   'users.view','users.manage','devices.manage','settings.manage',
   'shift.start','shift.manage','shift.cash_movement',
-  'menu.view','menu.manage',
+  'menu.view','menu.manage','menu.availability',
   'orders.create','orders.checkout','orders.manage_all','orders.void','orders.refund',
   'discounts.apply','discounts.manage',
   'inventory.view','inventory.manage','inventory.adjust',
@@ -114,6 +115,7 @@ join public.permissions p on p.code in (
   'shift.start',
   'shift.cash_movement',
   'menu.view',
+  'menu.availability',
   'orders.create',
   'orders.checkout',
   'inventory.view'

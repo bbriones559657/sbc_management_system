@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -25,14 +27,22 @@ import '../../widgets/common/business_profile_scope.dart';
 import '../../widgets/common/order_line.dart';
 import '../../widgets/common/shift_report_view.dart';
 import '../../widgets/common/app_dialog.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/header_brand_motif.dart';
 import '../../core/theme/app_radius.dart';
 
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final VoidCallback? onRefreshAll;
+  final Listenable? refreshListenable;
 
-  const NewOrderScreen({super.key, required this.orderRepository});
+  const NewOrderScreen({
+    super.key,
+    required this.orderRepository,
+    this.onRefreshAll,
+    this.refreshListenable,
+  });
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -58,6 +68,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   bool _startingShift = false;
   bool _endingShift = false;
   bool _submittingOrder = false;
+  bool _wasOffline = false;
   final CheckoutAttempt _checkoutAttempt = CheckoutAttempt();
   String? _startShiftRequestId;
 
@@ -66,10 +77,52 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     super.initState();
     _reloadPosData();
     _loadShift();
+    final queue = _offlineQueue;
+    _wasOffline = queue?.isOffline ?? false;
+    queue?.addListener(_onQueueChanged);
+    widget.refreshListenable?.addListener(_onBusinessRefresh);
+  }
+
+  void _onBusinessRefresh() {
+    if (mounted) setState(_reloadPosData);
+  }
+
+  @override
+  void didUpdateWidget(covariant NewOrderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshListenable != widget.refreshListenable) {
+      oldWidget.refreshListenable?.removeListener(_onBusinessRefresh);
+      widget.refreshListenable?.addListener(_onBusinessRefresh);
+    }
+  }
+
+  OfflineSalesQueue? get _offlineQueue =>
+      widget.orderRepository is OfflineSalesQueue
+          ? widget.orderRepository as OfflineSalesQueue
+          : null;
+
+  void _onQueueChanged() {
+    final offline = _offlineQueue?.isOffline ?? false;
+    if (_wasOffline && !offline && mounted) {
+      setState(_reloadPosData);
+      unawaited(_loadShift());
+    }
+    _wasOffline = offline;
+  }
+
+  Future<void> _refreshPos() async {
+    final queue = _offlineQueue;
+    if (queue != null) await queue.syncPending();
+    widget.onRefreshAll?.call();
+    if (!mounted) return;
+    setState(_reloadPosData);
+    await _loadShift();
   }
 
   @override
   void dispose() {
+    _offlineQueue?.removeListener(_onQueueChanged);
+    widget.refreshListenable?.removeListener(_onBusinessRefresh);
     _searchController.dispose();
     _customerNameController.dispose();
     _tableNumberController.dispose();
@@ -656,6 +709,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               const Text('New order', style: AppTextStyles.h1),
+                              IconButton(
+                                tooltip: 'Refresh POS data',
+                                onPressed: _refreshPos,
+                                icon: const Icon(Icons.refresh),
+                              ),
                             ],
                           );
 
@@ -822,12 +880,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               const SizedBox(height: AppSpacing.sm),
               Text(errorText(error), textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.md),
-              OutlinedButton(
-                onPressed: () {
-                  setState(_reloadPosData);
-                },
-                child: const Text('Try again'),
-              ),
+              AppRetryButton(fallback: _refreshPos),
             ],
           ),
         ),
@@ -935,12 +988,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   String _stockLabel(PosMenuItem product) {
+    if (product.isUnavailable) return 'Unavailable';
     if (product.isOutOfStock) return 'Out of stock';
     if (product.hasUnknownStock) return 'Stock not checked offline';
     return '${_quantity(product.availableQuantity ?? 0)} available';
   }
 
   Color _stockColor(PosMenuItem product) {
+    if (product.isUnavailable) return AppColors.primary;
     if (product.isOutOfStock) return AppColors.primary;
     if (product.hasUnknownStock) return AppColors.gray700;
     return AppColors.success;
@@ -978,7 +1033,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (product.tracksInventory)
+                  if (product.tracksInventory || product.isUnavailable)
                     Text(
                       _stockLabel(product),
                       style: AppTextStyles.caption.copyWith(
@@ -993,7 +1048,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             Text(
               _money(product.price),
               style: AppTextStyles.bodyMedium.copyWith(
-                color: product.isOutOfStock
+                color: product.isOutOfStock || product.isUnavailable
                     ? AppColors.gray700
                     : AppColors.primary,
               ),
@@ -1063,13 +1118,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   _money(product.price),
                   style: AppTextStyles.h3.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: product.isOutOfStock
+                    color: product.isOutOfStock || product.isUnavailable
                         ? AppColors.gray700
                         : AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                if (product.tracksInventory)
+                if (product.tracksInventory || product.isUnavailable)
                   Expanded(
                     child: Text(
                       _stockLabel(product),
@@ -1103,7 +1158,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     final itemCount = _cart.fold<int>(0, (sum, line) => sum + line.quantity);
 
     return SectionCard(
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Current order', style: AppTextStyles.h2),
@@ -1111,6 +1167,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           DropdownButtonFormField<String>(
             isExpanded: true,
             initialValue: _orderType,
+            menuMaxHeight: 240,
             decoration: const InputDecoration(labelText: 'Order type'),
             items: const [
               DropdownMenuItem(value: 'Dine In', child: Text('Dine in')),
@@ -1125,22 +1182,21 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           _buildOrderIdentityFields(),
           const SizedBox(height: AppSpacing.md),
           const Divider(),
-          Expanded(
-            child: _cart.isEmpty
-                ? Center(
-                    child: Text(
-                      'No items added yet.',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.gray500,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _cart.length,
-                    itemBuilder: (_, index) =>
-                        _buildCartItem(_cart[index], index),
-                  ),
-          ),
+          if (_cart.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text(
+                'No items added yet.',
+                style: AppTextStyles.body.copyWith(color: AppColors.gray500),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _cart.length,
+              itemBuilder: (_, index) => _buildCartItem(_cart[index], index),
+            ),
           const Divider(),
           _summaryRow('Items', '$itemCount'),
           const SizedBox(height: AppSpacing.xs),
@@ -1215,6 +1271,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1556,6 +1613,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 
   Future<void> _addProduct(PosMenuItem product) async {
+    if (product.isUnavailable) {
+      _showError('${product.name} is temporarily unavailable.');
+      return;
+    }
     if (!_hasStockForAdditional(product, 1)) {
       _showError(
         '${product.name} only has '
@@ -1571,6 +1632,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       );
     } on PostgrestException catch (error) {
       _showError(error.message);
+      return;
+    } catch (error) {
+      _showError(errorText(error));
       return;
     }
 
@@ -1779,6 +1843,11 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   void _increaseLine(int index) {
     final line = _cart[index];
+
+    if (line.product.isUnavailable) {
+      _showError('${line.product.name} is temporarily unavailable.');
+      return;
+    }
 
     if (!_hasStockForAdditional(line.product, 1)) {
       _showError(
@@ -2569,7 +2638,7 @@ class _ProductTapTarget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final out = product.isOutOfStock;
+    final out = product.isOutOfStock || product.isUnavailable;
     final selected = inCart > 0 && !out;
     final price = formatReportMoney(product.price);
     final name = orderLineName(product.name, product.variantName);
@@ -2578,7 +2647,7 @@ class _ProductTapTarget extends StatelessWidget {
       button: true,
       enabled: !out,
       label: out
-          ? '$name, $price, out of stock'
+          ? '$name, $price, ${product.isUnavailable ? 'unavailable' : 'out of stock'}'
           : inCart > 0
           ? 'Add another $name, $price. $inCart in the order'
           : 'Add $name, $price',
