@@ -16,6 +16,7 @@ class AppShell extends StatefulWidget {
   final List<AppNavigationGroup> groups;
   final List<Widget> pages;
   final Future<void> Function() onSignOut;
+  final VoidCallback? onRefresh;
 
   /// Shown above every page, for app-wide notices.
   final Widget? banner;
@@ -34,6 +35,7 @@ class AppShell extends StatefulWidget {
     required this.groups,
     required this.pages,
     required this.onSignOut,
+    this.onRefresh,
     this.banner,
     this.navigationController,
     this.noticesBuilder,
@@ -43,7 +45,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const double _phoneBreakpoint = 700;
   static const double _expandedSidebarBreakpoint = 1120;
 
@@ -52,13 +54,38 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.navigationController?.addListener(_showRequestedDestination);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.navigationController?.removeListener(_showRequestedDestination);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) widget.onRefresh?.call();
+  }
+
+  Widget? _headerActions(bool compact) {
+    if (widget.onRefresh == null && widget.noticesBuilder == null) {
+      return null;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.onRefresh != null)
+          IconButton(
+            tooltip: 'Refresh data',
+            onPressed: widget.onRefresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        if (widget.noticesBuilder case final builder?) builder(compact),
+      ],
+    );
   }
 
   void _showRequestedDestination() {
@@ -104,7 +131,7 @@ class _AppShellState extends State<AppShell> {
               ),
               Expanded(
                 child: AppHeaderScope(
-                  trailing: widget.noticesBuilder?.call(true),
+                  trailing: _headerActions(true),
                   child: _buildPages(),
                 ),
               ),
@@ -135,10 +162,10 @@ class _AppShellState extends State<AppShell> {
           style: AppTextStyles.h3,
         ),
         actions: [
-          if (widget.noticesBuilder case final notices?)
+          if (_headerActions(true) case final actions?)
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: notices(true),
+              child: actions,
             ),
         ],
         bottom: const PreferredSize(
