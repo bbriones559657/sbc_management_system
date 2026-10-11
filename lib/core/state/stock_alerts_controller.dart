@@ -28,6 +28,9 @@ class StockAlertsController extends ChangeNotifier {
 
   StockAlerts get alerts => _alerts;
 
+  /// Business date used for alert grouping and expiry labels.
+  DateTime get today => _today();
+
   /// The last load's failure, if it failed. Earlier alerts are kept.
   Object? get error => _error;
 
