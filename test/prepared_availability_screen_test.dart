@@ -69,7 +69,9 @@ void main() {
     final repository = _AvailabilityRepository();
     await tester.pumpWidget(
       MaterialApp(
-        home: PreparedAvailabilityScreen(menuRepository: repository),
+        home: Scaffold(
+          body: PreparedAvailabilityScreen(menuRepository: repository),
+        ),
       ),
     );
     await tester.pumpAndSettle();
