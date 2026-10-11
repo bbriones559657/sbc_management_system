@@ -143,7 +143,20 @@ class OfflineOrderRepository extends ChangeNotifier
     if (_syncing || _disposed) return;
 
     final userId = _identity()?.userId;
-    if (userId == null || !_hasWorkToSend) return;
+    if (userId == null) return;
+
+    if (!_hasWorkToSend) {
+      if (!_offline) return;
+      try {
+        await _remote.getOpenShiftId().timeout(requestTimeout);
+        _setOffline(false);
+      } catch (error) {
+        if (!isConnectionFailure(error)) _setOffline(false);
+      } finally {
+        _scheduleRetry();
+      }
+      return;
+    }
 
     _syncing = true;
     notifyListeners();
@@ -214,7 +227,7 @@ class OfflineOrderRepository extends ChangeNotifier
   void _scheduleRetry() {
     _retryTimer?.cancel();
     _retryTimer = null;
-    if (_disposed || !_hasWorkToSend) return;
+    if (_disposed || (!_hasWorkToSend && !_offline)) return;
 
     _retryTimer = Timer(retryInterval, () {
       unawaited(syncPending());
@@ -224,6 +237,7 @@ class OfflineOrderRepository extends ChangeNotifier
   void _setOffline(bool value) {
     if (_offline == value) return;
     _offline = value;
+    _scheduleRetry();
     notifyListeners();
   }
 
@@ -248,6 +262,13 @@ class OfflineOrderRepository extends ChangeNotifier
     required Future<void> Function(T value) save,
     required T? Function() load,
   }) async {
+    // Once the till has detected a failed connection, use its last saved
+    // reference data without waiting for another network timeout.
+    if (_offline) {
+      final kept = load();
+      if (kept != null) return kept;
+    }
+
     try {
       final value = await _online(fetch);
       await save(value);
@@ -348,11 +369,29 @@ class OfflineOrderRepository extends ChangeNotifier
 
   @override
   Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) {
+    final kept = _modifierCache[menuItemId];
+    if (kept != null) {
+      // Product taps must not wait for a network timeout. Refresh the options
+      // for the next tap; checkout still validates them on the server.
+      if (!_offline) unawaited(_refreshModifiers(menuItemId));
+      return Future.value(kept);
+    }
     return _cached<List<PosModifierGroup>>(
       fetch: () => _remote.getModifierGroups(menuItemId),
       save: (groups) => _rememberModifiers(menuItemId, groups),
       load: () => _modifierCache[menuItemId],
     );
+  }
+
+  Future<void> _refreshModifiers(String menuItemId) async {
+    try {
+      final groups = await _online(
+        () => _remote.getModifierGroups(menuItemId),
+      );
+      await _rememberModifiers(menuItemId, groups);
+    } catch (_) {
+      // Keep the last saved options until the connection is restored.
+    }
   }
 
   /// Loads the options of every product once the menu is known, so a
@@ -614,8 +653,8 @@ class OfflineOrderRepository extends ChangeNotifier
     // Anything still on the device goes first, so the server receives the
     // sales in the order they were made and a shift opened offline exists
     // before a sale is posted to it.
-    if (_hasWorkToSend) await syncPending();
-    final mustQueue = _hasWorkToSend;
+    if (_hasWorkToSend && !_offline) await syncPending();
+    final mustQueue = _offline || _hasWorkToSend;
 
     if (!mustQueue) {
       try {
