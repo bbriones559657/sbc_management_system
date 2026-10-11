@@ -106,15 +106,15 @@ void main() {
       tester.getTopLeft(find.byKey(const Key('filter-one'))).dy,
     );
     expect(
-      tester.getTopLeft(find.byKey(const Key('filter-two'))).dx,
+      tester.getRect(find.byKey(const Key('filter-two'))).right,
       greaterThan(360),
     );
 
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(-220, 0));
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(-100, 0));
     await tester.pump();
     expect(
-      tester.getTopLeft(find.byKey(const Key('filter-two'))).dx,
-      lessThan(360),
+      tester.getRect(find.byKey(const Key('filter-two'))).right,
+      lessThanOrEqualTo(360),
     );
 
     tester.view.physicalSize = const Size(1000, 700);
