@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,7 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   final List<String?> shiftStartRequestIds = [];
   final Map<String, OrderRecord> ordersByRequestId = {};
   int modifierCalls = 0;
+  Completer<List<PosModifierGroup>>? pendingModifierLoad;
 
   void _connect() {
     if (!reachable) throw const SocketException('Network is unreachable');
@@ -68,6 +70,8 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   Future<List<PosModifierGroup>> getModifierGroups(String menuItemId) async {
     _connect();
     modifierCalls++;
+    final pending = pendingModifierLoad;
+    if (pending != null) return pending.future;
     return const [
       PosModifierGroup(
         id: 'group-extras',
@@ -261,6 +265,30 @@ void main() {
     },
   );
 
+  test('cached modifiers do not block product taps on a slow request', () async {
+    final till = openTill();
+    await till.getModifierGroups('item-bowl');
+    server.pendingModifierLoad = Completer<List<PosModifierGroup>>();
+
+    final groups = await till.getModifierGroups('item-bowl')
+        .timeout(const Duration(milliseconds: 100));
+    expect(groups.single.options.single.name, 'Egg');
+    server.pendingModifierLoad!.complete(const []);
+    await pumpEventQueue();
+  });
+
+  test('offline reads use the saved menu without another request', () async {
+    final till = openTill();
+    await warmUp(till);
+    server.reachable = false;
+    await till.getPosMenu();
+    expect(till.isOffline, isTrue);
+    expect((await till.getPosMenu()).single.name, 'Rice Bowl');
+    server.reachable = true;
+    await till.syncPending();
+    expect(till.isOffline, isFalse);
+  });
+
   test('waiting sales survive closing the app', () async {
     final till = openTill();
     await warmUp(till);
@@ -330,16 +358,19 @@ void main() {
     expect(server.placedRequestIds, isEmpty);
     expect(till.waitingSales, hasLength(2));
 
-    // Back online: the queue drains first, then the new sale posts live.
+    // Until reconnection is confirmed, new sales join the queue immediately.
     server.reachable = true;
-    final live = await _sell(till, 'request-3');
+    final waiting = await _sell(till, 'request-3');
+    expect(waiting.status, OfflineSale.waitingStatus);
+    expect(server.uploads, isEmpty);
 
+    await till.syncPending();
     expect(server.uploads.map((sale) => sale.requestId), [
       'request-1',
       'request-2',
+      'request-3',
     ]);
-    expect(server.placedRequestIds, ['request-3']);
-    expect(live.status, 'Completed');
+    expect(till.waitingSales, isEmpty);
   });
 
   test('a sale the server refuses is kept for a manager', () async {
