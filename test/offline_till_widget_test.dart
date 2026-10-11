@@ -19,6 +19,7 @@ class _Server extends FakeOrderRepository implements OfflineSaleUploader {
   bool reachable = true;
   String? rejectUploadsWith;
   final List<OfflineSale> uploads = [];
+  int menuLoads = 0;
 
   void _connect() {
     if (!reachable) throw Exception('Failed to fetch');
@@ -27,6 +28,7 @@ class _Server extends FakeOrderRepository implements OfflineSaleUploader {
   @override
   Future<List<PosMenuItem>> getPosMenu() async {
     _connect();
+    menuLoads++;
     return const [
       PosMenuItem(
         variantId: 'variant-latte',
@@ -163,6 +165,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(server.uploads.single.total, 100);
+    expect(server.menuLoads, greaterThan(1));
     expect(find.textContaining('needs attention'), findsNothing);
     expect(find.textContaining('saved on this device'), findsNothing);
 
