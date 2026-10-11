@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/reporting.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/menu_repository.dart';
@@ -10,6 +12,8 @@ import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class MenuManagementScreen extends StatefulWidget {
   final MenuRepository menuRepository;
@@ -63,6 +67,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     setState(_reload);
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _notifyDataChanged() {
     final callback = widget.onDataChanged;
     if (callback == null) {
@@ -75,11 +84,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Menu Management',
+      title: 'Menu management',
       action: ElevatedButton.icon(
         onPressed: _showCreateProduct,
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add Product'),
+        label: const Text('Add product'),
       ),
       child: FutureBuilder<List<MenuVariantRecord>>(
         future: _variantsFuture,
@@ -91,7 +100,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Unable to load menu.\n${snapshot.error}',
+                'Unable to load menu.\n${errorText(snapshot.error)}',
                 textAlign: TextAlign.center,
               ),
             );
@@ -137,7 +146,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     items: [
                       const DropdownMenuItem(
                         value: 'All Categories',
-                        child: Text('All Categories'),
+                        child: Text('All categories'),
                       ),
                       for (final category in categories)
                         DropdownMenuItem(
@@ -159,7 +168,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: variants.isEmpty
                     ? const Center(child: Text('No menu variants found.'))
@@ -214,37 +223,60 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                       variant.isActive ? 'Active' : 'Inactive',
                                     ),
                                   ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        tooltip: 'Edit Variant',
-                                        onPressed: () =>
-                                            _showEditVariant(variant),
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 19,
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: PopupMenuButton<String>(
+                                      tooltip: 'Manage ${variant.itemName}',
+                                      onSelected: (action) {
+                                        switch (action) {
+                                          case 'edit':
+                                            _showEditVariant(variant);
+                                          case 'variant':
+                                            _showAddVariant(variant);
+                                          case 'modifiers':
+                                            _showModifiers(variant);
+                                        }
+                                      },
+                                      itemBuilder: (_) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edit product'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'variant',
+                                          child: Text('Add a variant'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'modifiers',
+                                          child: Text('Modifiers and add-ons'),
+                                        ),
+                                      ],
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.sm,
+                                          vertical: AppSpacing.sm,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: AppRadius.all,
+                                          border: Border.all(
+                                            color: AppColors.gray300,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                'Manage',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: AppTextStyles.body,
+                                              ),
+                                            ),
+                                            Icon(Icons.arrow_drop_down),
+                                          ],
                                         ),
                                       ),
-                                      IconButton(
-                                        tooltip: 'Add Variant',
-                                        onPressed: () =>
-                                            _showAddVariant(variant),
-                                        icon: const Icon(
-                                          Icons.add_circle_outline,
-                                          size: 19,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Modifiers',
-                                        onPressed: () =>
-                                            _showModifiers(variant),
-                                        icon: const Icon(
-                                          Icons.tune_outlined,
-                                          size: 19,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ],
                               )
@@ -266,7 +298,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     if (!mounted || categories.isEmpty) return;
 
     await _showVariantEditor(
-      title: 'Add Product',
+      title: 'Add product',
       categories: categories,
       inventory: inventory,
       existing: null,
@@ -354,11 +386,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   controller: itemNameController,
                   enabled: !isAddingVariant,
                   decoration: const InputDecoration(
-                    labelText: 'Product Name *',
+                    labelText: 'Product name *',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: categoryId,
                   decoration: const InputDecoration(labelText: 'Category *'),
                   items: categories
@@ -376,43 +409,46 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                           setDialogState(() => categoryId = value);
                         },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: variantNameController,
                         decoration: const InputDecoration(
-                          labelText: 'Variant Name *',
+                          labelText: 'Variant name *',
                           hintText: 'Regular, Small, Large, 330 ml Can...',
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: TextField(
                         controller: skuController,
-                        decoration: const InputDecoration(labelText: 'SKU'),
+                        decoration: const InputDecoration(
+                          labelText: 'Item code (SKU)',
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: priceController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Selling Price *',
+                    labelText: 'Selling price *',
                     prefixText: '₱',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: inventoryMode,
                   decoration: const InputDecoration(
-                    labelText: 'Inventory Tracking',
+                    labelText: 'Inventory tracking',
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -421,7 +457,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     ),
                     DropdownMenuItem(
                       value: 'FINISHED_GOOD',
-                      child: Text('Countable Finished Product'),
+                      child: Text('Countable finished product'),
                     ),
                   ],
                   onChanged: (value) {
@@ -433,13 +469,14 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   },
                 ),
                 if (inventoryMode == 'FINISHED_GOOD') ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: finishedInventoryId.isEmpty
                         ? null
                         : finishedInventoryId,
                     decoration: const InputDecoration(
-                      labelText: 'Linked Inventory Item *',
+                      labelText: 'Stock item it uses *',
                     ),
                     items: inventory
                         .map(
@@ -457,7 +494,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     },
                   ),
                 ],
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -470,10 +507,10 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
                 ),
                 if (isEditing) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Variant Active'),
+                    title: const Text('Variant active'),
                     subtitle: const Text(
                       'Inactive variants are hidden from the POS.',
                     ),
@@ -483,7 +520,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
                 ],
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -570,7 +607,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               });
             } catch (error) {
               updateDialogState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
@@ -586,28 +623,45 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   }
 
   Future<void> _showModifiers(MenuVariantRecord variant) async {
-    final groups = await widget.menuRepository.getModifierGroupsForMenuItem(
-      variant.menuItemId,
-    );
+    List<MenuModifierGroupRecord> groups;
+    try {
+      groups = await widget.menuRepository.getModifierGroupsForMenuItem(
+        variant.menuItemId,
+      );
+    } on PostgrestException catch (error) {
+      if (mounted) _showMessage(error.message);
+      return;
+    } catch (error) {
+      if (mounted) _showMessage(errorText(error));
+      return;
+    }
 
     if (!mounted) return;
+
+    // Closes this dialog, runs [action], then reopens it with fresh data.
+    void then(void Function() action) {
+      Navigator.pop(context);
+      action();
+    }
 
     await showPrototypeDialog(
       context: context,
       title: 'Modifiers — ${variant.itemName}',
       width: 720,
       content: SizedBox(
-        height: 430,
+        height: 460,
         child: groups.isEmpty
             ? Center(
                 child: Text(
-                  'No modifier groups configured yet.',
+                  'This product has no modifier groups yet.\n'
+                  'Add one for choices such as size, sweetness or add-ons.',
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.body.copyWith(color: AppColors.gray500),
                 ),
               )
             : ListView.separated(
                 itemCount: groups.length,
-                separatorBuilder: (_, _) => const Divider(height: 24),
+                separatorBuilder: (_, _) => const Divider(height: 28),
                 itemBuilder: (_, index) {
                   final group = groups[index];
 
@@ -617,81 +671,86 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(group.groupName, style: AppTextStyles.h3),
-                                Text(
-                                  _modifierGroupRule(group),
-                                  style: AppTextStyles.caption,
-                                ),
-                              ],
+                            child: Text(
+                              group.groupName,
+                              style: AppTextStyles.h3,
                             ),
                           ),
-                          StatusBadge(group.isActive ? 'Active' : 'Inactive'),
-                          const SizedBox(width: 6),
-                          IconButton(
-                            tooltip: 'Edit Group',
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _showModifierGroupEditor(
-                                variant,
-                                existing: group,
-                              );
-                            },
-                            icon: const Icon(Icons.edit_outlined, size: 19),
-                          ),
-                          IconButton(
-                            tooltip: 'Add Modifier',
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _showModifierEditor(variant, group);
-                            },
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              size: 19,
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: StatusBadge(
+                              group.isActive ? 'Active' : 'Inactive',
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        _modifierGroupRule(group),
+                        style: AppTextStyles.caption,
+                      ),
+                      if (group.productCount > 1) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Shared with ${group.productCount - 1} other '
+                          '${group.productCount == 2 ? 'product' : 'products'}. '
+                          'Changes to this group or its options apply to all '
+                          'of them.',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.warning,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.sm),
                       if (group.modifiers.isEmpty)
                         Text(
-                          'No options in this group.',
+                          group.isRequired
+                              ? 'No options yet. Add at least one, or the '
+                                    'till will skip this group.'
+                              : 'No options yet.',
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.gray500,
                           ),
                         )
                       else
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: group.modifiers
-                              .map(
-                                (modifier) => ActionChip(
-                                  avatar: Icon(
-                                    modifier.isActive
-                                        ? Icons.check_circle_outline
-                                        : Icons.hide_source_outlined,
-                                    size: 16,
-                                  ),
-                                  label: Text(
-                                    modifier.priceDelta == 0
-                                        ? modifier.name
-                                        : '${modifier.name} (+${_money(modifier.priceDelta)})',
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _showModifierEditor(
-                                      variant,
-                                      group,
-                                      existing: modifier,
-                                    );
-                                  },
-                                ),
-                              )
-                              .toList(),
-                        ),
+                        for (
+                          int position = 0;
+                          position < group.modifiers.length;
+                          position++
+                        )
+                          _modifierOptionRow(
+                            variant,
+                            group,
+                            position,
+                            onAction: then,
+                          ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () =>
+                                then(() => _showModifierEditor(variant, group)),
+                            child: const Text('Add option'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => then(
+                              () => _showModifierGroupEditor(
+                                variant,
+                                existing: group,
+                              ),
+                            ),
+                            child: const Text('Edit group'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => then(
+                              () => _detachModifierGroup(variant, group),
+                            ),
+                            child: const Text('Remove from Product'),
+                          ),
+                        ],
+                      ),
                     ],
                   );
                 },
@@ -702,16 +761,240 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
+        OutlinedButton(
+          onPressed: () =>
+              then(() => _showExistingGroupPicker(variant, groups)),
+          child: const Text('Use existing group'),
+        ),
         ElevatedButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-            _showModifierGroupEditor(variant);
-          },
+          onPressed: () => then(() => _showModifierGroupEditor(variant)),
           icon: const Icon(Icons.add, size: 18),
-          label: const Text('Add Modifier Group'),
+          label: const Text('Add modifier group'),
         ),
       ],
     );
+  }
+
+  Widget _modifierOptionRow(
+    MenuVariantRecord variant,
+    MenuModifierGroupRecord group,
+    int position, {
+    required void Function(void Function() action) onAction,
+  }) {
+    final modifier = group.modifiers[position];
+    final price = modifier.priceDelta == 0
+        ? 'Free'
+        : '${modifier.priceDelta > 0 ? '+' : '-'}'
+              '${_money(modifier.priceDelta.abs())}';
+
+    Future<void> move(int step) async {
+      final ids = group.modifiers.map((entry) => entry.id).toList();
+      final id = ids.removeAt(position);
+      ids.insert(position + step, id);
+
+      try {
+        await widget.menuRepository.reorderModifiers(
+          groupId: group.groupId,
+          modifierIds: ids,
+        );
+        if (!mounted) return;
+        _notifyDataChanged();
+      } on PostgrestException catch (error) {
+        if (mounted) _showMessage(error.message);
+      } catch (error) {
+        if (mounted) _showMessage(errorText(error));
+      }
+
+      if (mounted) _showModifiers(variant);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            '${modifier.name} · $price'
+            '${modifier.isActive ? '' : ' · switched off'}',
+            style: modifier.isActive
+                ? AppTextStyles.bodyMedium
+                : AppTextStyles.bodyMedium.copyWith(color: AppColors.gray500),
+          ),
+          TextButton(
+            onPressed: () => onAction(
+              () => _showModifierEditor(variant, group, existing: modifier),
+            ),
+            child: const Text('Edit'),
+          ),
+          TextButton(
+            onPressed: position == 0 ? null : () => onAction(() => move(-1)),
+            child: const Text('Move up'),
+          ),
+          TextButton(
+            onPressed: position == group.modifiers.length - 1
+                ? null
+                : () => onAction(() => move(1)),
+            child: const Text('Move down'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _detachModifierGroup(
+    MenuVariantRecord variant,
+    MenuModifierGroupRecord group,
+  ) async {
+    var confirmed = false;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Remove ${group.groupName}?',
+      width: 480,
+      content: Text(
+        '${variant.itemName} will stop offering this group at the till. '
+        'The group and its options are kept'
+        '${group.productCount > 1 ? ' and stay on the other products that use it' : ' and can be added back with Use Existing Group'}. '
+        'Past orders are not changed.',
+        style: AppTextStyles.body,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            confirmed = true;
+            Navigator.pop(context);
+          },
+          child: const Text('Remove'),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    if (confirmed) {
+      try {
+        await widget.menuRepository.detachModifierGroup(
+          menuItemId: variant.menuItemId,
+          groupId: group.groupId,
+        );
+        if (!mounted) return;
+        _notifyDataChanged();
+      } on PostgrestException catch (error) {
+        if (mounted) _showMessage(error.message);
+      } catch (error) {
+        if (mounted) _showMessage(errorText(error));
+      }
+    }
+
+    if (mounted) _showModifiers(variant);
+  }
+
+  Future<void> _showExistingGroupPicker(
+    MenuVariantRecord variant,
+    List<MenuModifierGroupRecord> attached,
+  ) async {
+    List<ModifierGroupLibraryRecord> library;
+    try {
+      library = await widget.menuRepository.getModifierGroupLibrary();
+    } on PostgrestException catch (error) {
+      if (mounted) _showMessage(error.message);
+      return;
+    } catch (error) {
+      if (mounted) _showMessage(errorText(error));
+      return;
+    }
+
+    if (!mounted) return;
+
+    final attachedIds = attached.map((group) => group.groupId).toSet();
+    final available = library
+        .where((group) => !attachedIds.contains(group.groupId))
+        .toList();
+    String? chosenId;
+
+    await showPrototypeDialog(
+      context: context,
+      title: 'Use an Existing Group',
+      width: 560,
+      content: SizedBox(
+        height: 380,
+        child: available.isEmpty
+            ? Center(
+                child: Text(
+                  'There are no other modifier groups to use.\n'
+                  'Create one with Add Modifier Group.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body.copyWith(color: AppColors.gray500),
+                ),
+              )
+            : ListView.separated(
+                itemCount: available.length,
+                separatorBuilder: (_, _) => const Divider(height: 20),
+                itemBuilder: (_, index) {
+                  final group = available[index];
+                  final usedBy = group.productCount == 0
+                      ? 'Not used by any product'
+                      : 'Used by ${group.productNames}';
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              group.groupName,
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                            Text(
+                              '${group.activeOptionCount} '
+                              '${group.activeOptionCount == 1 ? 'option' : 'options'}'
+                              ' · $usedBy',
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      OutlinedButton(
+                        onPressed: () {
+                          chosenId = group.groupId;
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Use'),
+                      ),
+                    ],
+                  );
+                },
+              ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    final groupId = chosenId;
+    if (groupId != null) {
+      try {
+        await widget.menuRepository.attachModifierGroup(
+          menuItemId: variant.menuItemId,
+          groupId: groupId,
+        );
+        if (!mounted) return;
+        _notifyDataChanged();
+      } on PostgrestException catch (error) {
+        if (mounted) _showMessage(error.message);
+      } catch (error) {
+        if (mounted) _showMessage(errorText(error));
+      }
+    }
+
+    if (mounted) _showModifiers(variant);
   }
 
   Future<void> _showModifierGroupEditor(
@@ -734,7 +1017,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: existing == null ? 'Add Modifier Group' : 'Edit Modifier Group',
+      title: existing == null ? 'Add modifier group' : 'Edit modifier group',
       width: 540,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -745,11 +1028,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Group Name *',
+                  labelText: 'Group name *',
                   hintText: 'e.g. Milk Choice, Add-ons',
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Expanded(
@@ -757,11 +1040,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                       controller: minController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Minimum Selections',
+                        labelText: 'Minimum selections',
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: TextField(
                       controller: maxController,
@@ -774,7 +1057,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Required'),
@@ -797,7 +1080,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   onChanged: (value) => setDialogState(() => active = value),
                 ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -862,11 +1145,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               });
             } catch (error) {
               dialogSetState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: Text(existing == null ? 'Create Group' : 'Save Changes'),
+          child: Text(existing == null ? 'Create group' : 'Save changes'),
         ),
       ],
     );
@@ -909,17 +1192,17 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Modifier Name *',
+                    labelText: 'Modifier name *',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: priceController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Additional Price',
+                    labelText: 'Additional price',
                     prefixText: '₱',
                   ),
                 ),
@@ -930,7 +1213,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     value: active,
                     onChanged: (value) => setDialogState(() => active = value),
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -942,7 +1225,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
                 ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -998,11 +1281,11 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
               });
             } catch (error) {
               dialogSetState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: Text(existing == null ? 'Add Modifier' : 'Save Changes'),
+          child: Text(existing == null ? 'Add modifier' : 'Save changes'),
         ),
       ],
     );
@@ -1011,18 +1294,21 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     priceController.dispose();
   }
 
+  /// Says in plain words what the customer must or may choose.
   String _modifierGroupRule(MenuModifierGroupRecord group) {
+    final min = group.isRequired && group.minSelections < 1
+        ? 1
+        : group.minSelections;
     final max = group.maxSelections;
-    if (max == null) {
-      return 'Minimum ${group.minSelections}'
-          '${group.isRequired ? ' • Required' : ''}';
+
+    if (min == 0) {
+      return max == null
+          ? 'Optional · choose any number'
+          : 'Optional · choose up to $max';
     }
-    if (group.minSelections == max) {
-      return 'Select exactly $max'
-          '${group.isRequired ? ' • Required' : ''}';
-    }
-    return 'Select ${group.minSelections}–$max'
-        '${group.isRequired ? ' • Required' : ''}';
+    if (max == null) return 'Required · choose at least $min';
+    if (min == max) return 'Required · choose exactly $min';
+    return 'Required · choose $min to $max';
   }
 
   String _inventorySummary(MenuVariantRecord variant) {
@@ -1036,9 +1322,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     }
   }
 
-  static String _money(double value) {
-    return '₱${value.toStringAsFixed(2)}';
-  }
+  static String _money(double value) => formatReportMoney(value);
 
   static String _qty(double value) {
     if (value == value.roundToDouble()) {

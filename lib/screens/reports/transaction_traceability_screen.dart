@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../core/export/export_file.dart';
+import '../../core/export/xlsx.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/reporting_repository.dart';
 import '../../models/reporting.dart';
+import '../../widgets/common/business_profile_scope.dart';
+import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class TransactionTraceabilityScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
@@ -62,15 +69,114 @@ class _TransactionTraceabilityScreenState
     setState(_reload);
   }
 
+  /// What is on screen, with the filters applied, is what gets exported.
+  List<TransactionTraceRecord> _visibleRecords = const [];
+
+  Future<void> _export() async {
+    final records = _visibleRecords;
+    if (records.isEmpty) {
+      _showMessage('There is nothing to export for these filters.');
+      return;
+    }
+
+    final today = DateTime.now();
+    final search = _search.trim();
+    final workbook = XlsxWorkbook([
+      XlsxSheet(
+        name: 'Transactions',
+        title:
+            '${BusinessProfileScope.of(context).tradeName} — '
+            'Transactions',
+        subtitles: [
+          'Last $_days days, up to 500 recent records · exported '
+              '${formatReportDateTime(today)}',
+          [
+            'Type: ${_eventType == 'ALL' ? 'All' : _eventLabel(_eventType)}',
+            if (search.isNotEmpty) 'Search: "$search"',
+          ].join(' · '),
+          // Different kinds of event, so the amounts are not added up.
+          'Purchases, payments, sales and refunds are separate events; the '
+              'Amount column has no total.',
+        ],
+        columns: const [
+          XlsxColumn('Date & Time', XlsxKind.dateTime),
+          XlsxColumn('Type', XlsxKind.text),
+          XlsxColumn('Document', XlsxKind.text),
+          XlsxColumn('External Reference', XlsxKind.text),
+          XlsxColumn('Details', XlsxKind.text),
+          XlsxColumn('Supplier / Customer', XlsxKind.text),
+          XlsxColumn('Amount', XlsxKind.money),
+          XlsxColumn('Recorded By', XlsxKind.text),
+          XlsxColumn('Status', XlsxKind.text),
+          XlsxColumn('Void Reason', XlsxKind.text),
+        ],
+        rows: [
+          for (final record in records)
+            [
+              record.occurredAt,
+              _eventLabel(record.eventType),
+              record.documentNumber,
+              record.externalReference,
+              record.description,
+              record.partyName,
+              record.amount,
+              record.actorName,
+              record.status,
+              record.voidReason,
+            ],
+        ],
+      ),
+    ]);
+    final exported = await exportBytesFile(
+      fileName: reportFileName(
+        'transactions-last-$_days-days',
+        today.subtract(Duration(days: _days - 1)),
+        today,
+        extension: 'xlsx',
+      ),
+      bytes: workbook.encode(),
+      mimeType: XlsxWorkbook.mimeType,
+    );
+    if (exported && !exportSavesToDownloads) return;
+    _showMessage(
+      exported
+          ? 'Saved to your downloads. It opens in Excel or Google Sheets.'
+          : 'The file could not be exported. Try again.',
+    );
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Transaction Traceability',
+      title: 'Find a transaction',
       subtitle: 'Follow each document back to its receipt/reference and employee (up to 500 recent records).',
-      action: OutlinedButton.icon(
-        onPressed: _refresh,
-        icon: const Icon(Icons.refresh, size: 18),
-        label: const Text('Refresh'),
+      action: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _export,
+            icon: Icon(
+              exportSavesToDownloads
+                  ? Icons.download_outlined
+                  : Icons.share_outlined,
+              size: 18,
+            ),
+            label: Text(exportExcelLabel),
+          ),
+          OutlinedButton.icon(
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Refresh'),
+          ),
+        ],
       ),
       child: FutureBuilder<List<TransactionTraceRecord>>(
         future: _traceFuture,
@@ -82,7 +188,7 @@ class _TransactionTraceabilityScreenState
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Unable to load transaction history.\n${snapshot.error}',
+                'Unable to load transaction history.\n${errorText(snapshot.error)}',
                 textAlign: TextAlign.center,
               ),
             );
@@ -91,11 +197,12 @@ class _TransactionTraceabilityScreenState
           final records = _applyFilters(
             snapshot.data ?? const <TransactionTraceRecord>[],
           );
+          _visibleRecords = records;
 
           return Column(
             children: [
               _buildFilters(),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: records.isEmpty
                     ? const SectionCard(
@@ -149,11 +256,38 @@ class _TransactionTraceabilityScreenState
                                       ),
                                     ],
                                   ),
-                                  Text(
-                                    record.description,
-                                    style: AppTextStyles.body,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        record.description,
+                                        style: AppTextStyles.body,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (record.isVoided ||
+                                          record.status == 'REVERSAL')
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: AppSpacing.xs,
+                                          ),
+                                          child: StatusBadge(
+                                            record.status == 'REVERSAL'
+                                                ? 'Reversal'
+                                                : record.status == 'REVERSED'
+                                                ? 'Reversed'
+                                                : 'Voided',
+                                          ),
+                                        ),
+                                      if (record.voidReason.isNotEmpty)
+                                        Text(
+                                          'Reason: ${record.voidReason}',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.gray700,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                   Text(
                                     record.partyName.isEmpty
@@ -166,9 +300,14 @@ class _TransactionTraceabilityScreenState
                                         ? '—'
                                         : _money(record.amount!),
                                     style: AppTextStyles.bodyMedium.copyWith(
-                                      color: (record.amount ?? 0) < 0
+                                      color: record.isVoided
+                                          ? AppColors.gray500
+                                          : (record.amount ?? 0) < 0
                                           ? AppColors.error
                                           : AppColors.black,
+                                      decoration: record.isVoided
+                                          ? TextDecoration.lineThrough
+                                          : null,
                                     ),
                                   ),
                                   Text(
@@ -219,21 +358,21 @@ class _TransactionTraceabilityScreenState
     final type = DropdownButtonFormField<String>(
       initialValue: _eventType,
       isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Transaction Type'),
+      decoration: const InputDecoration(labelText: 'Transaction type'),
       items: const [
-        DropdownMenuItem(value: 'ALL', child: Text('All Transactions')),
+        DropdownMenuItem(value: 'ALL', child: Text('All transactions')),
         DropdownMenuItem(value: 'SALE', child: Text('Sales')),
         DropdownMenuItem(value: 'REFUND', child: Text('Refunds')),
-        DropdownMenuItem(value: 'STOCK_IN', child: Text('Stock In')),
-        DropdownMenuItem(value: 'STOCK_OUT', child: Text('Stock Out')),
+        DropdownMenuItem(value: 'STOCK_IN', child: Text('Stock in')),
+        DropdownMenuItem(value: 'STOCK_OUT', child: Text('Stock out')),
         DropdownMenuItem(
           value: 'INVENTORY_COUNT',
-          child: Text('Inventory Counts'),
+          child: Text('Inventory counts'),
         ),
         DropdownMenuItem(value: 'EXPENSE', child: Text('Expenses')),
         DropdownMenuItem(
           value: 'SUPPLIER_PAYMENT',
-          child: Text('Supplier Payments'),
+          child: Text('Supplier payments'),
         ),
       ],
       onChanged: (value) {
@@ -306,10 +445,7 @@ class _TransactionTraceabilityScreenState
     }
   }
 
-  String _money(double value) {
-    final absolute = value.abs().toStringAsFixed(2);
-    return value < 0 ? '-₱$absolute' : '₱$absolute';
-  }
+  String _money(double value) => formatReportMoney(value);
 
   String _dateTime(DateTime value) {
     const months = [
@@ -347,10 +483,13 @@ class _EventTypeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: AppRadius.all,
       ),
       child: Text(
         label,

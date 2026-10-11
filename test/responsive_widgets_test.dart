@@ -7,6 +7,50 @@ import 'package:sbc_management_system/widgets/common/summary_card.dart';
 import 'package:sbc_management_system/widgets/layout/app_page.dart';
 
 void main() {
+  testWidgets('a wide table stacks on a phone so its action is on screen', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(360, 700));
+    await tester.pumpWidget(_wideTable());
+
+    final button = tester.getRect(find.widgetWithText(OutlinedButton, 'Void'));
+    expect(button.left, greaterThanOrEqualTo(0));
+    expect(button.right, lessThanOrEqualTo(360));
+    // Each value is labelled with its column heading.
+    expect(find.text('Status'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('on a tablet the table stacks instead of scrolling sideways', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(700, 700));
+    await tester.pumpWidget(_wideTable());
+
+    final button = tester.getRect(find.widgetWithText(OutlinedButton, 'Void'));
+    expect(button.right, lessThanOrEqualTo(700));
+    expect(find.text('Status'), findsOneWidget);
+    // Values sit two across rather than one per line.
+    expect(
+      tester.getTopLeft(find.text('Released to service counter')).dx,
+      greaterThan(tester.getTopLeft(find.text('10/2 9:18 PM')).dx + 200),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the same table stays a table on a wide screen', (tester) async {
+    _setViewport(tester, const Size(1200, 700));
+    await tester.pumpWidget(_wideTable());
+
+    final document = tester.getTopLeft(find.text('SO-1'));
+    final button = tester.getTopLeft(
+      find.widgetWithText(OutlinedButton, 'Void'),
+    );
+    // Columns sit side by side on one row.
+    expect(button.dx, greaterThan(document.dx + 600));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('filter bar stacks controls on narrow screens', (tester) async {
     _setViewport(tester, const Size(360, 700));
     await tester.pumpWidget(
@@ -106,6 +150,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a dialog can hold content that adapts to its width', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(1280, 800));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPrototypeDialog(
+                context: context,
+                title: 'Adaptive Dialog',
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LayoutBuilder(
+                      builder: (_, constraints) =>
+                          Text('Width ${constraints.maxWidth.round()}'),
+                    ),
+                  ],
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // AlertDialog measured intrinsic size, which a LayoutBuilder cannot
+    // answer, and the purchase order form went blank after adding an item.
+    expect(tester.takeException(), isNull);
+    expect(find.text('Width 520'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+  });
+
   testWidgets('prototype dialogs scroll instead of overflowing', (
     tester,
   ) async {
@@ -150,6 +233,37 @@ void main() {
     expect(find.byType(SingleChildScrollView), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+}
+
+Widget _wideTable() {
+  return MaterialApp(
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: DataTableCard(
+          headers: const [
+            'Document',
+            'Date',
+            'Purpose',
+            'Reference',
+            'Items',
+            'Status',
+            'Action',
+          ],
+          rows: [
+            [
+              const Text('SO-1'),
+              const Text('10/2 9:18 PM'),
+              const Text('Released to service counter'),
+              const Text('—'),
+              const Text('1'),
+              const Text('POSTED'),
+              OutlinedButton(onPressed: () {}, child: const Text('Void')),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 void _setViewport(WidgetTester tester, Size size) {

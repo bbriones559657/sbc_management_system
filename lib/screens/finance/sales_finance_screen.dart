@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/finance_repository.dart';
 import '../../domain/repositories/reporting_repository.dart';
 import '../../models/finance_management.dart';
 import '../../models/reporting.dart';
+import '../../models/request_id.dart';
+import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_spacing.dart';
 
 class SalesFinanceScreen extends StatefulWidget {
   final ReportingRepository reportingRepository;
@@ -33,8 +37,9 @@ class SalesFinanceScreen extends StatefulWidget {
 
 class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   int _days = 7;
-  late Future<ReportingSnapshot> _snapshotFuture;
+  late Future<BusinessReport> _reportFuture;
   late Future<List<SupplierBalanceRecord>> _balancesFuture;
+  late Future<List<SupplierPaymentRecord>> _paymentsFuture;
 
   @override
   void initState() {
@@ -59,8 +64,14 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   }
 
   void _reload() {
-    _snapshotFuture = widget.reportingRepository.getSnapshot(days: _days);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _reportFuture = widget.reportingRepository.getBusinessReport(
+      from: today.subtract(Duration(days: _days - 1)),
+      to: today,
+    );
     _balancesFuture = widget.financeRepository.getSupplierBalances();
+    _paymentsFuture = widget.financeRepository.getSupplierPayments();
   }
 
   void _changeDays(int days) {
@@ -87,12 +98,13 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Sales & Finance',
+      title: 'Sales and finance',
       action: SizedBox(
         width: 180,
         child: DropdownButtonFormField<int>(
+          isExpanded: true,
           initialValue: _days,
-          decoration: const InputDecoration(labelText: 'Report Period'),
+          decoration: const InputDecoration(labelText: 'Report period'),
           items: const [
             DropdownMenuItem(value: 7, child: Text('Last 7 Days')),
             DropdownMenuItem(value: 30, child: Text('Last 30 Days')),
@@ -102,8 +114,8 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
           },
         ),
       ),
-      child: FutureBuilder<ReportingSnapshot>(
-        future: _snapshotFuture,
+      child: FutureBuilder<BusinessReport>(
+        future: _reportFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -112,15 +124,24 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Unable to load finance data.\n${snapshot.error}',
+                'Unable to load finance data.\n${errorText(snapshot.error)}',
                 textAlign: TextAlign.center,
               ),
             );
           }
 
-          final data = snapshot.data!;
-          final finance = data.finance;
-          final dailyRows = data.dailySales.reversed.take(10).toList();
+          final report = snapshot.data!;
+          final finance = report.summary;
+          final days = report.section('by_day');
+          // Newest first, and only days on which something happened.
+          final dailyRows = days.rows.reversed
+              .where(
+                (row) =>
+                    ((row['orders'] as num?) ?? 0) > 0 ||
+                    ((row['refunds'] as num?) ?? 0) > 0,
+              )
+              .take(10)
+              .toList();
 
           return SingleChildScrollView(
             child: Column(
@@ -128,7 +149,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                 SummaryCardGrid(
                   children: [
                     SummaryCard(
-                      label: 'Net Sales',
+                      label: 'Net sales',
                       value: _money(finance.netSales),
                       subtitle: '${_money(finance.refunds)} refunded in period',
                       accentColor: AppColors.primary,
@@ -140,20 +161,20 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                       accentColor: AppColors.orange,
                     ),
                     SummaryCard(
-                      label: 'Net After Expenses',
-                      value: _money(finance.netAfterExpenses),
-                      subtitle: 'Net sales less posted expenses',
+                      label: 'Net sales less expenses',
+                      value: _money(finance.netSalesLessExpenses),
+                      subtitle: 'Net sales less posted expenses. Not profit.',
                       accentColor: AppColors.black,
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: AppSpacing.lg),
                 ResponsiveSplit(
                   primary: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Sales Summary', style: AppTextStyles.h3),
-                      const SizedBox(height: 12),
+                      const Text('Sales summary', style: AppTextStyles.h3),
+                      const SizedBox(height: AppSpacing.md),
                       if (dailyRows.isEmpty)
                         const SectionCard(
                           child: Text('No completed sales in this period.'),
@@ -164,33 +185,23 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                             'Date',
                             'Orders',
                             'Gross Sales',
+                            'Discounts',
                             'Refunds',
                             'Net Sales',
                           ],
-                          flexes: const [2, 1, 2, 2, 2],
+                          flexes: const [2, 1, 2, 2, 2, 2],
                           rows: dailyRows
                               .map(
                                 (row) => [
-                                  Text(
-                                    _date(row.date),
-                                    style: AppTextStyles.bodyMedium,
-                                  ),
-                                  Text(
-                                    '${row.orders}',
-                                    style: AppTextStyles.body,
-                                  ),
-                                  Text(
-                                    _money(row.grossSales),
-                                    style: AppTextStyles.body,
-                                  ),
-                                  Text(
-                                    _money(row.refunds),
-                                    style: AppTextStyles.body,
-                                  ),
-                                  Text(
-                                    _money(row.netSales),
-                                    style: AppTextStyles.bodyMedium,
-                                  ),
+                                  for (final column in days.columns.take(6))
+                                    Text(
+                                      days.display(row, column),
+                                      style:
+                                          column.key == 'date' ||
+                                              column.key == 'net_sales'
+                                          ? AppTextStyles.bodyMedium
+                                          : AppTextStyles.body,
+                                    ),
                                 ],
                               )
                               .toList(),
@@ -202,26 +213,28 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Financial Summary',
+                          'Financial summary',
                           style: AppTextStyles.h3,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSpacing.lg),
                         _FinanceRow('Gross Sales', _money(finance.grossSales)),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
+                        _FinanceRow('Discounts', _money(finance.discounts)),
+                        const SizedBox(height: AppSpacing.md),
                         _FinanceRow('Refunds', _money(finance.refunds)),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         _FinanceRow('Net Sales', _money(finance.netSales)),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         _FinanceRow('Expenses', _money(finance.expenses)),
                         const Divider(height: 32),
                         _FinanceRow(
-                          'Net After Expenses',
-                          _money(finance.netAfterExpenses),
+                          'Net Sales Less Expenses',
+                          _money(finance.netSalesLessExpenses),
                           emphasis: true,
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: AppSpacing.lg),
                         _FinanceRow('Completed Orders', '${finance.orders}'),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         _FinanceRow(
                           'Average Order',
                           _money(finance.averageOrder),
@@ -230,11 +243,11 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: AppSpacing.lg),
                 Row(
                   children: [
                     const Expanded(
-                      child: Text('Supplier Payables', style: AppTextStyles.h3),
+                      child: Text('Supplier payables', style: AppTextStyles.h3),
                     ),
                     OutlinedButton.icon(
                       onPressed: _refresh,
@@ -243,14 +256,14 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 FutureBuilder<List<SupplierBalanceRecord>>(
                   future: _balancesFuture,
                   builder: (context, balancesSnapshot) {
                     if (balancesSnapshot.connectionState ==
                         ConnectionState.waiting) {
                       return const Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: EdgeInsets.all(AppSpacing.lg),
                         child: CircularProgressIndicator(),
                       );
                     }
@@ -259,7 +272,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                       return SectionCard(
                         child: Text(
                           'Unable to load supplier payables. '
-                          '${balancesSnapshot.error}',
+                          '${errorText(balancesSnapshot.error)}',
                         ),
                       );
                     }
@@ -331,6 +344,125 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: AppSpacing.lg),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Recent supplier payments',
+                    style: AppTextStyles.h3,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'A payment entered by mistake can be reversed. Both '
+                    'entries stay on record and the bill goes back to what '
+                    'was owed.',
+                    style: AppTextStyles.caption,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FutureBuilder<List<SupplierPaymentRecord>>(
+                  future: _paymentsFuture,
+                  builder: (context, paymentsSnapshot) {
+                    if (paymentsSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(AppSpacing.lg),
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    if (paymentsSnapshot.hasError) {
+                      return SectionCard(
+                        child: Text(
+                          'Unable to load supplier payments. '
+                          '${errorText(paymentsSnapshot.error)}',
+                        ),
+                      );
+                    }
+
+                    final payments =
+                        paymentsSnapshot.data ??
+                        const <SupplierPaymentRecord>[];
+
+                    if (payments.isEmpty) {
+                      return const SectionCard(
+                        child: Text('No supplier payments recorded yet.'),
+                      );
+                    }
+
+                    return DataTableCard(
+                      headers: const [
+                        'Supplier',
+                        'Invoice',
+                        'Paid On',
+                        'Method',
+                        'Amount',
+                        'Recorded By',
+                        'Status',
+                        'Action',
+                      ],
+                      flexes: const [3, 2, 2, 2, 2, 2, 2, 2],
+                      rows: payments
+                          .map(
+                            (payment) => [
+                              Text(
+                                payment.supplierName,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              Text(
+                                payment.invoiceNumber.isEmpty
+                                    ? '—'
+                                    : payment.invoiceNumber,
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _date(payment.paidAt),
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                payment.referenceNumber.isEmpty
+                                    ? payment.paymentMethod
+                                    : '${payment.paymentMethod} · '
+                                          '${payment.referenceNumber}',
+                                style: AppTextStyles.body,
+                              ),
+                              Text(
+                                _money(payment.amount),
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              Text(
+                                payment.recordedByName,
+                                style: AppTextStyles.body,
+                              ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: StatusBadge(payment.statusLabel),
+                              ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: payment.canBeReversed
+                                    ? TextButton(
+                                        onPressed: () =>
+                                            _reverseSupplierPayment(payment),
+                                        child: const Text('Undo payment'),
+                                      )
+                                    : Text(
+                                        payment.isReversal &&
+                                                payment.notes.isNotEmpty
+                                            ? payment.notes
+                                            : '—',
+                                        style: AppTextStyles.caption,
+                                      ),
+                              ),
+                            ],
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
               ],
             ),
           );
@@ -339,7 +471,45 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
     );
   }
 
+  Future<void> _reverseSupplierPayment(SupplierPaymentRecord payment) async {
+    final requestId = newRequestId();
+
+    final reversed = await showReasonDialog(
+      context: context,
+      title: 'Undo supplier payment',
+      message:
+          'This undoes the ${_money(payment.amount)} payment to '
+          '${payment.supplierName}. The bill will show that amount as owed '
+          'again. Both the payment and its reversal stay on record.',
+      confirmLabel: 'Undo payment',
+      onConfirm: (reason) async {
+        try {
+          await widget.financeRepository.voidSupplierPayment(
+            paymentId: payment.id,
+            reason: reason,
+            clientRequestId: requestId,
+          );
+          return null;
+        } on PostgrestException catch (error) {
+          return error.message;
+        } catch (error) {
+          return errorText(error);
+        }
+      },
+    );
+
+    if (!reversed || !mounted) return;
+    _notifyDataChanged();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Supplier payment reversed.')));
+  }
+
   Future<void> _showSupplierPayment(SupplierBalanceRecord bill) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final methods = await widget.financeRepository.getPaymentMethods();
 
     if (!mounted || methods.isEmpty) return;
@@ -355,7 +525,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Pay Supplier Bill',
+      title: 'Pay supplier bill',
       width: 560,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -366,11 +536,12 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
             children: [
               _dialogRow('Supplier', bill.supplierName),
               _dialogRow('Balance', _money(bill.balance)),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: selectedMethod.id,
                 decoration: const InputDecoration(
-                  labelText: 'Payment Method *',
+                  labelText: 'Payment method *',
                 ),
                 items: methods
                     .map(
@@ -390,7 +561,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                   });
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -402,7 +573,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                 ),
               ),
               if (selectedMethod.requiresReference) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: referenceController,
                   decoration: InputDecoration(
@@ -410,14 +581,14 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: notesController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Notes'),
               ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -455,6 +626,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
             try {
               await widget.financeRepository.recordSupplierPayment(
+                clientRequestId: requestId,
                 supplierBillId: bill.billId,
                 paymentMethodId: selectedMethod.id,
                 amount: amount,
@@ -475,11 +647,11 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               });
             } catch (error) {
               updateDialogState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Record Payment'),
+          child: const Text('Record payment'),
         ),
       ],
     );
@@ -491,7 +663,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
 
   Widget _dialogRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Expanded(
@@ -500,7 +672,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
               style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: AppSpacing.md),
           Flexible(
             child: Text(
               value,
@@ -513,7 +685,7 @@ class _SalesFinanceScreenState extends State<SalesFinanceScreen> {
     );
   }
 
-  String _money(double value) => '₱${value.toStringAsFixed(2)}';
+  String _money(double value) => formatReportMoney(value);
 
   String _date(DateTime date) {
     const months = [
@@ -550,7 +722,7 @@ class _FinanceRow extends StatelessWidget {
           label,
           style: AppTextStyles.body.copyWith(color: AppColors.gray700),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: AppSpacing.md),
         Flexible(
           child: Text(
             value,

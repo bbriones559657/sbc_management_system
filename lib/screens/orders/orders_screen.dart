@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/reporting.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/order_repository.dart';
 import '../../models/order_record.dart';
 import '../../models/refund_preview.dart';
+import '../../models/request_id.dart';
+import '../../widgets/common/copy_receipt_button.dart';
+import '../../widgets/common/business_profile_scope.dart';
+import '../../widgets/common/order_line.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 import 'new_order_screen.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class OrdersScreen extends StatefulWidget {
   final OrderRepository orderRepository;
@@ -93,12 +101,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (changed == true) _notifyDataChanged();
         },
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('New Order'),
+        label: const Text('New order'),
       ),
       child: Column(
         children: [
           _buildFilters(),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: FutureBuilder<List<OrderRecord>>(
               future: _ordersFuture,
@@ -137,7 +145,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       'Amount',
                       'Status',
                     ],
-                    flexes: const [1, 2, 2, 1, 1, 1, 1],
+                    flexes: const [2, 3, 3, 2, 2, 2, 3],
                     rows: orders
                         .map(
                           (order) => [
@@ -195,7 +203,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       initialValue: _dateFilter,
       isExpanded: true,
       items: const [
-        DropdownMenuItem(value: 'All Dates', child: Text('All Dates')),
+        DropdownMenuItem(value: 'All Dates', child: Text('All dates')),
         DropdownMenuItem(value: 'Today', child: Text('Today')),
         DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
         DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
@@ -209,9 +217,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       initialValue: _typeFilter,
       isExpanded: true,
       items: const [
-        DropdownMenuItem(value: 'All Types', child: Text('All Types')),
-        DropdownMenuItem(value: 'Dine In', child: Text('Dine In')),
-        DropdownMenuItem(value: 'Take Out', child: Text('Take Out')),
+        DropdownMenuItem(value: 'All Types', child: Text('All types')),
+        DropdownMenuItem(value: 'Dine In', child: Text('Dine in')),
+        DropdownMenuItem(value: 'Take Out', child: Text('Take out')),
         DropdownMenuItem(value: 'Delivery', child: Text('Delivery')),
       ],
       onChanged: (value) {
@@ -223,7 +231,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       initialValue: _statusFilter,
       isExpanded: true,
       items: const [
-        DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+        DropdownMenuItem(value: 'All Status', child: Text('All status')),
         DropdownMenuItem(value: 'Open', child: Text('Open')),
         DropdownMenuItem(value: 'Completed', child: Text('Completed')),
         DropdownMenuItem(value: 'Refunded', child: Text('Refunded')),
@@ -305,7 +313,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           children: [
             Row(
               children: [
-                StatusBadge(order.status),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: StatusBadge(order.status),
+                ),
                 const Spacer(),
                 Text(
                   _formatFullDateTime(order.createdAt),
@@ -313,7 +324,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.md),
             _detailRow('Customer / Table', _orderReference(order)),
             _detailRow('Order Type', order.type),
             if (order.invoiceNumber.isNotEmpty)
@@ -329,42 +340,42 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
             const Divider(height: 28),
             const Text('Items', style: AppTextStyles.h3),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             if (order.items.isEmpty)
               Text(
                 'No detailed item data available for this sample order.',
                 style: AppTextStyles.body.copyWith(color: AppColors.gray500),
               )
             else
-              ...order.items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item.quantity} × ${item.productName}',
-                          style: AppTextStyles.body,
-                        ),
-                      ),
-                      Text(
-                        _moneyDouble(item.lineTotal),
-                        style: AppTextStyles.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              for (final item in order.items)
+                OrderLine(item: item, total: _moneyDouble(item.lineTotal)),
             const Divider(height: 28),
+            if (order.discountAmount > 0) ...[
+              _detailRow('Subtotal', _moneyDouble(order.subtotal)),
+              _detailRow(
+                order.discountName.isEmpty
+                    ? 'Discount'
+                    : 'Discount (${order.discountName})',
+                '-${_moneyDouble(order.discountAmount)}',
+              ),
+            ],
             _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             if (order.paymentMethod.isNotEmpty) ...[
               _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
               _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
+            if (order.refundedAmount > 0) ...[
+              _detailRow('Refunded', _moneyDouble(-order.refundedAmount)),
+              _detailRow(
+                'Kept After Refunds',
+                _moneyDouble(order.amount - order.refundedAmount),
+                emphasized: true,
+              ),
+            ],
             if (order.lastActionReason.isNotEmpty) ...[
               const Divider(height: 28),
               Text('${order.status} Information', style: AppTextStyles.h3),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               _detailRow('Reason', order.lastActionReason),
               if (order.authorizedBy.isNotEmpty)
                 _detailRow('Authorized by', order.authorizedBy),
@@ -387,7 +398,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ElevatedButton(
           onPressed: () => _showReceipt(context, order),
-          child: const Text('View Receipt'),
+          child: const Text('View receipt'),
         ),
       ],
     );
@@ -398,14 +409,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Order Actions',
+      title: 'Order actions',
       width: 480,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
             leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('View Receipt'),
+            title: const Text('View receipt'),
             onTap: () {
               Navigator.pop(context);
               _showReceipt(context, order);
@@ -415,7 +426,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               order.status == 'Partially Refunded')
             ListTile(
               leading: const Icon(Icons.undo),
-              title: const Text('Refund Items'),
+              title: const Text('Refund items'),
               subtitle: const Text('Full or partial refund'),
               onTap: () {
                 Navigator.pop(context);
@@ -426,7 +437,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               order.status == 'Refunded')
             ListTile(
               leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Review Returned Stock'),
+              title: const Text('Review returned stock'),
               subtitle: const Text('Restock eligible returned finished goods'),
               onTap: () {
                 Navigator.pop(context);
@@ -437,7 +448,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ListTile(
               leading: const Icon(Icons.block, color: AppColors.primary),
               title: const Text(
-                'Void Order',
+                'Void order',
                 style: TextStyle(color: AppColors.primary),
               ),
               subtitle: const Text('Requires manager authorization'),
@@ -452,7 +463,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           if (isClosed)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
               child: Text(
                 'This order is already ${order.status.toLowerCase()}. No additional refund or void action is available.',
                 style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
@@ -467,6 +483,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     BuildContext context,
     OrderRecord order,
   ) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     RefundPreview preview;
 
     try {
@@ -480,7 +500,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(errorText(error))));
       }
       return;
     }
@@ -520,7 +540,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Refund Order ${order.id}',
+      title: 'Refund order ${order.id}',
       width: 700,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -534,10 +554,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.all,
                     ),
                     child: Text(
                       'Refunds return through ${preview.paymentMethodName}. '
@@ -545,16 +565,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       style: AppTextStyles.body,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('Select Items', style: AppTextStyles.h3),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text('Select items', style: AppTextStyles.h3),
+                  const SizedBox(height: AppSpacing.sm),
                   for (final item in preview.items)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
                         color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: AppRadius.all,
                         border: Border.all(color: AppColors.gray200),
                       ),
                       child: Row(
@@ -589,7 +609,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                     decimal: true,
                                   ),
                               decoration: const InputDecoration(
-                                labelText: 'Qty',
+                                labelText: 'Quantity',
                               ),
                               onChanged: (_) {
                                 setDialogState(() {
@@ -601,25 +621,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ],
                       ),
                     ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.xs),
                   _detailRow(
                     'Selected Refund',
                     _moneyDouble(selectedTotal()),
                     emphasized: true,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: reasonController,
                     maxLines: 2,
                     decoration: const InputDecoration(
-                      labelText: 'Refund Reason *',
+                      labelText: 'Refund reason *',
                     ),
                     onChanged: (_) {
                       dialogSetState?.call(() => errorMessage = null);
                     },
                   ),
                   if (preview.requiresReference) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: referenceController,
                       decoration: InputDecoration(
@@ -629,7 +649,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ),
                   ],
                   if (errorMessage != null) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       errorMessage!,
                       style: AppTextStyles.caption.copyWith(
@@ -697,6 +717,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
             try {
               await widget.orderRepository.refundOrderItems(
+                clientRequestId: requestId,
                 order.id,
                 quantities: quantities,
                 reason: reason,
@@ -718,11 +739,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
               });
             } catch (error) {
               dialogSetState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Process Refund'),
+          child: const Text('Process refund'),
         ),
       ],
     );
@@ -753,7 +774,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+            .showSnackBar(SnackBar(content: Text(errorText(error))));
       }
       return;
     }
@@ -775,7 +796,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Returned Stock • ${order.id}',
+      title: 'Returned stock • ${order.id}',
       width: 680,
       content: SizedBox(
         height: 430,
@@ -785,10 +806,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.all,
                   border: Border.all(color: AppColors.gray200),
                 ),
                 child: Text(
@@ -798,14 +819,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   style: AppTextStyles.body,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               for (final item in candidates)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
                     color: AppColors.white,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.all,
                     border: Border.all(color: AppColors.gray200),
                   ),
                   child: Row(
@@ -818,7 +839,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               item.itemName,
                               style: AppTextStyles.bodyMedium,
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(
                               item.variantName.isEmpty
                                   ? '${_refundQty(item.refundedQuantity)} refunded'
@@ -833,7 +854,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.md),
                       if (item.restockApproved)
                         const StatusBadge('Restocked')
                       else if (!item.eligibleForRestock)
@@ -851,7 +872,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               if (pending.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Text(
                     'There are no finished goods waiting for restock approval.',
                     style: AppTextStyles.caption.copyWith(
@@ -877,7 +898,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: 'Approve Restock',
+      title: 'Approve restock',
       width: 520,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -892,17 +913,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 _detailRow('Variant', item.variantName),
               _detailRow('Quantity', _refundQty(item.refundedQuantity)),
               _detailRow('Inventory Item', item.inventoryItemName),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Restock Notes',
+                  labelText: 'Notes',
                   hintText: 'Optional condition or return notes...',
                 ),
               ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -940,11 +961,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
               });
             } catch (error) {
               dialogSetState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: const Text('Approve Restock'),
+          child: const Text('Approve restock'),
         ),
       ],
     );
@@ -957,6 +978,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required OrderRecord order,
     required _OrderAction action,
   }) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     final reasonController = TextEditingController();
     String? errorMessage;
     StateSetter? updateDialogState;
@@ -965,7 +990,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: '$actionName Order ${order.id}',
+      title: '$actionName order ${order.id}',
       width: 540,
       content: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -977,10 +1002,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.all,
                 ),
                 child: Text(
                   'Your signed-in Manager/Admin account will authorize this '
@@ -988,7 +1013,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   style: AppTextStyles.body,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: reasonController,
                 maxLines: 3,
@@ -1001,7 +1026,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   errorMessage!,
                   style: AppTextStyles.caption.copyWith(color: AppColors.error),
@@ -1030,6 +1055,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             try {
               if (action == _OrderAction.refund) {
                 await widget.orderRepository.refundOrder(
+                  clientRequestId: requestId,
                   order.id,
                   reason: reason,
                 );
@@ -1058,7 +1084,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               });
             } catch (error) {
               updateDialogState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
@@ -1080,13 +1106,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: Text('Street Bowl Café', style: AppTextStyles.h2),
+            const Center(child: ReceiptHeader()),
+            const SizedBox(height: AppSpacing.xs),
+            Center(
+              child: Text(
+                '${order.id} · ${order.dateTimeLabel}',
+                style: AppTextStyles.caption,
+              ),
             ),
-            const SizedBox(height: 4),
-            Center(child: Text(order.id, style: AppTextStyles.caption)),
             if (order.invoiceNumber.isNotEmpty) ...[
-              const SizedBox(height: 3),
+              const SizedBox(height: AppSpacing.xs),
               Center(
                 child: Text(
                   'Invoice ${order.invoiceNumber}',
@@ -1094,7 +1123,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.md),
             _detailRow('Date & Time', _formatFullDateTime(order.createdAt)),
             _detailRow('Customer / Table', _orderReference(order)),
             _detailRow('Order Type', order.type),
@@ -1108,26 +1137,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 style: AppTextStyles.body.copyWith(color: AppColors.gray500),
               )
             else
-              ...order.items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item.quantity} × ${item.productName}',
-                          style: AppTextStyles.body,
-                        ),
-                      ),
-                      Text(
-                        _moneyDouble(item.lineTotal),
-                        style: AppTextStyles.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              for (final item in order.items)
+                OrderLine(item: item, total: _moneyDouble(item.lineTotal)),
             const Divider(height: 28),
+            if (order.discountAmount > 0) ...[
+              _detailRow('Subtotal', _moneyDouble(order.subtotal)),
+              _detailRow(
+                order.discountName.isEmpty
+                    ? 'Discount'
+                    : 'Discount (${order.discountName})',
+                '-${_moneyDouble(order.discountAmount)}',
+              ),
+            ],
             _detailRow('Total', _moneyDouble(order.amount), emphasized: true),
             _detailRow(
               'Payment',
@@ -1139,8 +1160,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _detailRow('Amount Received', _moneyDouble(order.amountReceived)),
               _detailRow('Change', _moneyDouble(order.changeAmount)),
             ],
-            const SizedBox(height: 12),
+            if (order.refundedAmount > 0)
+              _detailRow('Refunded', _moneyDouble(-order.refundedAmount)),
+            const SizedBox(height: AppSpacing.md),
             Center(child: StatusBadge(order.status)),
+            const SizedBox(height: AppSpacing.sm),
+            Center(child: CopyReceiptButton(order: order)),
           ],
         ),
       ),
@@ -1149,7 +1174,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Widget _detailRow(String label, String value, {bool emphasized = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1159,7 +1184,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               style: emphasized ? AppTextStyles.bodyMedium : AppTextStyles.body,
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: AppSpacing.lg),
           Flexible(
             child: Text(
               value,
@@ -1172,9 +1197,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  String _moneyDouble(double value) {
-    return '₱${value.toStringAsFixed(2)}';
-  }
+  String _moneyDouble(double value) => formatReportMoney(value);
 
   String _refundQty(double value) {
     return value == value.roundToDouble()

@@ -162,13 +162,15 @@ insert into public.menu_categories(name,sort_order) values
 on conflict (name) do nothing;
 
 insert into public.discount_types(
-  code,name,calculation_method,default_value,requires_id,requires_authorization,is_tax_exempt_related,notes
+  code,name,calculation_method,default_value,requires_id,
+  requires_authorization,is_tax_exempt_related,notes,
+  is_pos_enabled,allow_custom_value
 ) values
-  ('SENIOR','Senior Citizen','PERCENTAGE',20,true,true,true,'Final eligibility and tax calculation must be validated against current Philippine requirements and the business setup.'),
-  ('PWD','PWD','PERCENTAGE',20,true,true,true,'Final eligibility and tax calculation must be validated against current Philippine requirements and the business setup.'),
-  ('PROMO_PERCENT','Promotional Percentage','PERCENTAGE',null,false,true,false,null),
-  ('PROMO_FIXED','Promotional Fixed Amount','FIXED_AMOUNT',null,false,true,false,null),
-  ('MANUAL','Manual Discount','MANUAL_AMOUNT',null,false,true,false,null)
+  ('SENIOR','Senior Citizen','PERCENTAGE',20,true,true,true,'Final eligibility and tax calculation must be validated against current Philippine requirements and the business setup.',false,false),
+  ('PWD','PWD','PERCENTAGE',20,true,true,true,'Final eligibility and tax calculation must be validated against current Philippine requirements and the business setup.',false,false),
+  ('PROMO_PERCENT','Promotional Percentage','PERCENTAGE',null,false,true,false,null,true,true),
+  ('PROMO_FIXED','Promotional Fixed Amount','FIXED_AMOUNT',null,false,true,false,null,true,true),
+  ('MANUAL','Manual Discount','MANUAL_AMOUNT',null,false,true,false,null,true,true)
 on conflict (code) do nothing;
 
 insert into public.expense_categories(code,name) values

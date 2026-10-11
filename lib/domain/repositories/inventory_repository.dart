@@ -1,7 +1,11 @@
+import '../../models/package_memory.dart';
 import '../../models/inventory_item.dart';
 import '../../models/inventory_reference.dart';
 
 abstract class InventoryRepository {
+  /// Package sizes and costs remembered from earlier receipts.
+  Future<PackageMemory> getPackageMemory();
+
   Future<List<InventoryItem>> getInventoryItems();
 
   Future<InventoryItem?> getInventoryItemById(String id);
@@ -29,12 +33,36 @@ abstract class InventoryRepository {
     String referenceNumber = '',
     String notes = '',
     DateTime? occurredAt,
+    String? clientRequestId,
+  });
+
+  /// Reverses a posted release and marks it voided.
+  Future<void> voidStockOut({
+    required String stockOutId,
+    required String reason,
+    String? clientRequestId,
+  });
+
+  /// Reverses a posted count's variances and marks it cancelled.
+  Future<void> voidStockCount({
+    required String stockCountId,
+    required String reason,
+    String? clientRequestId,
   });
 
   Future<void> createAndPostStockCount({
     required List<StockCountLineInput> items,
     String notes = '',
     DateTime? countedAt,
+    String? clientRequestId,
+  });
+
+  /// Returns a written-off quantity to its lot. The write-off and the
+  /// reversal both stay in the history.
+  Future<void> voidLotDisposal({
+    required String stockMovementId,
+    required String reason,
+    String? clientRequestId,
   });
 
   Future<void> disposeLot({
@@ -42,6 +70,7 @@ abstract class InventoryRepository {
     required String movementType,
     required double quantity,
     required String reason,
+    String? clientRequestId,
   });
 
   Future<void> createInventoryItemWithInitialStock({
@@ -63,11 +92,8 @@ abstract class InventoryRepository {
     required String reason,
     DateTime? expirationDate,
     double unitCostBase = 0,
+    String? clientRequestId,
   });
-
-  Future<void> createInventoryItem(InventoryItem item);
-
-  Future<void> updateInventoryItem(InventoryItem item);
 
   Future<void> deleteInventoryItem(String id);
 }

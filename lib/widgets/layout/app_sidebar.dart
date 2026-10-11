@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../common/business_profile_scope.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/app_navigation_item.dart';
 import '../../models/app_user_profile.dart';
+import '../../core/theme/app_radius.dart';
 
-class AppSidebar extends StatefulWidget {
+class AppSidebar extends StatelessWidget {
   final AppUserProfile profile;
   final List<AppNavigationGroup> groups;
   final int selectedIndex;
@@ -27,46 +29,9 @@ class AppSidebar extends StatefulWidget {
   });
 
   @override
-  State<AppSidebar> createState() => _AppSidebarState();
-}
-
-class _AppSidebarState extends State<AppSidebar> {
-  late final Map<String, bool> _expandedGroups;
-
-  @override
-  void initState() {
-    super.initState();
-    _expandedGroups = {
-      for (final group in widget.groups)
-        group.label:
-            !group.collapsible ||
-            group.initiallyExpanded ||
-            group.containsDestination(widget.selectedIndex),
-    };
-  }
-
-  @override
-  void didUpdateWidget(covariant AppSidebar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    final availableGroups = widget.groups.map((group) => group.label).toSet();
-    _expandedGroups.removeWhere((label, _) => !availableGroups.contains(label));
-
-    for (final group in widget.groups) {
-      _expandedGroups.putIfAbsent(
-        group.label,
-        () => !group.collapsible || group.initiallyExpanded,
-      );
-      if (group.containsDestination(widget.selectedIndex)) {
-        _expandedGroups[group.label] = true;
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Container(
-      width: widget.compact ? 76 : AppSpacing.sidebarWidth,
+      width: compact ? 76 : AppSpacing.sidebarWidth,
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(right: BorderSide(color: AppColors.gray200)),
@@ -74,17 +39,17 @@ class _AppSidebarState extends State<AppSidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SidebarBrand(compact: widget.compact, onClose: widget.onClose),
-          SizedBox(height: widget.compact ? 20 : 14),
+          _SidebarBrand(compact: compact, onClose: onClose),
+          SizedBox(height: compact ? AppSpacing.lg : AppSpacing.md),
           Expanded(
-            child: widget.compact
+            child: compact
                 ? _buildCompactNavigation()
                 : _buildGroupedNavigation(),
           ),
           _SidebarAccount(
-            profile: widget.profile,
-            compact: widget.compact,
-            onSignOut: widget.onSignOut,
+            profile: profile,
+            compact: compact,
+            onSignOut: onSignOut,
           ),
         ],
       ),
@@ -93,26 +58,18 @@ class _AppSidebarState extends State<AppSidebar> {
 
   Widget _buildCompactNavigation() {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       children: [
-        for (
-          int groupIndex = 0;
-          groupIndex < widget.groups.length;
-          groupIndex++
-        ) ...[
+        for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) ...[
           if (groupIndex > 0)
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
               child: Divider(height: 1),
             ),
-          for (final item in widget.groups[groupIndex].items)
-            _SidebarItem(
-              label: item.label,
-              icon: item.icon,
-              selected: widget.selectedIndex == item.destinationIndex,
-              compact: true,
-              onTap: () => widget.onItemSelected(item.destinationIndex),
-            ),
+          _buildNavigationItem(groups[groupIndex], compact: true),
         ],
       ],
     );
@@ -120,76 +77,35 @@ class _AppSidebarState extends State<AppSidebar> {
 
   Widget _buildGroupedNavigation() {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
-      children: [for (final group in widget.groups) _buildGroup(group)],
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      children: [for (final group in groups) _buildNavigationItem(group)],
     );
   }
 
-  Widget _buildGroup(AppNavigationGroup group) {
-    if (!group.collapsible) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionLabel(label: group.label),
-            for (final item in group.items)
-              _SidebarItem(
-                label: item.label,
-                icon: item.icon,
-                selected: widget.selectedIndex == item.destinationIndex,
-                onTap: () => widget.onItemSelected(item.destinationIndex),
-              ),
-          ],
-        ),
-      );
-    }
-
-    final expanded = _expandedGroups[group.label] ?? false;
-    final selected = group.containsDestination(widget.selectedIndex);
+  Widget _buildNavigationItem(
+    AppNavigationGroup group, {
+    bool compact = false,
+  }) {
+    if (group.items.isEmpty) return const SizedBox.shrink();
+    final item = group.items.first;
+    final isStandalone = !group.collapsible;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        children: [
-          _SidebarGroupHeader(
-            label: group.label,
-            icon: group.icon,
-            expanded: expanded,
-            selected: selected,
-            onTap: () {
-              setState(() => _expandedGroups[group.label] = !expanded);
-            },
-          ),
-          ClipRect(
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              child: expanded
-                  ? Column(
-                      children: [
-                        for (final item in group.items)
-                          _SidebarItem(
-                            label: item.label,
-                            icon: item.icon,
-                            selected:
-                                widget.selectedIndex == item.destinationIndex,
-                            indent: 18,
-                            onTap: () =>
-                                widget.onItemSelected(item.destinationIndex),
-                          ),
-                      ],
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: _SidebarItem(
+        label: isStandalone ? item.label : group.label,
+        icon: isStandalone ? item.icon : group.icon,
+        selected: group.containsDestination(selectedIndex),
+        compact: compact,
+        onTap: () => onItemSelected(item.destinationIndex),
       ),
     );
   }
 }
 
 class _SidebarBrand extends StatelessWidget {
+  static const _logoAsset = 'assets/logos/images-removebg-preview.png';
+
   final bool compact;
   final VoidCallback? onClose;
 
@@ -197,129 +113,76 @@ class _SidebarBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final businessName = BusinessProfileScope.of(context).tradeName;
+    final brandName = businessName.replaceFirst(' Café', '\nCafé');
+
     if (compact) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 24),
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.lg),
         child: Center(
           child: Tooltip(
-            message: 'Street Bowl Café Management System',
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.primary,
-              child: Icon(Icons.restaurant, size: 20, color: AppColors.white),
+            message: businessName,
+            child: Image.asset(
+              _logoAsset,
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
+              semanticLabel: '$businessName logo',
             ),
           ),
         ),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 24, 12, 6),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Street Bowl Café', style: AppTextStyles.h3),
-                SizedBox(height: 3),
-                Text('MANAGEMENT SYSTEM', style: AppTextStyles.overline),
-              ],
+    final brandRow = Row(
+      children: [
+        Expanded(
+          child: Text(
+            brandName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'GrandHotel',
+              fontSize: 20,
+              color: AppColors.black,
             ),
-          ),
-          if (onClose != null)
-            IconButton(
-              tooltip: 'Close navigation',
-              onPressed: onClose,
-              icon: const Icon(Icons.close, size: 20),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 18, 4),
-      child: Text(
-        label,
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.gray500,
-          fontWeight: FontWeight.w700,
-          letterSpacing: .7,
-        ),
-      ),
-    );
-  }
-}
-
-class _SidebarGroupHeader extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool expanded;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SidebarGroupHeader({
-    required this.label,
-    required this.icon,
-    required this.expanded,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? AppColors.primary : AppColors.gray700;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 42,
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: .35,
-                    ),
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: expanded ? .5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 19,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
-            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: AppSpacing.sm),
+        Image.asset(
+          _logoAsset,
+          width: 44,
+          height: 44,
+          fit: BoxFit.contain,
+          semanticLabel: '$businessName logo',
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.xs,
       ),
+      child: onClose == null
+          ? brandRow
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: 'Close navigation',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close, size: 20),
+                  ),
+                ),
+                brandRow,
+              ],
+            ),
     );
   }
 }
@@ -329,7 +192,6 @@ class _SidebarItem extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final bool compact;
-  final double indent;
   final VoidCallback onTap;
 
   const _SidebarItem({
@@ -337,7 +199,6 @@ class _SidebarItem extends StatelessWidget {
     required this.icon,
     required this.selected,
     this.compact = false,
-    this.indent = 0,
     required this.onTap,
   });
 
@@ -345,21 +206,21 @@ class _SidebarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final item = Padding(
       padding: EdgeInsets.fromLTRB(
-        compact ? 8 : 14 + indent,
-        3,
-        compact ? 8 : 14,
-        3,
+        compact ? AppSpacing.sm : AppSpacing.md,
+        AppSpacing.xs,
+        compact ? AppSpacing.sm : AppSpacing.md,
+        AppSpacing.xs,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: AppRadius.all,
           child: Container(
             height: 40,
             decoration: BoxDecoration(
               color: selected ? AppColors.primarySoft : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: AppRadius.all,
             ),
             child: Row(
               children: [
@@ -369,18 +230,18 @@ class _SidebarItem extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: selected ? AppColors.primary : Colors.transparent,
                     borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(3),
+                      right: AppRadius.corner,
                     ),
                   ),
                 ),
-                SizedBox(width: compact ? 10 : 9),
+                SizedBox(width: compact ? AppSpacing.sm : AppSpacing.sm),
                 Icon(
                   icon,
                   size: 18,
                   color: selected ? AppColors.primary : AppColors.gray700,
                 ),
                 if (!compact) ...[
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       label,
@@ -423,7 +284,7 @@ class _SidebarAccount extends StatelessWidget {
       return Column(
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Tooltip(
               message: profile.displayName,
               child: const CircleAvatar(
@@ -438,7 +299,7 @@ class _SidebarAccount extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(bottom: 18),
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: IconButton(
               tooltip: 'Sign out',
               onPressed: () => onSignOut(),
@@ -453,7 +314,12 @@ class _SidebarAccount extends StatelessWidget {
       children: [
         const Divider(height: 1),
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.sm,
+          ),
           child: Row(
             children: [
               const CircleAvatar(
@@ -465,7 +331,7 @@ class _SidebarAccount extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +357,12 @@ class _SidebarAccount extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

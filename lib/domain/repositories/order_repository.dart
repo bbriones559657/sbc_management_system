@@ -6,15 +6,10 @@ import '../../models/pos_modifier.dart';
 import '../../models/pos_payment_method.dart';
 import '../../models/refund_preview.dart';
 import '../../models/shift_cash_snapshot.dart';
+import '../../models/shift_report.dart';
 
 abstract class OrderRepository {
   Future<List<OrderRecord>> getOrders();
-
-  Future<OrderRecord?> getOrderById(String id);
-
-  Future<void> createOrder(OrderRecord order);
-
-  Future<void> updateOrder(OrderRecord order);
 
   Future<void> voidOrder(
     String id, {
@@ -26,6 +21,7 @@ abstract class OrderRepository {
     String id, {
     String reason = '',
     String authorizedBy = '',
+    String? clientRequestId,
   });
 
   Future<RefundPreview> getRefundPreview(String id);
@@ -42,6 +38,7 @@ abstract class OrderRepository {
     required Map<String, double> quantities,
     required String reason,
     String externalReference = '',
+    String? clientRequestId,
   });
 
   Future<List<PosMenuItem>> getPosMenu();
@@ -54,21 +51,33 @@ abstract class OrderRepository {
 
   Future<String?> getOpenShiftId();
 
-  Future<String> startShift({double? openingCash});
+  Future<String> startShift({double? openingCash, String? clientRequestId});
 
   Future<void> endShift({
     required String shiftId,
     double? closingCashCounted,
     String notes = '',
+    String? clientRequestId,
   });
 
   Future<ShiftCashSnapshot> getShiftCashSnapshot(String shiftId);
+
+  /// The end-of-shift report for an open or closed shift.
+  Future<ShiftReport> getShiftReport(String shiftId);
+
+  /// Shifts started in the date range, newest first. Staff who do not
+  /// manage shifts get their own only.
+  Future<List<ShiftSummary>> getShifts({
+    required DateTime from,
+    required DateTime to,
+  });
 
   Future<void> recordShiftCashMovement({
     required String shiftId,
     required String movementType,
     required double amount,
     required String reason,
+    String? clientRequestId,
   });
 
   Future<OrderRecord> placeOrder({
@@ -82,5 +91,9 @@ abstract class OrderRepository {
     String discountTypeId = '',
     double? discountValue,
     String discountNotes = '',
+    required String clientRequestId,
   });
+
+  /// Returns the order saved for [clientRequestId], or null if none was.
+  Future<OrderRecord?> findOrderByRequestId(String clientRequestId);
 }

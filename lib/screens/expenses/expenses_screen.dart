@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/reporting.dart';
+import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../../models/expense_record.dart';
+import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/app_page.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
 
 class ExpensesScreen extends StatefulWidget {
   final ExpenseRepository expenseRepository;
@@ -99,7 +104,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _loadError = error.toString();
+        _loadError = errorText(error);
       });
     }
   }
@@ -148,7 +153,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             ? null
             : _showAddExpense,
         icon: const Icon(Icons.add, size: 18),
-        label: const Text('Add Expense'),
+        label: const Text('Add expense'),
       ),
       child: _loadError != null
           ? Center(
@@ -162,10 +167,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 if (_suppliers.isEmpty) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       color: AppColors.orange.withValues(alpha: .10),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppRadius.all,
                     ),
                     child: const Text(
                       'Add the grocery store or supplier in Suppliers before '
@@ -173,7 +178,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       style: AppTextStyles.body,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                 ],
                 Builder(
                   builder: (context) {
@@ -192,7 +197,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       items: [
                         const DropdownMenuItem(
                           value: 'All Categories',
-                          child: Text('All Categories'),
+                          child: Text('All categories'),
                         ),
                         for (final category in _categories)
                           DropdownMenuItem(
@@ -214,14 +219,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: AppSpacing.md),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
                         if (_filteredExpenses.isEmpty)
                           const Padding(
-                            padding: EdgeInsets.all(32),
+                            padding: EdgeInsets.all(AppSpacing.xl),
                             child: Text('No expenses found.'),
                           )
                         else
@@ -309,7 +314,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                 )
                                 .toList(),
                           ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: AppSpacing.md),
                         Align(
                           alignment: Alignment.centerRight,
                           child: SizedBox(
@@ -320,7 +325,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'Total Expenses',
+                                    'Total expenses',
                                     style: AppTextStyles.caption,
                                   ),
                                   Text(
@@ -350,6 +355,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _showExpenseEditor({ExpenseRecord? existing}) async {
+    // One ID per form, so saving it again after a lost response
+    // returns the stored result instead of posting twice.
+    final requestId = newRequestId();
+
     if (_categories.isEmpty || _suppliers.isEmpty) return;
 
     final descriptionController = TextEditingController(
@@ -379,7 +388,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
     await showPrototypeDialog(
       context: context,
-      title: existing == null ? 'Add Expense' : 'Edit Expense',
+      title: existing == null ? 'Add expense' : 'Edit expense',
       width: 540,
       content: StatefulBuilder(
         builder: (_, setDialogState) {
@@ -406,7 +415,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     label: Text('Date: ${_formatDate(selectedDate)}'),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: descriptionController,
                   decoration: const InputDecoration(
@@ -414,7 +423,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     hintText: 'Example: milk and sugar for daily operations',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: amountController,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -425,8 +434,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     prefixText: '₱',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selectedCategory,
                   decoration: const InputDecoration(labelText: 'Category *'),
                   items: _categories
@@ -442,12 +452,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     setDialogState(() => selectedCategory = value);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: selectedSupplierId,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Supplier / Grocery *',
+                    labelText: 'Supplier / grocery *',
                   ),
                   items: _suppliers
                       .map(
@@ -462,21 +472,21 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     setDialogState(() => selectedSupplierId = value);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: referenceController,
                   decoration: const InputDecoration(
-                    labelText: 'Receipt / Reference Number *',
+                    labelText: 'Receipt / reference number *',
                     hintText: 'Official receipt, invoice, or grocery reference',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: notesController,
                   maxLines: 2,
                   decoration: const InputDecoration(labelText: 'Notes'),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -488,7 +498,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ),
                 ),
                 if (errorMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     errorMessage!,
                     style: AppTextStyles.caption.copyWith(
@@ -550,7 +560,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
             try {
               if (existing == null) {
-                await widget.expenseRepository.createExpense(record);
+                await widget.expenseRepository.createExpense(
+                  record,
+                  clientRequestId: requestId,
+                );
               } else {
                 await widget.expenseRepository.updateExpense(record);
               }
@@ -573,11 +586,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               });
             } catch (error) {
               updateDialogState?.call(() {
-                errorMessage = error.toString();
+                errorMessage = errorText(error);
               });
             }
           },
-          child: Text(existing == null ? 'Save Expense' : 'Save Changes'),
+          child: Text(existing == null ? 'Save expense' : 'Save changes'),
         ),
       ],
     );
@@ -589,51 +602,33 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _confirmVoidExpense(ExpenseRecord expense) async {
-    await showPrototypeDialog(
+    final voided = await showReasonDialog(
       context: context,
-      title: 'Void Expense',
-      width: 480,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'This keeps the expense record for audit history but removes it '
-            'from active expense totals.',
-            style: AppTextStyles.body,
-          ),
-          const SizedBox(height: 14),
-          Text(expense.description, style: AppTextStyles.bodyMedium),
-          Text(_money(expense.amount.toDouble()), style: AppTextStyles.h3),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            try {
-              await widget.expenseRepository.deleteExpense(expense.id);
-              if (!mounted) return;
-              Navigator.pop(context);
-              _notifyDataChanged();
-            } on PostgrestException catch (error) {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(error.message)));
-            }
-          },
-          child: const Text('Void Expense'),
-        ),
-      ],
+      title: 'Void expense',
+      message:
+          'This keeps the expense on record with your reason, but removes '
+          '${expense.description} (${_money(expense.amount.toDouble())}) '
+          'from expense totals.',
+      confirmLabel: 'Void expense',
+      onConfirm: (reason) async {
+        try {
+          await widget.expenseRepository.deleteExpense(
+            expense.id,
+            reason: reason,
+          );
+          return null;
+        } on PostgrestException catch (error) {
+          return error.message;
+        } catch (error) {
+          return errorText(error);
+        }
+      },
     );
+
+    if (voided && mounted) _notifyDataChanged();
   }
 
-  String _money(double value) {
-    return '₱${value.toStringAsFixed(2)}';
-  }
+  String _money(double value) => formatReportMoney(value);
 
   String _formatDate(DateTime date) {
     const months = [
