@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/reporting.dart';
-import '../../core/error_text.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/dashboard_repository.dart';
@@ -9,6 +8,7 @@ import '../../domain/repositories/order_repository.dart';
 import '../../models/dashboard_summary.dart';
 import '../../models/order_record.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
@@ -81,7 +81,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final changed = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (_) =>
-                  NewOrderScreen(orderRepository: widget.orderRepository),
+                  NewOrderScreen(
+                    orderRepository: widget.orderRepository,
+                    onRefreshAll: widget.onDataChanged,
+                  ),
             ),
           );
           if (changed == true) {
@@ -100,11 +103,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Unable to load dashboard.\n${errorText(snapshot.error)}',
-                textAlign: TextAlign.center,
-              ),
+            return AppRetryPanel(
+              message: 'Unable to load dashboard.',
+              error: snapshot.error,
+              fallback: _refresh,
             );
           }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Keeps list filters consistent and prevents narrow-screen row overflows.
+/// Keeps search visible while narrow screens scroll filters in one row.
 class ResponsiveFilterBar extends StatelessWidget {
   final Widget primary;
   final List<Widget> filters;
@@ -27,7 +27,18 @@ class ResponsiveFilterBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               primary,
-              for (final filter in filters) ...[SizedBox(height: gap), filter],
+              SizedBox(height: gap),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (int index = 0; index < filters.length; index++) ...[
+                      if (index > 0) SizedBox(width: gap),
+                      SizedBox(width: filterWidths[index], child: filters[index]),
+                    ],
+                  ],
+                ),
+              ),
             ],
           );
         }

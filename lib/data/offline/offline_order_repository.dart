@@ -88,6 +88,14 @@ class OfflineOrderRepository extends ChangeNotifier
   /// How often waiting sales are sent again while the server is unreachable.
   final Duration retryInterval;
 
+  /// A cached reference read should not hold the till on a slow connection.
+  /// Queue replay still uses [requestTimeout] for each server request.
+  final Duration cachedReadTimeout;
+
+  /// A checkout that has not answered is saved locally with its original
+  /// request ID; replay will recover a committed sale instead of duplicating it.
+  final Duration checkoutTimeout;
+
   List<OfflineSale> _sales = [];
   Map<String, List<PosModifierGroup>> _modifierCache = {};
   bool _offline = false;
@@ -104,6 +112,8 @@ class OfflineOrderRepository extends ChangeNotifier
     DateTime Function()? now,
     this.requestTimeout = const Duration(seconds: 15),
     this.retryInterval = const Duration(seconds: 30),
+    this.cachedReadTimeout = const Duration(seconds: 2),
+    this.checkoutTimeout = const Duration(seconds: 3),
   }) : _now = now ?? DateTime.now {
     _sales = _readSales();
     _modifierCache = _readModifierCache();
@@ -242,9 +252,12 @@ class OfflineOrderRepository extends ChangeNotifier
   }
 
   /// Runs a server call, noting whether the server could be reached.
-  Future<T> _online<T>(Future<T> Function() call) async {
+  Future<T> _online<T>(
+    Future<T> Function() call, {
+    Duration? timeout,
+  }) async {
     try {
-      final result = await call().timeout(requestTimeout);
+      final result = await call().timeout(timeout ?? requestTimeout);
       final wasOffline = _offline;
       _setOffline(false);
       if (wasOffline && _hasWorkToSend) unawaited(syncPending());
@@ -262,20 +275,22 @@ class OfflineOrderRepository extends ChangeNotifier
     required Future<void> Function(T value) save,
     required T? Function() load,
   }) async {
+    final kept = load();
     // Once the till has detected a failed connection, use its last saved
     // reference data without waiting for another network timeout.
     if (_offline) {
-      final kept = load();
       if (kept != null) return kept;
     }
 
     try {
-      final value = await _online(fetch);
+      final value = await _online(
+        fetch,
+        timeout: kept == null ? requestTimeout : cachedReadTimeout,
+      );
       await save(value);
       return value;
     } catch (error) {
       if (!isConnectionFailure(error)) rethrow;
-      final kept = load();
       if (kept == null) rethrow;
       return kept;
     }
@@ -376,11 +391,36 @@ class OfflineOrderRepository extends ChangeNotifier
       if (!_offline) unawaited(_refreshModifiers(menuItemId));
       return Future.value(kept);
     }
-    return _cached<List<PosModifierGroup>>(
-      fetch: () => _remote.getModifierGroups(menuItemId),
-      save: (groups) => _rememberModifiers(menuItemId, groups),
-      load: () => _modifierCache[menuItemId],
-    );
+    if (_offline) {
+      return Future<List<PosModifierGroup>>.error(
+        const OfflineUnavailableException(
+          'This product has not finished saving its options for offline use. '
+          'Reconnect and refresh the menu before adding it.',
+        ),
+      );
+    }
+    return _loadUncachedModifiers(menuItemId);
+  }
+
+  Future<List<PosModifierGroup>> _loadUncachedModifiers(String menuItemId) async {
+    try {
+      // A missing option list cannot be treated as empty: it might contain
+      // required or priced selections. Fail promptly instead of guessing.
+      final groups = await _online(
+        () => _remote.getModifierGroups(menuItemId),
+        timeout: cachedReadTimeout,
+      );
+      await _rememberModifiers(menuItemId, groups);
+      return groups;
+    } catch (error) {
+      if (isConnectionFailure(error)) {
+        throw const OfflineUnavailableException(
+          'Product options are not available offline yet. Reconnect and '
+          'refresh the menu before adding this product.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> _refreshModifiers(String menuItemId) async {
@@ -436,9 +476,16 @@ class OfflineOrderRepository extends ChangeNotifier
   @override
   Future<String?> getOpenShiftId() async {
     final userId = _identity()?.userId;
+    final keptShift = userId == null
+        ? null
+        : _store.read('$_shiftPrefix$userId');
+    if (_offline) return keptShift;
 
     try {
-      final shiftId = await _online(_remote.getOpenShiftId);
+      final shiftId = await _online(
+        _remote.getOpenShiftId,
+        timeout: keptShift == null ? requestTimeout : cachedReadTimeout,
+      );
       if (userId != null) {
         if (shiftId == null && _pendingShiftStart(userId) != null) {
           // The shift opened offline has not reached the server yet.
@@ -449,7 +496,7 @@ class OfflineOrderRepository extends ChangeNotifier
       return shiftId;
     } catch (error) {
       if (!isConnectionFailure(error) || userId == null) rethrow;
-      return _store.read('$_shiftPrefix$userId');
+      return keptShift;
     }
   }
 
@@ -649,6 +696,9 @@ class OfflineOrderRepository extends ChangeNotifier
     if (alreadyQueued != null) return alreadyQueued.toOrderRecord();
 
     final identity = _identity();
+    if (payments.length != 1) {
+      throw const FormatException('Exactly one payment method is required.');
+    }
 
     // Anything still on the device goes first, so the server receives the
     // sales in the order they were made and a shift opened offline exists
@@ -672,6 +722,7 @@ class OfflineOrderRepository extends ChangeNotifier
             discountNotes: discountNotes,
             clientRequestId: clientRequestId,
           ),
+          timeout: checkoutTimeout,
         );
       } catch (error) {
         if (!isConnectionFailure(error)) rethrow;

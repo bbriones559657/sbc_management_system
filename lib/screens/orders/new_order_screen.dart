@@ -27,14 +27,20 @@ import '../../widgets/common/business_profile_scope.dart';
 import '../../widgets/common/order_line.dart';
 import '../../widgets/common/shift_report_view.dart';
 import '../../widgets/common/app_dialog.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/layout/header_brand_motif.dart';
 import '../../core/theme/app_radius.dart';
 
 class NewOrderScreen extends StatefulWidget {
   final OrderRepository orderRepository;
+  final VoidCallback? onRefreshAll;
 
-  const NewOrderScreen({super.key, required this.orderRepository});
+  const NewOrderScreen({
+    super.key,
+    required this.orderRepository,
+    this.onRefreshAll,
+  });
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -91,6 +97,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   Future<void> _refreshPos() async {
     final queue = _offlineQueue;
     if (queue != null) await queue.syncPending();
+    widget.onRefreshAll?.call();
     if (!mounted) return;
     setState(_reloadPosData);
     await _loadShift();
@@ -856,12 +863,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               const SizedBox(height: AppSpacing.sm),
               Text(errorText(error), textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.md),
-              OutlinedButton(
-                onPressed: () {
-                  setState(_reloadPosData);
-                },
-                child: const Text('Try again'),
-              ),
+              AppRetryButton(fallback: _refreshPos),
             ],
           ),
         ),
@@ -1137,7 +1139,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     final itemCount = _cart.fold<int>(0, (sum, line) => sum + line.quantity);
 
     return SectionCard(
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Current order', style: AppTextStyles.h2),
@@ -1145,6 +1148,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           DropdownButtonFormField<String>(
             isExpanded: true,
             initialValue: _orderType,
+            menuMaxHeight: 240,
             decoration: const InputDecoration(labelText: 'Order type'),
             items: const [
               DropdownMenuItem(value: 'Dine In', child: Text('Dine in')),
@@ -1159,22 +1163,21 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           _buildOrderIdentityFields(),
           const SizedBox(height: AppSpacing.md),
           const Divider(),
-          Expanded(
-            child: _cart.isEmpty
-                ? Center(
-                    child: Text(
-                      'No items added yet.',
-                      style: AppTextStyles.body.copyWith(
-                        color: AppColors.gray500,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _cart.length,
-                    itemBuilder: (_, index) =>
-                        _buildCartItem(_cart[index], index),
-                  ),
-          ),
+          if (_cart.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Text(
+                'No items added yet.',
+                style: AppTextStyles.body.copyWith(color: AppColors.gray500),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _cart.length,
+              itemBuilder: (_, index) => _buildCartItem(_cart[index], index),
+            ),
           const Divider(),
           _summaryRow('Items', '$itemCount'),
           const SizedBox(height: AppSpacing.xs),
@@ -1249,6 +1252,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1605,6 +1609,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       );
     } on PostgrestException catch (error) {
       _showError(error.message);
+      return;
+    } catch (error) {
+      _showError(errorText(error));
       return;
     }
 

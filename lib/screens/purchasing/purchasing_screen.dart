@@ -11,6 +11,7 @@ import '../../models/purchasing.dart';
 import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 import '../../core/theme/app_radius.dart';
@@ -1497,11 +1498,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   }
 
   Widget _error(Object? error) {
-    return Center(
-      child: Text(
-        'Unable to load purchasing data.\n${errorText(error)}',
-        textAlign: TextAlign.center,
-      ),
+    return AppRetryPanel(
+      message: 'Unable to load purchasing data.',
+      error: error,
+      fallback: _refresh,
     );
   }
 

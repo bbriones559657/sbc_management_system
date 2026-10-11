@@ -28,6 +28,9 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   final Map<String, OrderRecord> ordersByRequestId = {};
   int modifierCalls = 0;
   Completer<List<PosModifierGroup>>? pendingModifierLoad;
+  Completer<List<PosMenuItem>>? pendingMenuLoad;
+  Completer<String?>? pendingShiftLoad;
+  Completer<OrderRecord>? pendingCheckout;
 
   void _connect() {
     if (!reachable) throw const SocketException('Network is unreachable');
@@ -36,6 +39,8 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   @override
   Future<List<PosMenuItem>> getPosMenu() async {
     _connect();
+    final pending = pendingMenuLoad;
+    if (pending != null) return pending.future;
     return const [
       PosMenuItem(
         variantId: 'variant-bowl',
@@ -87,6 +92,8 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   @override
   Future<String?> getOpenShiftId() async {
     _connect();
+    final pending = pendingShiftLoad;
+    if (pending != null) return pending.future;
     return openShiftId;
   }
 
@@ -147,11 +154,13 @@ class _FakeServer extends FakeOrderRepository implements OfflineSaleUploader {
   }) async {
     _connect();
     placedRequestIds.add(clientRequestId);
-    return _store(
+    final order = _store(
       clientRequestId,
       DateTime(2026, 10, 2),
       payments.first.amount,
     );
+    final pending = pendingCheckout;
+    return pending == null ? order : pending.future;
   }
 
   @override
@@ -200,7 +209,11 @@ void main() {
   late MemoryKeyValueStore store;
   late DateTime clock;
 
-  OfflineOrderRepository openTill({OfflineIdentity? identity = _cashier}) {
+  OfflineOrderRepository openTill({
+    OfflineIdentity? identity = _cashier,
+    Duration cachedReadTimeout = const Duration(seconds: 2),
+    Duration checkoutTimeout = const Duration(seconds: 3),
+  }) {
     final till = OfflineOrderRepository(
       remote: server,
       uploader: server,
@@ -209,6 +222,8 @@ void main() {
       now: () => clock,
       // Long enough that the retry timer never fires inside a test.
       retryInterval: const Duration(hours: 1),
+      cachedReadTimeout: cachedReadTimeout,
+      checkoutTimeout: checkoutTimeout,
     );
     addTearDown(till.dispose);
     return till;
@@ -237,6 +252,23 @@ void main() {
     expect(server.placedRequestIds, ['request-1']);
     expect(till.waitingSales, isEmpty);
     expect(till.isOffline, isFalse);
+  });
+
+  test('a late checkout answer queues once and replays the same request ID', () async {
+    final till = openTill(checkoutTimeout: const Duration(milliseconds: 20));
+    await warmUp(till);
+    server.pendingCheckout = Completer<OrderRecord>();
+
+    final waiting = await _sell(till, 'request-1');
+    expect(waiting.status, OfflineSale.waitingStatus);
+    expect(till.waitingSales, hasLength(1));
+    expect(server.ordersByRequestId, hasLength(1));
+
+    server.pendingCheckout!.complete(server.ordersByRequestId['request-1']!);
+    await till.syncPending();
+    expect(server.ordersByRequestId, hasLength(1));
+    expect(server.uploads.single.requestId, 'request-1');
+    expect(till.waitingSales, isEmpty);
   });
 
   test(
@@ -275,6 +307,46 @@ void main() {
     expect(groups.single.options.single.name, 'Egg');
     server.pendingModifierLoad!.complete(const []);
     await pumpEventQueue();
+  });
+
+  test('an uncached product fails quickly instead of skipping its options', () async {
+    final till = openTill(
+      cachedReadTimeout: const Duration(milliseconds: 20),
+    );
+    server.pendingModifierLoad = Completer<List<PosModifierGroup>>();
+
+    await expectLater(
+      till.getModifierGroups('item-bowl'),
+      throwsA(isA<OfflineUnavailableException>()),
+    );
+    expect(till.isOffline, isTrue);
+    server.pendingModifierLoad!.complete(const []);
+  });
+
+  test('a saved menu falls back quickly on a stalled network read', () async {
+    final till = openTill(
+      cachedReadTimeout: const Duration(milliseconds: 20),
+    );
+    await warmUp(till);
+    server.pendingMenuLoad = Completer<List<PosMenuItem>>();
+
+    final menu = await till.getPosMenu();
+    expect(menu.single.name, 'Rice Bowl');
+    expect(menu.single.availableQuantity, isNull);
+    expect(till.isOffline, isTrue);
+    server.pendingMenuLoad!.complete(const []);
+  });
+
+  test('a saved shift falls back quickly without delaying checkout', () async {
+    final till = openTill(
+      cachedReadTimeout: const Duration(milliseconds: 20),
+    );
+    await warmUp(till);
+    server.pendingShiftLoad = Completer<String?>();
+
+    expect(await till.getOpenShiftId(), 'shift-1');
+    expect(till.isOffline, isTrue);
+    server.pendingShiftLoad!.complete('shift-1');
   });
 
   test('offline reads use the saved menu without another request', () async {

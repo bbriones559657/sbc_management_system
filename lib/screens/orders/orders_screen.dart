@@ -14,6 +14,7 @@ import '../../widgets/common/business_profile_scope.dart';
 import '../../widgets/common/order_line.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
@@ -95,7 +96,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           final changed = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (_) =>
-                  NewOrderScreen(orderRepository: widget.orderRepository),
+                  NewOrderScreen(
+                    orderRepository: widget.orderRepository,
+                    onRefreshAll: widget.onDataChanged,
+                  ),
             ),
           );
           if (changed == true) _notifyDataChanged();
@@ -116,7 +120,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  return const Center(child: Text('Unable to load orders.'));
+                  return AppRetryPanel(
+                    message: 'Unable to load orders.',
+                    error: snapshot.error,
+                    fallback: _refreshOrders,
+                  );
                 }
 
                 final orders = _applyFilters(
@@ -216,6 +224,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final type = DropdownButtonFormField<String>(
       initialValue: _typeFilter,
       isExpanded: true,
+      menuMaxHeight: 240,
       items: const [
         DropdownMenuItem(value: 'All Types', child: Text('All types')),
         DropdownMenuItem(value: 'Dine In', child: Text('Dine in')),

@@ -5,6 +5,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/offline_sales_queue.dart';
 import '../../models/offline_sale.dart';
 import 'app_dialog.dart';
+import '../layout/app_header_scope.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 
@@ -56,7 +57,10 @@ class OfflineStatusBanner extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : TextButton(
-                    onPressed: queue.syncPending,
+                    onPressed: () => AppHeaderScope.refresh(
+                      context,
+                      fallback: queue.syncPending,
+                    ),
                     child: const Text('Send now'),
                   ),
           );
@@ -70,6 +74,13 @@ class OfflineStatusBanner extends StatelessWidget {
             message:
                 'Offline. Sales can still be taken and are sent when the '
                 'connection returns. Other screens need the internet.',
+            action: TextButton(
+              onPressed: () => AppHeaderScope.refresh(
+                context,
+                fallback: queue.syncPending,
+              ),
+              child: const Text('Try again'),
+            ),
           );
         }
 

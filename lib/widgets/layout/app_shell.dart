@@ -111,7 +111,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < _phoneBreakpoint) {
-          return _buildPhoneShell(constraints.maxWidth);
+          return AppHeaderScope(
+            onRefresh: widget.onRefresh,
+            child: _buildPhoneShell(constraints.maxWidth),
+          );
         }
 
         final compactNavigation =
@@ -132,6 +135,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               Expanded(
                 child: AppHeaderScope(
                   trailing: _headerActions(true),
+                  onRefresh: widget.onRefresh,
                   child: _buildPages(),
                 ),
               ),

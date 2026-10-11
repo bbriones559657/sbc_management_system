@@ -7,6 +7,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/business_repository.dart';
 import '../../models/business_profile.dart';
 import '../../widgets/common/section_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/layout/app_page.dart';
 import '../../core/theme/app_spacing.dart';
 
@@ -163,10 +164,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  OutlinedButton(
-                    onPressed: _load,
-                    child: const Text('Try again'),
-                  ),
+                  AppRetryButton(fallback: _load, alsoRefreshLocal: true),
                 ],
               ),
             )

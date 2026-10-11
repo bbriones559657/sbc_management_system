@@ -13,6 +13,7 @@ import '../../models/reporting.dart';
 import '../../models/shift_report.dart';
 import '../../widgets/common/business_profile_scope.dart';
 import '../../widgets/common/section_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/layout/app_page.dart';
 import '../../core/theme/app_spacing.dart';
 
@@ -275,10 +276,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        OutlinedButton(
-                          onPressed: _refresh,
-                          child: const Text('Try again'),
-                        ),
+                        AppRetryButton(fallback: _refresh),
                       ],
                     ),
                   );

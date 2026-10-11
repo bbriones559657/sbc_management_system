@@ -9,6 +9,7 @@ import '../../domain/repositories/menu_repository.dart';
 import '../../models/menu_management.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
@@ -98,11 +99,10 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Unable to load menu.\n${errorText(snapshot.error)}',
-                textAlign: TextAlign.center,
-              ),
+            return AppRetryPanel(
+              message: 'Unable to load menu.',
+              error: snapshot.error,
+              fallback: _refresh,
             );
           }
 

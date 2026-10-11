@@ -7,6 +7,7 @@ import '../../domain/repositories/order_repository.dart';
 import '../../models/reporting.dart';
 import '../../models/shift_report.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/shift_report_view.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
@@ -170,10 +171,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        OutlinedButton(
-                          onPressed: _refresh,
-                          child: const Text('Try again'),
-                        ),
+                        AppRetryButton(fallback: _refresh),
                       ],
                     ),
                   );

@@ -12,6 +12,7 @@ import '../../models/inventory_reference.dart';
 import '../../models/request_id.dart';
 import '../../widgets/common/app_dialog.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/responsive_filter_bar.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/status_badge.dart';
@@ -1009,7 +1010,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               style: AppTextStyles.body.copyWith(color: AppColors.gray700),
             ),
             const SizedBox(height: AppSpacing.md),
-            OutlinedButton(onPressed: _refresh, child: const Text('Try again')),
+            AppRetryButton(fallback: _refresh),
           ],
         ),
       ),

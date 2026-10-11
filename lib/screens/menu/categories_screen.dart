@@ -7,6 +7,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../models/catalog_management.dart';
 import '../../widgets/common/app_dialog.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/layout/app_page.dart';
 import '../../core/theme/app_radius.dart';
@@ -292,9 +293,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        OutlinedButton(
-                          onPressed: _refresh,
-                          child: const Text('Try again'),
+                        AppRetryButton(
+                          fallback: _refresh,
+                          alsoRefreshLocal: true,
                         ),
                       ],
                     ),

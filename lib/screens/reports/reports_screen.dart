@@ -12,6 +12,7 @@ import '../../domain/repositories/reporting_repository.dart';
 import '../../models/reporting.dart';
 import '../../widgets/common/business_profile_scope.dart';
 import '../../widgets/common/data_table_card.dart';
+import '../../widgets/common/app_retry.dart';
 import '../../widgets/common/section_card.dart';
 import '../../widgets/common/summary_card.dart';
 import '../../widgets/layout/app_page.dart';
@@ -230,10 +231,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        OutlinedButton(
-                          onPressed: _refresh,
-                          child: const Text('Try again'),
-                        ),
+                        AppRetryButton(fallback: _refresh),
                       ],
                     ),
                   );
