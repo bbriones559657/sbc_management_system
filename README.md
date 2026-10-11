@@ -87,7 +87,7 @@ The seed and database permission checks define implemented backend permissions. 
 
 Customer self-service ordering, supplier portals, Facebook/Loyverse automatic integration, multi-branch operations, payroll, general ledger accounting, official financial statements, forecasting, and automatic purchasing are outside the baseline. Payment method recording does not transfer money through an external wallet or bank.
 
-Google Sheets **importable export** is the minimum proposed reporting deliverable; direct Google Sheets synchronization is a separate decision. Split payments, offline sales, receipt printer support, statutory discounts, and fiscal invoice requirements need business validation before implementation or any readiness claim. The current application requires connectivity; no offline transaction queue was found.
+Google Sheets **importable export** is the minimum proposed reporting deliverable; direct Google Sheets synchronization is a separate decision. The imported POS now queues offline sales and a cached till catalog on the device using `shared_preferences`, then retries upload to Supabase under stable request IDs. A queued receipt is local until the server accepts it; other management modules still need connectivity. This is prototype behavior: `shared_preferences` is not suitable for critical transaction durability, and the café must verify reconnection, rejection handling, device storage loss, and multi-device stock conflicts before using it for real payments. Split payments, receipt printer support, statutory discounts, and fiscal invoice requirements still need business validation.
 
 ## Current capabilities and limitations
 
